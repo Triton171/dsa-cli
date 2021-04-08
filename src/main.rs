@@ -1,17 +1,23 @@
+mod character;
 mod cli;
-mod util;
+mod config;
 mod dsa;
-mod print;
+mod util;
 
-use print::Printer;
+use character::Character;
+use config::Config;
+use util::OutputWrapper;
 
 fn main() {
-    let printer = print::CLIPrinter {};
+    let output = util::CLIOutputWrapper {};
 
-    let mut config = match util::Config::get_or_create(&printer) {
+    let mut config = match Config::get_or_create(&output) {
         Ok(c) => c,
         Err(e) => {
-            printer.output_line(format!("Error while trying to retrieve config: {}", e.message()));
+            output.output_line(format!(
+                "Error while trying to retrieve config: {}",
+                e.message()
+            ));
             return;
         }
     };
@@ -22,77 +28,85 @@ fn main() {
     match matches.subcommand() {
         Some(("load", sub_m)) => {
             let character =
-                match util::Character::load(sub_m.value_of("character_path").unwrap(), &mut config)
-                {
+                match Character::load(sub_m.value_of("character_path").unwrap(), &mut config) {
                     Ok(c) => c,
                     Err(e) => {
-                        printer.output_line(format!("Error loading character: {}", e.message()));
+                        output.output_line(format!("Error loading character: {}", e.message()));
                         return;
                     }
                 };
             match config.save() {
                 Ok(()) => {
-                    printer.output_line(format!("Successfully loaded character \"{}\"", character.get_name()));
+                    output.output_line(format!(
+                        "Successfully loaded character \"{}\"",
+                        character.get_name()
+                    ));
                 }
                 Err(e) => {
-                    printer.output_line(format!("Error saving new config: {}", e.message()));
+                    output.output_line(format!("Error saving new config: {}", e.message()));
                 }
             }
         }
 
-        Some(("unload", _)) => match util::Character::loaded_character(&config) {
+        Some(("unload", _)) => match Character::loaded_character(&config) {
             Ok(None) => {
-                printer.output_line(String::from("There is no character currently loaded"));
+                output.output_line(String::from("There is no character currently loaded"));
             }
             Ok(Some(c)) => {
-                util::Character::unload(&mut config);
+                Character::unload(&mut config);
                 match config.save() {
                     Ok(()) => {
-                        printer.output_line(format!("Successfully unloaded character \"{}\"", c.get_name()));
+                        output.output_line(format!(
+                            "Successfully unloaded character \"{}\"",
+                            c.get_name()
+                        ));
                     }
                     Err(e) => {
-                        printer.output_line(format!("Error saving new config: {}", e.message()));
+                        output.output_line(format!("Error saving new config: {}", e.message()));
                     }
                 }
             }
             Err(_) => {
-                util::Character::unload(&mut config);
+                Character::unload(&mut config);
                 match config.save() {
                     Ok(()) => {
-                        printer.output_line(String::from("Successfully unloaded invalid character"));
+                        output
+                            .output_line(String::from("Successfully unloaded invalid character"));
                     }
                     Err(e) => {
-                        printer.output_line(format!("Error saving new config: {}", e.message()));
+                        output.output_line(format!("Error saving new config: {}", e.message()));
                     }
                 }
             }
-        }
+        },
 
         Some(("gen-completions", _)) => {
-            cli::generate_completions(&config, &printer);
+            cli::generate_completions(&config, &output);
         }
 
         Some(("skillcheck", sub_m)) => {
-            let character = match util::Character::loaded_character(&config) {
+            let character = match Character::loaded_character(&config) {
                 Ok(Some(c)) => c,
                 Ok(None) => {
-                    printer.output_line(String::from("Error: No character loaded"));
+                    output.output_line(String::from("Error: No character loaded"));
                     return;
                 }
                 Err(e) => {
-                    printer.output_line(format!("Error retrieving loaded character: {}", e.message()));
+                    output.output_line(format!(
+                        "Error retrieving loaded character: {}",
+                        e.message()
+                    ));
                     return;
                 }
             };
+            dsa::skillcheck(sub_m, &character, &config, &output);
 
-            let (skill_name, facilitation): (&str, i64) = match sub_m.subcommand() {
-                Some((s, sub_sub_m)) => {
-                    match sub_sub_m.value_of("facilitation").unwrap().parse() {
-                        Ok(f) => (s, f),
-                        Err(_) => {
-                            printer.output_line(format!("Error: facilitation must be an integer"));
-                            return;
-                        }
+            /*let (skill_name, facilitation): (&str, i64) = match sub_m.subcommand() {
+                Some((s, sub_sub_m)) => match sub_sub_m.value_of("facilitation").unwrap().parse() {
+                    Ok(f) => (s, f),
+                    Err(_) => {
+                        printer.output_line(format!("Error: facilitation must be an integer"));
+                        return;
                     }
                 },
                 _ => {
@@ -100,7 +114,7 @@ fn main() {
                     return;
                 }
             };
-            dsa::skillcheck(skill_name, facilitation, &character, &config, &printer);
+            dsa::skillcheck(skill_name, facilitation, &character, &config, &printer);*/
         }
         _ => {}
     };

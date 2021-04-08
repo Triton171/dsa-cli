@@ -1,142 +1,218 @@
+use super::character::Character;
+use super::config::Config;
+use super::util::OutputWrapper;
 use super::util;
-use super::print::Printer;
-use rand::distributions::{Uniform, Distribution};
+use clap::ArgMatches;
+use rand::distributions::{Distribution, Uniform};
 
-pub fn skillcheck(skill_id: &str, facilitation: i64, character: &util::Character, config: &util::Config, printer: &impl Printer) {
-    let skill_config = match config.skills.get(skill_id) {
-        Some(c) => c,
-        None => {
-            printer.output_line(format!("Error: No skill config found for \"{}\"", skill_id));
+
+pub fn skillcheck(cmd_matches: &ArgMatches, character: &Character, config: &Config, output: &dyn OutputWrapper) {
+    let (skill_name, facilitation): (&str, i64) = match cmd_matches.subcommand() {
+        Some((s, sub_sub_m)) => match sub_sub_m.value_of("facilitation").unwrap().parse() {
+            Ok(f) => (s, f),
+            Err(_) => {
+                output.output_line(format!("Error: facilitation must be an integer"));
+                return;
+            }
+        },
+        _ => {
+            output.output_line(String::from("Error: skill name missing"));
             return;
         }
     };
+    let skill_attrs = &config.skills.get(skill_name).unwrap().attributes;
+    let attrs: Vec<(String, i64)> = skill_attrs.iter().map(|attr| (attr.clone(), character.get_attribute_level(attr))).collect();
+    let skill_level = character.get_skill_level(skill_name);
 
+    let crit_type = match config.alternative_crits {
+        Some(true) => CritType::ConfirmableCrits,
+        _ => CritType::MultipleRequiredCrits(2)
+    };
+
+    roll_check(&attrs, skill_name, character.get_name(), facilitation, CheckType::PointsCheck(skill_level), crit_type, output);
+}
+
+
+enum CheckType {
+    //A simple check where you have to roll below your attributes (for example an attribute check)
+    SimpleCheck,
+    //A check where you can compensate for higher rolls with some available points
+    PointsCheck(i64),
+}
+
+enum CritType {
+    //A check without critical successes or failures
+    NoCrits,
+    //A check where crits have to be confirmed with a second roll
+    ConfirmableCrits,
+    //A check where some number of 1 (or 20) rolls are required to trigger a crit (this number can also be 1)
+    MultipleRequiredCrits(u32),
+}
+
+fn roll_check(
+    attributes: &[(String, i64)],
+    check_name: &str,
+    character_name: &str,
+    facilitation: i64,
+    check_type: CheckType,
+    crit_type: CritType,
+    output: &dyn OutputWrapper,
+) {
     let mut rng = rand::thread_rng();
     let d20 = Uniform::new_inclusive(1, 20);
 
-
-    let mut levels: Vec<i64> = Vec::new();
-    let mut rolls: Vec<i64> = Vec::new();
-
-    let skill_level = character.get_skill_level(skill_id);
-    let mut rem_points = skill_level;
-    for attr in &skill_config.attributes {
-        let attr_level = character.get_attribute_level(attr);
-        let attr_roll: i64 = d20.sample(&mut rng);
-        rem_points -= std::cmp::max(attr_roll - (attr_level + facilitation), 0);
-        levels.push(attr_level);
-        rolls.push(attr_roll);
+    //Compute the rolls
+    let mut rolls: Vec<i64> = Vec::with_capacity(attributes.len());
+    let mut points = match check_type {
+        CheckType::SimpleCheck => 0,
+        CheckType::PointsCheck(avail_points) => avail_points
+    };
+    for (_, level) in attributes {
+        let roll = d20.sample(&mut rng);
+        points = points - std::cmp::max(0, roll - (level + facilitation));
+        rolls.push(roll);
     }
-
+    //Check for crits
     let mut crits = false;
     let mut unconfirmed_crit_succ = 0;
     let mut crit_succ = 0;
     let mut unconfirmed_crit_fail = 0;
     let mut crit_fail = 0;
+    let mut crits_row: Vec<String> = Vec::new();
+    match crit_type {
+        CritType::NoCrits => {}
+        CritType::ConfirmableCrits => {
+            crits_row.push(String::from("Crit rolls:"));
+            for ((_, level), &roll) in attributes.iter().zip(rolls.iter()) {
+                if roll==1 {
+                    let crit_roll = d20.sample(&mut rng);
+                    crits_row.push(crit_roll.to_string());
+                    crits = true;
+                    if crit_roll<=*level {
+                        crit_succ += 1;
+                    } else {
+                        unconfirmed_crit_succ += 1;
+                    }
+                } else if roll==20 {
+                    let crit_roll = d20.sample(&mut rng);
+                    crits_row.push(crit_roll.to_string());
+                    crits = true;
+                    if crit_roll>*level {
+                        crit_fail += 1;
+                    } else {
+                        unconfirmed_crit_fail += 1;
+                    }
+                } else {
+                    crits_row.push(String::from(""));
+                }
+            }
+        }
+        CritType::MultipleRequiredCrits(num_required) => {
+            let mut num_succ: u32 = 0;
+            let mut num_fail: u32 = 0;
+            for &roll in &rolls {
+                if roll==1 {
+                    num_succ += 1;
+                } else if roll==20 {
+                    num_fail += 1;
+                }
+            }
+            if num_succ>=num_required {
+                crits = true;
+                crit_succ = 1;
+            }
+            if num_fail>=num_required {
+                crits = true;
+                crit_fail = 1;
+            }
+        }
+    };
     
-    let mut crit_rolls: Vec<String> = vec![String::from("Crit rolls:")];
-    if let Some(true) = config.alternative_crits {
-        for (i, &roll) in rolls.iter().enumerate() {
-            if roll==1 {
-                crits = true;
-                let crit_roll = d20.sample(&mut rng);
-                crit_rolls.push(crit_roll.to_string());
-                if crit_roll<=levels[i] + facilitation {
-                    crit_succ += 1;
-                } else {
-                    unconfirmed_crit_succ += 1;
-                }
-            } else if roll==20 {
-                crits = true;
-                let crit_roll = d20.sample(&mut rng);
-                crit_rolls.push(crit_roll.to_string());
-                if crit_roll>levels[i] + facilitation {
-                    crit_fail += 1;
-                } else {
-                    unconfirmed_crit_fail += 1;
-                }
-            } else {
-                crit_rolls.push(String::from(""));
-            }
+    //Output
+    match check_type {
+        CheckType::SimpleCheck => {
+            output.output_line(format!("{}, Check for \"{}\"", character_name, util::uppercase_first(check_name)));
         }
-    } else {
-        //TODO
-    }
-
-    //Print
-    let upped_skill_name = uppercase_first(skill_id);
-    printer.output_line(format!("{}, {} level {}, facilitation: {}", 
-        character.get_name(), upped_skill_name, skill_level, facilitation));
-
-    if rem_points < 0 {
-        printer.output_line(format!("Failed (remaining skill points: {})", rem_points))
-    } else {
-        if rem_points==0 {
-            printer.output_line(format!("Passed with quality level 1 (remaing skill points: {})", rem_points));
-        } else {
-            let mut quality = (rem_points as f64/3f64).ceil();
-            if quality > 6f64 {
-                quality = 6f64;
-            }
-            printer.output_line(format!("Passed with quality level {} (remaining skill points: {})", quality, rem_points));
+        CheckType::PointsCheck(avail_points) => {
+            output.output_line(format!("{}, Check for {} (level {})", character_name, util::uppercase_first(check_name), avail_points));
         }
-    }
-    if crits {
-        printer.new_line();
-        if crit_succ > 0 {
-            printer.output_line(format!("Critical success: {}", crit_succ));
-        }
-        if unconfirmed_crit_succ > 0 {
-            printer.output_line(format!("Unconfirmed critical success: {}", unconfirmed_crit_succ));
-        }
-        if crit_fail > 0 {
-            printer.output_line(format!("Critical failure: {}", crit_fail));
-        }
-        if unconfirmed_crit_fail > 0 {
-            printer.output_line(format!("Unconfirmed critical failure: {}", unconfirmed_crit_fail));
-        }
-    }
-    printer.new_line();
+    };
+    output.new_line();
 
 
-    let mut table: Vec<Vec<String>> = Vec::new();
-    let mut header: Vec<String> = Vec::new();
+    let mut table: Vec<Vec<String>> = Vec::with_capacity(2);
+
+    let mut header: Vec<String> = Vec::with_capacity(attributes.len() + 1);
     header.push(String::from(""));
-    header.extend(skill_config.attributes.iter().map(|s| uppercase_first(s)));
+    header.extend(attributes.iter().map(|(name, _)| util::uppercase_first(name)));
     table.push(header);
 
-    let mut levels_row: Vec<String> = Vec::new();
-    levels_row.push(String::from("Character:"));
+    let mut char_row: Vec<String> = Vec::with_capacity(attributes.len() + 1);
+    char_row.push(String::from("Character:"));
     if facilitation==0 {
-        levels_row.extend(levels.iter().map(|l| format!("{}", l)));
-    } else if facilitation > 0 {
-        levels_row.extend(levels.iter().map(|l| format!("{} + {}", l, facilitation)));
+        char_row.extend(attributes.iter().map(|(_, level)| level.to_string()));
+    } else if facilitation>0 {
+        char_row.extend(attributes.iter().map(|(_, level)| format!("{} + {}", level, facilitation)));
     } else {
-        levels_row.extend(levels.iter().map(|l| format!("{} - {}", l, -facilitation)));
+        char_row.extend(attributes.iter().map(|(_, level)| format!("{} - {}", level, -facilitation)));
     }
-    table.push(levels_row);
+    table.push(char_row);
 
-    let mut rolls_row: Vec<String> = Vec::new();
+    let mut rolls_row: Vec<String> = Vec::with_capacity(attributes.len() + 1);
     rolls_row.push(String::from("Rolls:"));
-    rolls_row.extend(rolls.iter().map(|r| r.to_string()));
+    rolls_row.extend(rolls.iter().map(|roll| roll.to_string()));
     table.push(rolls_row);
 
-
-    if let Some(true) = config.alternative_crits {
+    
+    if let CritType::ConfirmableCrits = crit_type {
         if crits {
-            table.push(crit_rolls);
+            table.push(crits_row);
+        }
+    }
+    output.output_table(&table);
+    output.new_line();
+
+
+    if points<0 {
+        output.output_line(String::from("Check failed"));
+    } else {
+        match check_type {
+            CheckType::SimpleCheck => {
+                output.output_line(String::from("Check passed"));
+            }
+            CheckType::PointsCheck(_) => {
+                let mut quality: u32 = (points as f32/3f32).ceil() as u32;
+                if quality==0 {
+                    quality = 1;
+                } else if quality>6 {
+                    quality = 6;
+                }
+                output.output_line(format!("Check passed, quality level {}", quality));
+            }
         }
     }
 
-    printer.output_table(&table);
-}
 
-
-
-fn uppercase_first(s: &str) -> String {
-    let mut c = s.chars();
-    match c.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().chain(c).collect(),
+    if crits {
+        if crit_succ==1 {
+            output.output_line(String::from("Critical success"));
+        } else if crit_succ>1 {
+            output.output_line(format!("{} critical successes", crit_succ));
+        }
+        if unconfirmed_crit_succ==1 {
+            output.output_line(String::from("Unconfirmed critical success"));
+        } else if unconfirmed_crit_succ>1 {
+            output.output_line(format!("{} unconfirmed critical successes", unconfirmed_crit_succ));
+        }
+        if crit_fail==1 {
+            output.output_line(String::from("Critical failure"));
+        } else if crit_fail>1 {
+            output.output_line(format!("{} critical failures", crit_fail));
+        }
+        if unconfirmed_crit_fail==1 {
+            output.output_line(String::from("Unconfirmed critical failure"));
+        } else if unconfirmed_crit_fail>1 {
+            output.output_line(format!("{} unconfirmed critical failures", unconfirmed_crit_fail));
+        }
     }
 }
