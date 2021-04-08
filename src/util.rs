@@ -1,20 +1,35 @@
 pub struct IOError {
     message: String,
+    err_type: IOErrorType
+}
+
+pub enum IOErrorType {
+    Unknown,
+    InvalidFormat,
+    MissingEnvironmentVariable,
+    FileSystemError
 }
 
 impl IOError {
-    pub fn from_str(message: &str) -> IOError {
+    pub fn from_str(message: &str, err_type: IOErrorType) -> IOError {
         IOError {
             message: String::from(message),
+            err_type
         }
     }
 
-    pub fn from_string(message: String) -> IOError {
-        IOError { message }
+    pub fn from_string(message: String, err_type: IOErrorType) -> IOError {
+        IOError { 
+            message, err_type
+         }
     }
 
     pub fn message<'a>(&'a self) -> &'a str {
         &self.message
+    }
+
+    pub fn err_type(&self) -> &IOErrorType {
+        &self.err_type
     }
 }
 

@@ -11,7 +11,7 @@ use std::path;
 Returns the clap app definition
 */
 pub fn get_app(config: &Config) -> App<'static> {
-    let mut app = App::new("DSA-CLI")
+    let app = App::new("DSA-CLI")
         .about("Simple command line program for playing DSA")
         .subcommand(
             App::new("load")
@@ -23,29 +23,61 @@ pub fn get_app(config: &Config) -> App<'static> {
                         .index(1),
                 ),
         )
-        .subcommand(App::new("unload"))
-        .about("Unloads the current character, if one is loaded")
+        .subcommand(App::new("unload")
+            .about("Unloads the current character, if one is loaded")
+        )
         .subcommand(
             App::new("gen-completions").about("Generates completion scripts for detected shells"),
+        )
+        .subcommand(App::new("skillcheck")
+            .about("Performs a skillcheck for the given skill")
+            .arg(Arg::new("skill_name")
+                .about("The name of the skill (all lowercase with no spaces or special characters)")
+                .takes_value(true)
+                .required(true)
+            )
+            .arg(Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0")
+            )
         );
 
-    let mut skillcheck = App::new("skillcheck").about("Performs a skillcheck for the given skill");
-    for skill in &config.skills {
-        skillcheck = skillcheck.subcommand(
-            App::new(skill.0)
-                .arg(
-                    Arg::new("facilitation")
-                        .about(
-                            "The level of facilitation (if positive) or obstruction (if negative)",
-                        )
-                        .index(1)
-                        .takes_value(true)
-                        .default_value("0"),
-                )
-                .setting(clap::AppSettings::AllowLeadingHyphen),
-        );
-    }
-    app = app.subcommand(skillcheck);
+
+    // let mut skillcheck = App::new("skillcheck").about("Performs a skillcheck for the given skill");
+    // for skill in &config.skills {
+    //     skillcheck = skillcheck.subcommand(
+    //         App::new(skill.0)
+    //             .arg(
+    //                 Arg::new("facilitation")
+    //                     .about(
+    //                         "The level of facilitation (if positive) or obstruction (if negative)",
+    //                     )
+    //                     .index(1)
+    //                     .takes_value(true)
+    //                     .default_value("0"),
+    //             )
+    //             .setting(clap::AppSettings::AllowLeadingHyphen),
+    //     );
+    // }
+    // app = app.subcommand(skillcheck);
+
+    // let mut attack = App::new("attack").about("Performs an attack check for the given combat technique");
+    // for technique in &config.combattechniques {
+    //     attack = attack.subcommand(
+    //         App::new(technique.0)
+    //             .arg(
+    //                 Arg::new("facilitation")
+    //                     .about(
+    //                         "The level of facilitation (if positive) or obstruction (if negative)",
+    //                     )
+    //                     .index(1)
+    //                     .takes_value(true)
+    //                     .default_value("0"),
+    //             )
+    //             .setting(clap::AppSettings::AllowLeadingHyphen),
+    //     );
+    // }
 
     app
 }

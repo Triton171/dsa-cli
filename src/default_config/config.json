@@ -186,5 +186,49 @@
         "stoffbearbeitung" : {
             "attributes" : ["klugheit", "fingerfertigkeit", "fingerfertigkeit"]
         }
+    },
+    "combattechniques" : {
+        "armbrueste" : {
+            "attributes" : ["fingerfertigkeit"]
+        },
+        "boegen": {
+            "attributes" : ["fingerfertigkeit"]
+        },
+        "wurfwaffen" : {
+            "attributes" : ["fingerfertigkeit"]
+        },
+        "dolche" : {
+            "attributes" : ["gewandtheit"]
+        },
+        "fechtwaffen" : {
+            "attributes" : ["gewandtheit"]
+        },
+        "hiebwaffen" : {
+            "attributes" : ["koerperkraft"]
+        },
+        "kettenwaffen" : {
+            "attributes" : ["koerperkraft"]
+        },
+        "lanzen" : {
+            "attributes" : ["koerperkraft"]
+        },
+        "raufen" : {
+            "attributes" : ["gewandtheit", "koerperkraft"]
+        },
+        "schilde" : {
+            "attributes" : ["koerperkraft"]
+        },
+        "schwerter" : {
+            "attributes" : ["gewandtheit", "koerperkraft"]
+        },
+        "stangenwaffen" : {
+            "attributes" : ["gewandtheit", "koerperkraft"]
+        },
+        "zweihandhiebschwerter" : {
+            "attributes" : ["koerperkraft"]
+        },
+        "zweihandschwerter" : {
+            "attributes" : ["koerperkraft"]
+        }
     }
 }

@@ -7,19 +7,28 @@ use rand::distributions::{Distribution, Uniform};
 
 
 pub fn skillcheck(cmd_matches: &ArgMatches, character: &Character, config: &Config, output: &dyn OutputWrapper) {
-    let (skill_name, facilitation): (&str, i64) = match cmd_matches.subcommand() {
-        Some((s, sub_sub_m)) => match sub_sub_m.value_of("facilitation").unwrap().parse() {
-            Ok(f) => (s, f),
-            Err(_) => {
-                output.output_line(format!("Error: facilitation must be an integer"));
-                return;
-            }
-        },
-        _ => {
-            output.output_line(String::from("Error: skill name missing"));
+    // let (skill_name, facilitation): (&str, i64) = match cmd_matches.subcommand() {
+    //     Some((s, sub_sub_m)) => match sub_sub_m.value_of("facilitation").unwrap().parse() {
+    //         Ok(f) => (s, f),
+    //         Err(_) => {
+    //             output.output_line(format!("Error: facilitation must be an integer"));
+    //             return;
+    //         }
+    //     },
+    //     _ => {
+    //         output.output_line(String::from("Error: skill name missing"));
+    //         return;
+    //     }
+    // };
+    let skill_name = cmd_matches.value_of("skill_name").unwrap();
+    let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
+        Ok(f) => f,
+        Err(_) => {
+            output.output_line(String::from("Error: facilitation must be an integer"));
             return;
         }
     };
+
     let skill_attrs = &config.skills.get(skill_name).unwrap().attributes;
     let attrs: Vec<(String, i64)> = skill_attrs.iter().map(|attr| (attr.clone(), character.get_attribute_level(attr))).collect();
     let skill_level = character.get_skill_level(skill_name);
