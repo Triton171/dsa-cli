@@ -6,20 +6,7 @@ use clap::ArgMatches;
 use rand::distributions::{Distribution, Uniform};
 
 
-pub fn skillcheck(cmd_matches: &ArgMatches, character: &Character, config: &Config, output: &dyn OutputWrapper) {
-    // let (skill_name, facilitation): (&str, i64) = match cmd_matches.subcommand() {
-    //     Some((s, sub_sub_m)) => match sub_sub_m.value_of("facilitation").unwrap().parse() {
-    //         Ok(f) => (s, f),
-    //         Err(_) => {
-    //             output.output_line(format!("Error: facilitation must be an integer"));
-    //             return;
-    //         }
-    //     },
-    //     _ => {
-    //         output.output_line(String::from("Error: skill name missing"));
-    //         return;
-    //     }
-    // };
+pub fn skill_check(cmd_matches: &ArgMatches, character: &Character, config: &Config, output: &dyn OutputWrapper) {
     let skill_name = cmd_matches.value_of("skill_name").unwrap();
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
@@ -39,6 +26,20 @@ pub fn skillcheck(cmd_matches: &ArgMatches, character: &Character, config: &Conf
     };
 
     roll_check(&attrs, skill_name, character.get_name(), facilitation, CheckType::PointsCheck(skill_level), crit_type, output);
+}
+
+pub fn attack_check(cmd_matches: &ArgMatches, character: &Character, output: &dyn OutputWrapper) {
+    let technique_name = cmd_matches.value_of("technique_name").unwrap();
+    let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
+        Ok(f) => f,
+        Err(_) => {
+            output.output_line(String::from("Error: facilitation must be an integer"));
+            return;
+        }
+    };
+
+    let attack_level = character.get_attack_level(technique_name);
+    roll_check(&[(technique_name.to_string(), attack_level)], &format!("Attack: {}", technique_name), character.get_name(), facilitation, CheckType::SimpleCheck, CritType::ConfirmableCrits, output);
 }
 
 
@@ -91,7 +92,7 @@ fn roll_check(
     match crit_type {
         CritType::NoCrits => {}
         CritType::ConfirmableCrits => {
-            crits_row.push(String::from("Crit rolls:"));
+            crits_row.push(String::from("Crit roll:"));
             for ((_, level), &roll) in attributes.iter().zip(rolls.iter()) {
                 if roll==1 {
                     let crit_roll = d20.sample(&mut rng);
@@ -168,7 +169,7 @@ fn roll_check(
     table.push(char_row);
 
     let mut rolls_row: Vec<String> = Vec::with_capacity(attributes.len() + 1);
-    rolls_row.push(String::from("Rolls:"));
+    rolls_row.push(String::from("Roll:"));
     rolls_row.extend(rolls.iter().map(|roll| roll.to_string()));
     table.push(rolls_row);
 

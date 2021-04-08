@@ -102,7 +102,7 @@ impl Character {
         for technique in &self.combattechniques {
             if technique.id.eq_ignore_ascii_case(technique_id) {
                 let mut_level = self.get_attribute_level("mut");
-                return technique.level + (mut_level/3);
+                return technique.level + std::cmp::max(0, (mut_level-8)/3);
             }
         }
         0

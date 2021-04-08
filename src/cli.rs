@@ -1,4 +1,3 @@
-use super::config::Config;
 use super::util::OutputWrapper;
 use clap::{App, Arg};
 use clap_generate::{generate, generators::Bash};
@@ -10,7 +9,7 @@ use std::path;
 /*
 Returns the clap app definition
 */
-pub fn get_app(config: &Config) -> App<'static> {
+pub fn get_app() -> App<'static> {
     let app = App::new("DSA-CLI")
         .about("Simple command line program for playing DSA")
         .subcommand(
@@ -33,6 +32,19 @@ pub fn get_app(config: &Config) -> App<'static> {
             .about("Performs a skillcheck for the given skill")
             .arg(Arg::new("skill_name")
                 .about("The name of the skill (all lowercase with no spaces or special characters)")
+                .takes_value(true)
+                .required(true)
+            )
+            .arg(Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0")
+            )
+        )
+        .subcommand(App::new("attack")
+            .about("Performs an attack skillcheck for the given combat technique")
+            .arg(Arg::new("technique_name")
+                .about("The name of the combat technique")
                 .takes_value(true)
                 .required(true)
             )
@@ -82,8 +94,8 @@ pub fn get_app(config: &Config) -> App<'static> {
     app
 }
 
-pub fn generate_completions(config: &Config, printer: &impl OutputWrapper) {
-    let mut app = get_app(config);
+pub fn generate_completions(printer: &impl OutputWrapper) {
+    let mut app = get_app();
 
     if cfg!(target_os = "linux") {
         let home = match env::var("HOME") {

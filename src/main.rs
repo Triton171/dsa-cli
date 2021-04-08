@@ -22,7 +22,7 @@ fn main() {
         }
     };
 
-    let app = cli::get_app(&config);
+    let app = cli::get_app();
     let matches = app.get_matches();
 
     match matches.subcommand() {
@@ -81,7 +81,7 @@ fn main() {
         },
 
         Some(("gen-completions", _)) => {
-            cli::generate_completions(&config, &output);
+            cli::generate_completions(&output);
         }
 
         Some(("skillcheck", sub_m)) => {
@@ -99,23 +99,29 @@ fn main() {
                     return;
                 }
             };
-            dsa::skillcheck(sub_m, &character, &config, &output);
+            dsa::skill_check(sub_m, &character, &config, &output);
+        }
 
-            /*let (skill_name, facilitation): (&str, i64) = match sub_m.subcommand() {
-                Some((s, sub_sub_m)) => match sub_sub_m.value_of("facilitation").unwrap().parse() {
-                    Ok(f) => (s, f),
-                    Err(_) => {
-                        printer.output_line(format!("Error: facilitation must be an integer"));
-                        return;
-                    }
-                },
-                _ => {
-                    printer.output_line(String::from("Error: skill name missing"));
+        Some(("attack", sub_m)) => {
+            let character = match Character::loaded_character(&config) {
+                Ok(Some(c)) => c,
+                Ok(None) => {
+                    output.output_line(String::from("Error: No character loaded"));
+                    return;
+                }
+                Err(e) => {
+                    output.output_line(format!(
+                        "Error retrieving loaded character: {}",
+                        e.message()
+                    ));
                     return;
                 }
             };
-            dsa::skillcheck(skill_name, facilitation, &character, &config, &printer);*/
+            dsa::attack_check(sub_m, &character, &output)
         }
-        _ => {}
+
+        _ => {
+            output.output_line(String::from("Unknown or missing subcommand. Use -h to get help"));
+        }
     };
 }
