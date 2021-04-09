@@ -1,5 +1,5 @@
 use super::util::OutputWrapper;
-use clap::{App, Arg};
+use clap::{App, AppSettings, Arg};
 use clap_generate::{generate, generators::Bash};
 use std::env;
 use std::fs;
@@ -30,6 +30,7 @@ pub fn get_app() -> App<'static> {
         )
         .subcommand(App::new("skillcheck")
             .about("Performs a skillcheck for the given skill")
+            .setting(AppSettings::AllowLeadingHyphen)
             .arg(Arg::new("skill_name")
                 .about("The name of the skill (all lowercase with no spaces or special characters)")
                 .takes_value(true)
@@ -43,6 +44,7 @@ pub fn get_app() -> App<'static> {
         )
         .subcommand(App::new("attack")
             .about("Performs an attack skillcheck for the given combat technique")
+            .setting(AppSettings::AllowLeadingHyphen)
             .arg(Arg::new("technique_name")
                 .about("The name of the combat technique")
                 .takes_value(true)
@@ -53,44 +55,15 @@ pub fn get_app() -> App<'static> {
                 .takes_value(true)
                 .default_value("0")
             )
+        )
+        .subcommand(App::new("roll")
+            .about("Rolls some dice")
+            .arg(Arg::new("dice_expression")
+                .about("The dice to roll. Syntax: [number_of_dice]d[dice_type] + [offset]")
+                .takes_value(true)
+                .multiple(true)
+                .required(true))
         );
-
-
-    // let mut skillcheck = App::new("skillcheck").about("Performs a skillcheck for the given skill");
-    // for skill in &config.skills {
-    //     skillcheck = skillcheck.subcommand(
-    //         App::new(skill.0)
-    //             .arg(
-    //                 Arg::new("facilitation")
-    //                     .about(
-    //                         "The level of facilitation (if positive) or obstruction (if negative)",
-    //                     )
-    //                     .index(1)
-    //                     .takes_value(true)
-    //                     .default_value("0"),
-    //             )
-    //             .setting(clap::AppSettings::AllowLeadingHyphen),
-    //     );
-    // }
-    // app = app.subcommand(skillcheck);
-
-    // let mut attack = App::new("attack").about("Performs an attack check for the given combat technique");
-    // for technique in &config.combattechniques {
-    //     attack = attack.subcommand(
-    //         App::new(technique.0)
-    //             .arg(
-    //                 Arg::new("facilitation")
-    //                     .about(
-    //                         "The level of facilitation (if positive) or obstruction (if negative)",
-    //                     )
-    //                     .index(1)
-    //                     .takes_value(true)
-    //                     .default_value("0"),
-    //             )
-    //             .setting(clap::AppSettings::AllowLeadingHyphen),
-    //     );
-    // }
-
     app
 }
 

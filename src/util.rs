@@ -1,27 +1,25 @@
 pub struct IOError {
     message: String,
-    err_type: IOErrorType
+    err_type: IOErrorType,
 }
 
 pub enum IOErrorType {
     Unknown,
     InvalidFormat,
     MissingEnvironmentVariable,
-    FileSystemError
+    FileSystemError,
 }
 
 impl IOError {
     pub fn from_str(message: &str, err_type: IOErrorType) -> IOError {
         IOError {
             message: String::from(message),
-            err_type
+            err_type,
         }
     }
 
     pub fn from_string(message: String, err_type: IOErrorType) -> IOError {
-        IOError { 
-            message, err_type
-         }
+        IOError { message, err_type }
     }
 
     pub fn message<'a>(&'a self) -> &'a str {
@@ -42,7 +40,8 @@ pub fn uppercase_first(s: &str) -> String {
 }
 
 pub trait OutputWrapper {
-    fn output_line(&self, line: String);
+    fn output(&self, msg: String);
+    fn output_line(&self, msg: String);
     fn new_line(&self);
 
     //Prints  a formatted table given a vector of its rows (note that any headers must simply be passed as rows/columns)
@@ -51,8 +50,11 @@ pub trait OutputWrapper {
 
 pub struct CLIOutputWrapper;
 impl OutputWrapper for CLIOutputWrapper {
-    fn output_line(&self, line: String) {
-        println!("{}", line);
+    fn output(&self, msg: String) {
+        print!("{}", msg);
+    }
+    fn output_line(&self, msg: String) {
+        println!("{}", msg);
     }
     fn new_line(&self) {
         println!();

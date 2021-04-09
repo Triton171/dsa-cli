@@ -10,7 +10,7 @@ pub struct Character {
     name: String,
     attributes: Vec<CharacterAttribute>,
     skills: Vec<CharacterSkill>,
-    combattechniques: Vec<CharacterCombatTechnique>
+    combattechniques: Vec<CharacterCombatTechnique>,
 }
 
 #[derive(Deserialize)]
@@ -28,7 +28,7 @@ pub struct CharacterAttribute {
 #[derive(Deserialize)]
 pub struct CharacterCombatTechnique {
     id: String,
-    level: i64
+    level: i64,
 }
 
 impl Character {
@@ -43,16 +43,19 @@ impl Character {
         let char_file = match File::open(PathBuf::from(char_path)) {
             Ok(f) => f,
             Err(_) => {
-                return Err(IOError::from_str("Unable to open character file", IOErrorType::FileSystemError));
+                return Err(IOError::from_str(
+                    "Unable to open character file",
+                    IOErrorType::FileSystemError,
+                ));
             }
         };
         let reader = BufReader::new(char_file);
         match serde_json::from_reader(reader) {
             Ok(c) => Ok(Some(c)),
-            Err(e) => Err(IOError::from_string(format!(
-                "Invalid character format, detected at line {}",
-                e.line()
-            ), IOErrorType::InvalidFormat)),
+            Err(e) => Err(IOError::from_string(
+                format!("Invalid character format, detected at line {}", e.line()),
+                IOErrorType::InvalidFormat,
+            )),
         }
     }
 
@@ -61,13 +64,19 @@ impl Character {
         let p = match std::fs::canonicalize(p) {
             Ok(p) => p,
             Err(_) => {
-                return Err(IOError::from_str("Unable to resolve character path", IOErrorType::FileSystemError));
+                return Err(IOError::from_str(
+                    "Unable to resolve character path",
+                    IOErrorType::FileSystemError,
+                ));
             }
         };
         config.loaded_character_path = Some(p.to_str().unwrap().to_owned());
         match Character::loaded_character(config) {
             Ok(Some(c)) => Ok(c),
-            Ok(None) => Err(IOError::from_str("Character was not loaded correctly", IOErrorType::Unknown)),
+            Ok(None) => Err(IOError::from_str(
+                "Character was not loaded correctly",
+                IOErrorType::Unknown,
+            )),
             Err(e) => Err(e),
         }
     }
@@ -102,7 +111,7 @@ impl Character {
         for technique in &self.combattechniques {
             if technique.id.eq_ignore_ascii_case(technique_id) {
                 let mut_level = self.get_attribute_level("mut");
-                return technique.level + std::cmp::max(0, (mut_level-8)/3);
+                return technique.level + std::cmp::max(0, (mut_level - 8) / 3);
             }
         }
         0

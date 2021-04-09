@@ -15,8 +15,9 @@ static DEFAULT_CONFIG: &'static str = include_str!("default_config/config.json")
 pub struct Config {
     pub loaded_character_path: Option<String>,
     pub alternative_crits: Option<bool>,
+    pub discord: DiscordConfig,
     pub skills: HashMap<String, SkillConfig>,
-    pub combattechniques: HashMap<String, CombatTechniqueConfig>
+    pub combattechniques: HashMap<String, CombatTechniqueConfig>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -26,7 +27,12 @@ pub struct SkillConfig {
 
 #[derive(Serialize, Deserialize)]
 pub struct CombatTechniqueConfig {
-    pub attributes: Vec<String>
+    pub attributes: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DiscordConfig {
+    pub discord_token: Option<String>
 }
 
 impl Config {
@@ -50,27 +56,29 @@ impl Config {
                                 output.new_line();
                                 Config::get_or_create(output)
                             }
-                            Err(e) => {
-                                Err(IOError::from_string(format!("Unable to rename outdated config file: {}", e.to_string()), IOErrorType::FileSystemError))
-                            }
+                            Err(e) => Err(IOError::from_string(
+                                format!("Unable to rename outdated config file: {}", e.to_string()),
+                                IOErrorType::FileSystemError,
+                            )),
                         }
                     } else {
                         Err(e)
                     }
-
-                    
                 }
             }
         } else {
             match fs::write(&path, DEFAULT_CONFIG) {
                 Ok(()) => {
-                    output.output_line(format!("Created default config file at: {}", path.to_str().unwrap()));
+                    output.output_line(format!(
+                        "Created default config file at: {}",
+                        path.to_str().unwrap()
+                    ));
                     Config::get_or_create(output)
                 }
-                Err(e) => Err(IOError::from_string(format!(
-                    "Unable to write to config file ({})",
-                    e.to_string()
-                ), IOErrorType::FileSystemError)),
+                Err(e) => Err(IOError::from_string(
+                    format!("Unable to write to config file ({})", e.to_string()),
+                    IOErrorType::FileSystemError,
+                )),
             }
         }
     }
@@ -79,24 +87,26 @@ impl Config {
         let file = match fs::File::open(path) {
             Ok(f) => f,
             Err(_) => {
-                return Err(IOError::from_string(format!(
-                    "Unable to open config file at: {}",
-                    path.to_str().unwrap()
-                ), IOErrorType::FileSystemError));
+                return Err(IOError::from_string(
+                    format!("Unable to open config file at: {}", path.to_str().unwrap()),
+                    IOErrorType::FileSystemError,
+                ));
             }
         };
         let reader = BufReader::new(file);
         let config: serde_json::Result<Config> = serde_json::from_reader(reader);
         match config {
             Ok(c) => Ok(c),
-            Err(e) => Err(IOError::from_string(format!(
-                "Invalid syntax in {}, detected at line {}",
-                path.to_str().unwrap(),
-                e.line()
-            ), IOErrorType::InvalidFormat)),
+            Err(e) => Err(IOError::from_string(
+                format!(
+                    "Invalid syntax in {}, detected at line {}",
+                    path.to_str().unwrap(),
+                    e.line()
+                ),
+                IOErrorType::InvalidFormat,
+            )),
         }
     }
-
 
     pub fn save(self) -> Result<(), IOError> {
         let mut config_path = get_config_dir()?;
@@ -109,16 +119,19 @@ impl Config {
         {
             Ok(f) => f,
             Err(e) => {
-                return Err(IOError::from_string(format!(
-                    "Unable to write to config file ({})",
-                    e.to_string()
-                ), IOErrorType::FileSystemError));
+                return Err(IOError::from_string(
+                    format!("Unable to write to config file ({})", e.to_string()),
+                    IOErrorType::FileSystemError,
+                ));
             }
         };
         let writer = BufWriter::new(file);
         match serde_json::to_writer_pretty(writer, &self) {
             Ok(()) => Ok(()),
-            Err(_) => Err(IOError::from_str("Unable to serialize configuration", IOErrorType::Unknown)),
+            Err(_) => Err(IOError::from_str(
+                "Unable to serialize configuration",
+                IOErrorType::Unknown,
+            )),
         }
     }
 }
@@ -130,8 +143,8 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
         Err(_) => {
             return Err(IOError::from_str(
                 "Could not read environment variable $HOME",
-                IOErrorType::MissingEnvironmentVariable
-            ), );
+                IOErrorType::MissingEnvironmentVariable,
+            ));
         }
     };
     let mut path = path::PathBuf::new();
@@ -141,10 +154,10 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
-            return Err(IOError::from_string(format!(
-                "Unable to create config folder ({})",
-                e.to_string()
-            ), IOErrorType::FileSystemError));
+            return Err(IOError::from_string(
+                format!("Unable to create config folder ({})", e.to_string()),
+                IOErrorType::FileSystemError,
+            ));
         }
     }
     Ok(path)

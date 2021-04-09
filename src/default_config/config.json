@@ -1,5 +1,8 @@
 {
     "alternative_crits" : true,
+    "discord": {
+
+    },
     "skills" : {
         "fliegen" : {
             "attributes" : ["mut", "intuition", "gewandtheit"]

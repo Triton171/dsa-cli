@@ -70,8 +70,7 @@ fn main() {
                 Character::unload(&mut config);
                 match config.save() {
                     Ok(()) => {
-                        output
-                            .output_line(String::from("Successfully unloaded invalid character"));
+                        output.output_line(String::from("Successfully unloaded invalid character"));
                     }
                     Err(e) => {
                         output.output_line(format!("Error saving new config: {}", e.message()));
@@ -120,8 +119,14 @@ fn main() {
             dsa::attack_check(sub_m, &character, &output)
         }
 
+        Some(("roll", sub_m)) => {
+            dsa::roll(sub_m, &output);
+        }
+
         _ => {
-            output.output_line(String::from("Unknown or missing subcommand. Use -h to get help"));
+            output.output_line(String::from(
+                "Unknown or missing subcommand. Use -h to get help",
+            ));
         }
     };
 }
