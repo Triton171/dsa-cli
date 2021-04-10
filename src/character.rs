@@ -3,7 +3,7 @@ use super::util::{IOError, IOErrorType};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Deserialize)]
 pub struct Character {
@@ -39,8 +39,14 @@ impl Character {
                 return Ok(None);
             }
         };
+        match Character::from_file(Path::new(char_path)) {
+            Ok(c) => Ok(Some(c)),
+            Err(e) => Err(e)
+        }
+    }
 
-        let char_file = match File::open(PathBuf::from(char_path)) {
+    pub fn from_file(path: &Path) -> Result<Character, IOError> {
+        let char_file = match File::open(path) {
             Ok(f) => f,
             Err(_) => {
                 return Err(IOError::from_str(
@@ -51,7 +57,7 @@ impl Character {
         };
         let reader = BufReader::new(char_file);
         match serde_json::from_reader(reader) {
-            Ok(c) => Ok(Some(c)),
+            Ok(c) => Ok(c),
             Err(e) => Err(IOError::from_string(
                 format!("Invalid character format, detected at line {}", e.line()),
                 IOErrorType::InvalidFormat,

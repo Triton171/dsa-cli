@@ -10,7 +10,7 @@ pub fn skill_check(
     cmd_matches: &ArgMatches,
     character: &Character,
     config: &Config,
-    output: &dyn OutputWrapper,
+    output: &mut impl OutputWrapper,
 ) {
     let skill_name = cmd_matches.value_of("skill_name").unwrap();
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
@@ -44,7 +44,7 @@ pub fn skill_check(
     );
 }
 
-pub fn attack_check(cmd_matches: &ArgMatches, character: &Character, output: &dyn OutputWrapper) {
+pub fn attack_check(cmd_matches: &ArgMatches, character: &Character, output: &mut impl OutputWrapper) {
     let technique_name = cmd_matches.value_of("technique_name").unwrap();
     let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
@@ -66,7 +66,7 @@ pub fn attack_check(cmd_matches: &ArgMatches, character: &Character, output: &dy
     );
 }
 
-pub fn roll(cmd_matches: &ArgMatches, output: &dyn OutputWrapper) {
+pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
     let mut rng = rand::thread_rng();
     let expr =
         cmd_matches
@@ -161,7 +161,7 @@ fn roll_check(
     facilitation: i64,
     check_type: CheckType,
     crit_type: CritType,
-    output: &dyn OutputWrapper,
+    output: &mut impl OutputWrapper,
 ) {
     let mut rng = rand::thread_rng();
     let d20 = Uniform::new_inclusive(1, 20);

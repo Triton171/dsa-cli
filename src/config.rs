@@ -32,11 +32,14 @@ pub struct CombatTechniqueConfig {
 
 #[derive(Serialize, Deserialize)]
 pub struct DiscordConfig {
-    pub discord_token: Option<String>
+    pub login_token: Option<String>,
+    pub require_complete_command: bool,
+    pub max_attachement_size: u64,
+    pub use_reply: bool
 }
 
 impl Config {
-    pub fn get_or_create(output: &dyn OutputWrapper) -> Result<Config, IOError> {
+    pub fn get_or_create(output: &mut dyn OutputWrapper) -> Result<Config, IOError> {
         let mut path = get_config_dir()?;
         path.push("config.json");
 
@@ -127,12 +130,13 @@ impl Config {
         };
         let writer = BufWriter::new(file);
         match serde_json::to_writer_pretty(writer, &self) {
-            Ok(()) => Ok(()),
-            Err(_) => Err(IOError::from_str(
+            Ok(()) => {}
+            Err(_) => return Err(IOError::from_str(
                 "Unable to serialize configuration",
                 IOErrorType::Unknown,
             )),
         }
+        Ok(())
     }
 }
 

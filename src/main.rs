@@ -3,15 +3,16 @@ mod cli;
 mod config;
 mod dsa;
 mod util;
+mod discord;
 
 use character::Character;
 use config::Config;
 use util::OutputWrapper;
 
 fn main() {
-    let output = util::CLIOutputWrapper {};
+    let mut output = util::CLIOutputWrapper {};
 
-    let mut config = match Config::get_or_create(&output) {
+    let mut config = match Config::get_or_create(&mut output) {
         Ok(c) => c,
         Err(e) => {
             output.output_line(format!(
@@ -79,8 +80,12 @@ fn main() {
             }
         },
 
+        Some(("discord", _)) => {
+            discord::start_bot(config);
+        }
+
         Some(("gen-completions", _)) => {
-            cli::generate_completions(&output);
+            cli::generate_completions(&mut output);
         }
 
         Some(("skillcheck", sub_m)) => {
@@ -98,7 +103,7 @@ fn main() {
                     return;
                 }
             };
-            dsa::skill_check(sub_m, &character, &config, &output);
+            dsa::skill_check(sub_m, &character, &config, &mut output);
         }
 
         Some(("attack", sub_m)) => {
@@ -116,11 +121,11 @@ fn main() {
                     return;
                 }
             };
-            dsa::attack_check(sub_m, &character, &output)
+            dsa::attack_check(sub_m, &character, &mut output)
         }
 
         Some(("roll", sub_m)) => {
-            dsa::roll(sub_m, &output);
+            dsa::roll(sub_m, &mut output);
         }
 
         _ => {

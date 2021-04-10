@@ -40,27 +40,27 @@ pub fn uppercase_first(s: &str) -> String {
 }
 
 pub trait OutputWrapper {
-    fn output(&self, msg: String);
-    fn output_line(&self, msg: String);
-    fn new_line(&self);
+    fn output(&mut self, msg: String);
+    fn output_line(&mut self, msg: String);
+    fn new_line(&mut self);
 
     //Prints  a formatted table given a vector of its rows (note that any headers must simply be passed as rows/columns)
-    fn output_table(&self, table: &Vec<Vec<String>>);
+    fn output_table(&mut self, table: &Vec<Vec<String>>);
 }
 
 pub struct CLIOutputWrapper;
 impl OutputWrapper for CLIOutputWrapper {
-    fn output(&self, msg: String) {
+    fn output(&mut self, msg: String) {
         print!("{}", msg);
     }
-    fn output_line(&self, msg: String) {
+    fn output_line(&mut self, msg: String) {
         println!("{}", msg);
     }
-    fn new_line(&self) {
+    fn new_line(&mut self) {
         println!();
     }
 
-    fn output_table(&self, table: &Vec<Vec<String>>) {
+    fn output_table(&mut self, table: &Vec<Vec<String>>) {
         for row in table {
             for entry in row {
                 print!("{:<17}", entry);

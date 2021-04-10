@@ -10,8 +10,8 @@ use std::path;
 Returns the clap app definition
 */
 pub fn get_app() -> App<'static> {
-    let app = App::new("DSA-CLI")
-        .about("Simple command line program for playing DSA")
+    App::new("dsa-cli")
+        .about("Simple command line tool to simplify playing \"Das Schwarze Auge\"")
         .subcommand(
             App::new("load")
                 .about("Loads a character from the given JSON file")
@@ -25,49 +25,72 @@ pub fn get_app() -> App<'static> {
         .subcommand(App::new("unload")
             .about("Unloads the current character, if one is loaded")
         )
+        .subcommand(App::new("discord")
+            .about("Starts the discord bot")
+        )
         .subcommand(
             App::new("gen-completions").about("Generates completion scripts for detected shells"),
         )
-        .subcommand(App::new("skillcheck")
-            .about("Performs a skillcheck for the given skill")
-            .setting(AppSettings::AllowLeadingHyphen)
-            .arg(Arg::new("skill_name")
-                .about("The name of the skill (all lowercase with no spaces or special characters)")
-                .takes_value(true)
-                .required(true)
-            )
-            .arg(Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0")
-            )
-        )
-        .subcommand(App::new("attack")
-            .about("Performs an attack skillcheck for the given combat technique")
-            .setting(AppSettings::AllowLeadingHyphen)
-            .arg(Arg::new("technique_name")
-                .about("The name of the combat technique")
-                .takes_value(true)
-                .required(true)
-            )
-            .arg(Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0")
-            )
-        )
-        .subcommand(App::new("roll")
-            .about("Rolls some dice")
-            .arg(Arg::new("dice_expression")
-                .about("The dice to roll. Syntax: [number_of_dice]d[dice_type] + [offset]")
-                .takes_value(true)
-                .multiple(true)
-                .required(true))
-        );
-    app
+        .subcommand(cmd_skillcheck())
+        .subcommand(cmd_attack())
+        .subcommand(cmd_roll())
 }
 
-pub fn generate_completions(printer: &impl OutputWrapper) {
+pub fn get_discord_app() -> App<'static> {
+    App::new("dsa-cli")
+        .about("Simple discord bot to simplify playing \"Das Schwarze Auge\"")
+        .subcommand(App::new("upload")
+            .about("Uploads and loads a character for your discord account. The .json file has to be attached to this message")
+        )
+        .subcommand(cmd_skillcheck())
+        .subcommand(cmd_attack())
+        .subcommand(cmd_roll())    
+        .override_usage("![subcommand]")
+}
+
+
+fn cmd_skillcheck() -> App<'static> {
+    App::new("skillcheck")
+        .about("Performs a skillcheck for the given skill")
+        .setting(AppSettings::AllowLeadingHyphen)
+        .arg(Arg::new("skill_name")
+            .about("The name of the skill (all lowercase with no spaces or special characters)")
+            .takes_value(true)
+            .required(true)
+        )
+        .arg(Arg::new("facilitation")
+            .about("The level of facilitation (if positive) or obstruction (if negative)")
+            .takes_value(true)
+            .default_value("0")
+        )
+}
+fn cmd_attack() -> App<'static> {
+    App::new("attack")
+        .about("Performs an attack skillcheck for the given combat technique")
+        .setting(AppSettings::AllowLeadingHyphen)
+        .arg(Arg::new("technique_name")
+            .about("The name of the combat technique")
+            .takes_value(true)
+            .required(true)
+        )
+        .arg(Arg::new("facilitation")
+            .about("The level of facilitation (if positive) or obstruction (if negative)")
+            .takes_value(true)
+            .default_value("0")
+        )
+}
+fn cmd_roll() -> App<'static> {
+    App::new("roll")
+        .about("Rolls some dice")
+        .arg(Arg::new("dice_expression")
+            .about("The dice to roll. Syntax: [number_of_dice]d[dice_type] + [offset]")
+            .takes_value(true)
+            .multiple(true)
+            .required(true))
+}
+
+
+pub fn generate_completions(printer: &mut impl OutputWrapper) {
     let mut app = get_app();
 
     if cfg!(target_os = "linux") {

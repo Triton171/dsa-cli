@@ -1,7 +1,10 @@
 {
     "alternative_crits" : true,
     "discord": {
-
+        "login_token" : null,
+        "require_complete_command" : false,
+        "max_attachement_size" : 1000000,
+        "use_reply" : true
     },
     "skills" : {
         "fliegen" : {
