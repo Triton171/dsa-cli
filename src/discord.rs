@@ -208,10 +208,18 @@ impl EventHandler for Handler {
 
                     //Reset trumps all other arguments
                     if sub_m.is_present("reset") {
-                        let members = match message
+                        let guild = match message
                             .guild(&ctx.cache)
-                            .await
-                            .unwrap()
+                            .await 
+                        {
+                            Some(g) => g,
+                            None => {
+                                output.output_line(String::from("This option can only be used in a server"));
+                                output.send(&ctx).await;
+                                return;
+                            }
+                        };
+                        let members = match guild
                             .members(&ctx.http, Some(50), None)
                             .await
                         {
@@ -260,10 +268,19 @@ impl EventHandler for Handler {
 
                     if sub_m.is_present("all") {
                         //Add all guild member's characters to the list
-                        let members = match message
+                        let guild = match message
                             .guild(&ctx.cache)
-                            .await
-                            .unwrap()
+                            .await 
+                        {
+                            Some(g) => g,
+                            None => {
+                                output.output_line(String::from("This option can only be used in a server"));
+                                output.send(&ctx).await;
+                                return;
+                            }
+                        };
+
+                        let members = match guild
                             .members(&ctx.http, Some(50), None)
                             .await
                         {
