@@ -11,6 +11,7 @@ pub struct Character {
     attributes: Vec<CharacterAttribute>,
     skills: Option<Vec<CharacterSkill>>,
     combattechniques: Option<Vec<CharacterCombatTechnique>>,
+    spells: Option<Vec<CharacterSpell>>
 }
 
 #[derive(Deserialize)]
@@ -29,6 +30,12 @@ pub struct CharacterAttribute {
 pub struct CharacterCombatTechnique {
     id: String,
     level: i64,
+}
+
+#[derive(Deserialize)]
+pub struct CharacterSpell {
+    id: String,
+    level: i64
 }
 
 impl Character {
@@ -126,6 +133,19 @@ impl Character {
             if technique.id.eq_ignore_ascii_case(technique_id) {
                 let mut_level = self.get_attribute_level("mut");
                 return technique.level + std::cmp::max(0, (mut_level - 8) / 3);
+            }
+        }
+        0
+    }
+
+    pub fn get_spell_level(&self, spell_id: &str) -> i64 {
+        let spells = match &self.spells {
+            Some(spells) => spells,
+            None => { return 0; }
+        };
+        for spell in spells {
+            if spell.id.eq_ignore_ascii_case(spell_id) {
+                return spell.level;
             }
         }
         0

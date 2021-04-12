@@ -91,6 +91,57 @@ pub fn attack_check(
     );
 }
 
+pub fn spell_check(
+    cmd_matches: &ArgMatches,
+    character: &Character,
+    config: &Config,
+    output: &mut impl OutputWrapper,
+) {
+    let spell_name = match config.find_spell(cmd_matches.value_of("spell_name").unwrap()) {
+        Ok(name) => name,
+        Err(e) => {
+            output.output_line(e);
+            return;
+        }
+    };
+    let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
+        Ok(f) => f,
+        Err(_) => {
+            output.output_line(String::from("Error: facilitation must be an integer"));
+            return;
+        }
+    };
+
+    let skill_attrs = match config.spells.get(&spell_name) {
+        None => {
+            output.output_line(format!("Unknown spell: \"{}\"", spell_name));
+            return;
+        }
+        Some(skill) => &skill.attributes
+    };
+    
+    let attrs: Vec<(String, i64)> = skill_attrs
+        .iter()
+        .map(|attr| (attr.clone(), character.get_attribute_level(attr)))
+        .collect();
+    let skill_level = character.get_spell_level(&spell_name);
+
+    let crit_type = match config.alternative_crits {
+        Some(true) => CritType::ConfirmableCrits,
+        _ => CritType::MultipleRequiredCrits(2),
+    };
+
+    roll_check(
+        &attrs,
+        &spell_name,
+        character.get_name(),
+        facilitation,
+        CheckType::PointsCheck(skill_level),
+        crit_type,
+        output,
+    );
+}
+
 pub fn dodge_check(
     cmd_matches: &ArgMatches,
     character: &Character,

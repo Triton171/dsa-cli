@@ -236,5 +236,16 @@
         "zweihandschwerter" : {
             "attributes" : ["koerperkraft"]
         }
+    },
+    "spells" : {
+        "ignifaxius" : {
+            "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "balsamsalabunde" : {
+            "attributes" : ["klugheit", "intuition", "fingerfertigkeit"]
+        },
+        "menetekel" : {
+            "attributes" : ["klugheit", "charisma", "fingerfertigkeit"]
+        }
     }
 }

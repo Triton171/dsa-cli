@@ -12,7 +12,7 @@ Returns the clap app definition
 pub fn get_app() -> App<'static> {
     App::new("dsa-cli")
         .about("Simple command line tool to simplify playing \"Das Schwarze Auge\"")
-        .version("1.0")
+        .version("1.1")
         .subcommand(
             App::new("load")
                 .about("Loads a character from the given JSON file")
@@ -30,6 +30,7 @@ pub fn get_app() -> App<'static> {
         )
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
+        .subcommand(cmd_spell())
         .subcommand(cmd_dodge())
         .subcommand(cmd_roll())
         .subcommand(cmd_ini())
@@ -42,6 +43,7 @@ pub fn get_discord_app() -> App<'static> {
             .about("Uploads and loads a character for your discord account. The .json file has to be attached to this message")
         )
         .subcommand(cmd_skillcheck())
+        .subcommand(cmd_attack())
         .subcommand(cmd_attack())
         .subcommand(cmd_dodge())
         .subcommand(cmd_roll())
@@ -104,6 +106,23 @@ fn cmd_attack() -> App<'static> {
         .arg(
             Arg::new("technique_name")
                 .about("The name of the combat technique")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
+            Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
+        )
+}
+fn cmd_spell() -> App<'static> {
+    App::new("spell")
+        .about("Performs a spell skillcheck for the given spell")
+        .setting(AppSettings::AllowLeadingHyphen)
+        .arg(
+            Arg::new("spell_name")
+                .about("The name of the spell")
                 .takes_value(true)
                 .required(true),
         )

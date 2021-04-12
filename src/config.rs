@@ -18,6 +18,7 @@ pub struct Config {
     pub discord: DiscordConfig,
     pub skills: HashMap<String, SkillConfig>,
     pub combattechniques: HashMap<String, CombatTechniqueConfig>,
+    pub spells: HashMap<String, SpellConfig>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -38,6 +39,10 @@ pub struct DiscordConfig {
     pub use_reply: bool,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct SpellConfig {
+    pub attributes: Vec<String>
+}
 
 impl Config {
     pub fn get_or_create(output: &mut dyn OutputWrapper) -> Result<Config, IOError> {
@@ -176,6 +181,24 @@ impl Config {
             Ok(technique_name)
         } else {
             Err(format!("No combat technique matches \"{}\"", search))
+        }
+    }
+
+    pub fn find_spell(&self, search: &str) -> Result<String, String> {
+        let mut spell_name: Option<String> = None;
+        for (name, _) in &self.spells {
+            if name.contains(search) {
+                if let Some(orig_name) = spell_name {
+                    return Err(format!("Ambiguous spell identifier \"{}\": Matched {} and {}", search, orig_name, name));
+                } else {
+                    spell_name = Some(name.to_string());
+                }
+            }
+        }
+        if let Some(spell_name) = spell_name {
+            Ok(spell_name)
+        } else {
+            Err(format!("No spell matches \"{}\"", search))
         }
     }
 }

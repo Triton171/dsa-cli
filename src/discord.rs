@@ -178,6 +178,19 @@ impl EventHandler for Handler {
                     output.send(&ctx).await;
                 }
 
+                Some(("spell", sub_m)) => {
+                    let character = match try_get_character(&message.author.id) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            output.output_line(e);
+                            output.send(&ctx).await;
+                            return;
+                        }
+                    };
+                    dsa::spell_check(sub_m, &character, &self.config, &mut output);
+                    output.send(&ctx).await;
+                }
+
                 Some(("dodge", sub_m)) => {
                     let character = match try_get_character(&message.author.id) {
                         Ok(c) => c,
