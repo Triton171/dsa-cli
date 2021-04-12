@@ -12,6 +12,7 @@ Returns the clap app definition
 pub fn get_app() -> App<'static> {
     App::new("dsa-cli")
         .about("Simple command line tool to simplify playing \"Das Schwarze Auge\"")
+        .version("1.0")
         .subcommand(
             App::new("load")
                 .about("Loads a character from the given JSON file")
@@ -80,7 +81,7 @@ pub fn get_discord_app() -> App<'static> {
 }
 
 fn cmd_skillcheck() -> App<'static> {
-    App::new("skillcheck")
+    App::new("check")
         .about("Performs a skillcheck for the given skill")
         .setting(AppSettings::AllowLeadingHyphen)
         .arg(

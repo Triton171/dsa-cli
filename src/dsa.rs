@@ -22,7 +22,14 @@ pub fn skill_check(
         }
     };
 
-    let skill_attrs = &config.skills.get(skill_name).unwrap().attributes;
+    let skill_attrs = match config.skills.get(skill_name) {
+        None => {
+            output.output_line(format!("Unknown skill: \"{}\"", skill_name));
+            return;
+        }
+        Some(skill) => &skill.attributes
+    };
+    
     let attrs: Vec<(String, i64)> = skill_attrs
         .iter()
         .map(|attr| (attr.clone(), character.get_attribute_level(attr)))

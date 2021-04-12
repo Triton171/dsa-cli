@@ -88,7 +88,7 @@ fn main() {
             cli::generate_completions(&mut output);
         }
 
-        Some(("skillcheck", sub_m)) => {
+        Some(("check", sub_m)) => {
             let character = match Character::loaded_character(&config) {
                 Ok(Some(c)) => c,
                 Ok(None) => {

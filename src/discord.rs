@@ -152,7 +152,7 @@ impl EventHandler for Handler {
                     output.send(&ctx).await;
                 }
 
-                Some(("skillcheck", sub_m)) => {
+                Some(("check", sub_m)) => {
                     let character = match try_get_character(&message.author.id) {
                         Ok(c) => c,
                         Err(e) => {
