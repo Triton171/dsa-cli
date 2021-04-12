@@ -124,6 +124,24 @@ fn main() {
             dsa::attack_check(sub_m, &character, &mut output)
         }
 
+        Some(("dodge", sub_m)) => {
+            let character = match Character::loaded_character(&config) {
+                Ok(Some(c)) => c,
+                Ok(None) => {
+                    output.output_line(String::from("Error: No character loaded"));
+                    return;
+                }
+                Err(e) => {
+                    output.output_line(format!(
+                        "Error retrieving loaded character: {}",
+                        e.message()
+                    ));
+                    return;
+                }
+            };
+            dsa::dodge_check(sub_m, &character, &mut output);
+        }
+
         Some(("roll", sub_m)) => {
             dsa::roll(sub_m, &mut output);
         }

@@ -29,6 +29,7 @@ pub fn get_app() -> App<'static> {
         )
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
+        .subcommand(cmd_dodge())
         .subcommand(cmd_roll())
         .subcommand(cmd_ini())
 }
@@ -41,6 +42,7 @@ pub fn get_discord_app() -> App<'static> {
         )
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
+        .subcommand(cmd_dodge())
         .subcommand(cmd_roll())
         .subcommand(cmd_ini()
             .arg(
@@ -104,6 +106,17 @@ fn cmd_attack() -> App<'static> {
                 .takes_value(true)
                 .required(true),
         )
+        .arg(
+            Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
+        )
+}
+fn cmd_dodge() -> App<'static> {
+    App::new("dodge")
+        .about("Performs a dodge skillcheck")
+        .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("facilitation")
                 .about("The level of facilitation (if positive) or obstruction (if negative)")

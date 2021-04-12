@@ -71,6 +71,30 @@ pub fn attack_check(
     );
 }
 
+pub fn dodge_check(
+    cmd_matches: &ArgMatches,
+    character: &Character,
+    output: &mut impl OutputWrapper
+) {
+    let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
+        Ok(f) => f,
+        Err(_) => {
+            output.output_line(String::from("Error: facilitation must be an integer"));
+            return;
+        }
+    };
+    let dodge_level = character.get_dodge_level();
+    roll_check(
+        &[(String::from("Ausweichen"), dodge_level)],
+        "Ausweichen",
+        character.get_name(),
+        facilitation,
+        CheckType::SimpleCheck,
+        CritType::ConfirmableCrits,
+        output
+    );
+}
+
 pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
     let mut rng = rand::thread_rng();
     let expr =
