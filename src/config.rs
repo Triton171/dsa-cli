@@ -38,6 +38,7 @@ pub struct DiscordConfig {
     pub use_reply: bool,
 }
 
+
 impl Config {
     pub fn get_or_create(output: &mut dyn OutputWrapper) -> Result<Config, IOError> {
         let mut path = get_config_dir()?;
@@ -139,6 +140,43 @@ impl Config {
             }
         }
         Ok(())
+    }
+
+
+    pub fn find_skill(&self, search: &str) -> Result<String, String> {
+        let mut skill_name: Option<String> = None;
+        for (name, _) in &self.skills {
+            if name.contains(search) {
+                if let Some(orig_name) = skill_name {
+                    return Err(format!("Ambiguous skill identifier \"{}\": Matched {} and {}", search, orig_name, name));
+                } else {
+                    skill_name = Some(name.to_string());
+                }
+            }
+        }
+        if let Some(skill_name) = skill_name {
+            Ok(skill_name)
+        } else {
+            Err(format!("No skill matches \"{}\"", search))
+        }
+    }
+
+    pub fn find_technique(&self, search: &str) -> Result<String, String> {
+        let mut technique_name: Option<String> = None;
+        for (name, _) in &self.combattechniques {
+            if name.contains(search) {
+                if let Some(orig_name) = technique_name {
+                    return Err(format!("Ambiguous combat technique identifier \"{}\": Matched {} and {}", search, orig_name, name));
+                } else {
+                    technique_name = Some(name.to_string());
+                }
+            }
+        }
+        if let Some(technique_name) = technique_name {
+            Ok(technique_name)
+        } else {
+            Err(format!("No combat technique matches \"{}\"", search))
+        }
     }
 }
 

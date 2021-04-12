@@ -13,7 +13,13 @@ pub fn skill_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let skill_name = cmd_matches.value_of("skill_name").unwrap();
+    let skill_name = match config.find_skill(cmd_matches.value_of("skill_name").unwrap()) {
+        Ok(name) => name,
+        Err(e) => {
+            output.output_line(e);
+            return;
+        }
+    };
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
@@ -22,7 +28,7 @@ pub fn skill_check(
         }
     };
 
-    let skill_attrs = match config.skills.get(skill_name) {
+    let skill_attrs = match config.skills.get(&skill_name) {
         None => {
             output.output_line(format!("Unknown skill: \"{}\"", skill_name));
             return;
@@ -34,7 +40,7 @@ pub fn skill_check(
         .iter()
         .map(|attr| (attr.clone(), character.get_attribute_level(attr)))
         .collect();
-    let skill_level = character.get_skill_level(skill_name);
+    let skill_level = character.get_skill_level(&skill_name);
 
     let crit_type = match config.alternative_crits {
         Some(true) => CritType::ConfirmableCrits,
@@ -43,7 +49,7 @@ pub fn skill_check(
 
     roll_check(
         &attrs,
-        skill_name,
+        &skill_name,
         character.get_name(),
         facilitation,
         CheckType::PointsCheck(skill_level),
@@ -55,9 +61,16 @@ pub fn skill_check(
 pub fn attack_check(
     cmd_matches: &ArgMatches,
     character: &Character,
+    config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let technique_name = cmd_matches.value_of("technique_name").unwrap();
+    let technique_name = match config.find_technique(cmd_matches.value_of("technique_name").unwrap()) {
+        Ok(name) => name,
+        Err(e) => {
+            output.output_line(e);
+            return;
+        }
+    };
     let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
@@ -66,7 +79,7 @@ pub fn attack_check(
         }
     };
 
-    let attack_level = character.get_attack_level(technique_name);
+    let attack_level = character.get_attack_level(&technique_name);
     roll_check(
         &[(technique_name.to_string(), attack_level)],
         &format!("Attack: {}", technique_name),

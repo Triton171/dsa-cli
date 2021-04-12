@@ -121,7 +121,7 @@ fn main() {
                     return;
                 }
             };
-            dsa::attack_check(sub_m, &character, &mut output)
+            dsa::attack_check(sub_m, &character, &config, &mut output)
         }
 
         Some(("dodge", sub_m)) => {

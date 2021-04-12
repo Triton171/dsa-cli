@@ -174,7 +174,7 @@ impl EventHandler for Handler {
                             return;
                         }
                     };
-                    dsa::attack_check(sub_m, &character, &mut output);
+                    dsa::attack_check(sub_m, &character, &self.config, &mut output);
                     output.send(&ctx).await;
                 }
 
