@@ -9,8 +9,8 @@ use std::path::Path;
 pub struct Character {
     name: String,
     attributes: Vec<CharacterAttribute>,
-    skills: Vec<CharacterSkill>,
-    combattechniques: Vec<CharacterCombatTechnique>,
+    skills: Option<Vec<CharacterSkill>>,
+    combattechniques: Option<Vec<CharacterCombatTechnique>>,
 }
 
 #[derive(Deserialize)]
@@ -96,7 +96,11 @@ impl Character {
     }
 
     pub fn get_skill_level(&self, skill_id: &str) -> i64 {
-        for skill in &self.skills {
+        let skills = match &self.skills {
+            Some(skills) => skills,
+            None => { return 0; }
+        };
+        for skill in skills {
             if skill.id.eq_ignore_ascii_case(skill_id) {
                 return skill.level;
             }
@@ -114,7 +118,11 @@ impl Character {
     }
 
     pub fn get_attack_level(&self, technique_id: &str) -> i64 {
-        for technique in &self.combattechniques {
+        let techniques = match &self.combattechniques {
+            Some(techniques) => techniques,
+            None => { return 0; }
+        };
+        for technique in techniques {
             if technique.id.eq_ignore_ascii_case(technique_id) {
                 let mut_level = self.get_attribute_level("mut");
                 return technique.level + std::cmp::max(0, (mut_level - 8) / 3);
