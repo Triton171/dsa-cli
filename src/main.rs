@@ -1,9 +1,9 @@
 mod character;
 mod cli;
 mod config;
+mod discord;
 mod dsa;
 mod util;
-mod discord;
 
 use character::Character;
 use config::Config;
@@ -126,6 +126,30 @@ fn main() {
 
         Some(("roll", sub_m)) => {
             dsa::roll(sub_m, &mut output);
+        }
+
+        Some(("ini", _)) => {
+            let character = match Character::loaded_character(&config) {
+                Ok(Some(c)) => c,
+                Ok(None) => {
+                    output.output_line(String::from("Error: No character loaded"));
+                    return;
+                }
+                Err(e) => {
+                    output.output_line(format!(
+                        "Error retrieving loaded character: {}",
+                        e.message()
+                    ));
+                    return;
+                }
+            };
+            dsa::roll_ini(
+                &[(
+                    character.get_name().to_string(),
+                    character.get_initiative_level(),
+                )],
+                &mut output,
+            );
         }
 
         _ => {

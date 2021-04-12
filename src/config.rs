@@ -35,7 +35,7 @@ pub struct DiscordConfig {
     pub login_token: Option<String>,
     pub require_complete_command: bool,
     pub max_attachement_size: u64,
-    pub use_reply: bool
+    pub use_reply: bool,
 }
 
 impl Config {
@@ -131,10 +131,12 @@ impl Config {
         let writer = BufWriter::new(file);
         match serde_json::to_writer_pretty(writer, &self) {
             Ok(()) => {}
-            Err(_) => return Err(IOError::from_str(
-                "Unable to serialize configuration",
-                IOErrorType::Unknown,
-            )),
+            Err(_) => {
+                return Err(IOError::from_str(
+                    "Unable to serialize configuration",
+                    IOErrorType::Unknown,
+                ))
+            }
         }
         Ok(())
     }

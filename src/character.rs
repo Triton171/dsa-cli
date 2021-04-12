@@ -41,7 +41,7 @@ impl Character {
         };
         match Character::from_file(Path::new(char_path)) {
             Ok(c) => Ok(Some(c)),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
@@ -121,5 +121,27 @@ impl Character {
             }
         }
         0
+    }
+
+    pub fn get_dodge_level(&self) -> i64 {
+        for attr in &self.attributes {
+            if attr.id.eq_ignore_ascii_case("gewandtheit") {
+                return attr.level / 2;
+            }
+        }
+        0
+    }
+
+    pub fn get_initiative_level(&self) -> i64 {
+        let mut attr_mut = 0;
+        let mut attr_gew = 0;
+        for attr in &self.attributes {
+            if attr.id.eq_ignore_ascii_case("mut") {
+                attr_mut = attr.level;
+            } else if attr.id.eq_ignore_ascii_case("gewandtheit") {
+                attr_gew = attr.level;
+            }
+        }
+        (attr_mut + attr_gew) / 2
     }
 }

@@ -22,18 +22,15 @@ pub fn get_app() -> App<'static> {
                         .index(1),
                 ),
         )
-        .subcommand(App::new("unload")
-            .about("Unloads the current character, if one is loaded")
-        )
-        .subcommand(App::new("discord")
-            .about("Starts the discord bot")
-        )
+        .subcommand(App::new("unload").about("Unloads the current character, if one is loaded"))
+        .subcommand(App::new("discord").about("Starts the discord bot"))
         .subcommand(
             App::new("gen-completions").about("Generates completion scripts for detected shells"),
         )
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
         .subcommand(cmd_roll())
+        .subcommand(cmd_ini())
 }
 
 pub fn get_discord_app() -> App<'static> {
@@ -44,51 +41,88 @@ pub fn get_discord_app() -> App<'static> {
         )
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
-        .subcommand(cmd_roll())    
+        .subcommand(cmd_roll())
+        .subcommand(cmd_ini()
+            .arg(
+                Arg::new("all")
+                    .about("Adds the characters of all users in this server to the initiative roll")
+                    .short('a')
+                    .long("all")
+                    .takes_value(false)
+            )
+            .arg(
+                Arg::new("new")
+                    .about("Adds one or more custom character(s) to the roll. For each character, name and initiative level have to be specified, everything separated by spaces")
+                    .short('n')
+                    .long("new")
+                    .takes_value(true)
+                    .multiple(true)
+                    .min_values(2)
+            )
+            .arg(
+                Arg::new("rename")
+                    .about("Changes the discord nickname of each user to start with the initiative")
+                    .long("rename")
+                    .takes_value(false)
+                    .requires("all")
+            )
+            .arg(
+                Arg::new("reset")
+                    .about("Resets all nicknames that have been changed by the \"rename\" option")
+                    .long("reset")
+                    .takes_value(false)
+                    .exclusive(true)
+            )
+        )
         .override_usage("![subcommand]")
 }
-
 
 fn cmd_skillcheck() -> App<'static> {
     App::new("skillcheck")
         .about("Performs a skillcheck for the given skill")
         .setting(AppSettings::AllowLeadingHyphen)
-        .arg(Arg::new("skill_name")
-            .about("The name of the skill (all lowercase with no spaces or special characters)")
-            .takes_value(true)
-            .required(true)
+        .arg(
+            Arg::new("skill_name")
+                .about("The name of the skill (all lowercase with no spaces or special characters)")
+                .takes_value(true)
+                .required(true),
         )
-        .arg(Arg::new("facilitation")
-            .about("The level of facilitation (if positive) or obstruction (if negative)")
-            .takes_value(true)
-            .default_value("0")
+        .arg(
+            Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
         )
 }
 fn cmd_attack() -> App<'static> {
     App::new("attack")
         .about("Performs an attack skillcheck for the given combat technique")
         .setting(AppSettings::AllowLeadingHyphen)
-        .arg(Arg::new("technique_name")
-            .about("The name of the combat technique")
-            .takes_value(true)
-            .required(true)
+        .arg(
+            Arg::new("technique_name")
+                .about("The name of the combat technique")
+                .takes_value(true)
+                .required(true),
         )
-        .arg(Arg::new("facilitation")
-            .about("The level of facilitation (if positive) or obstruction (if negative)")
-            .takes_value(true)
-            .default_value("0")
+        .arg(
+            Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
         )
 }
 fn cmd_roll() -> App<'static> {
-    App::new("roll")
-        .about("Rolls some dice")
-        .arg(Arg::new("dice_expression")
+    App::new("roll").about("Rolls some dice").arg(
+        Arg::new("dice_expression")
             .about("The dice to roll. Syntax: [number_of_dice]d[dice_type] + [offset]")
             .takes_value(true)
             .multiple(true)
-            .required(true))
+            .required(true),
+    )
 }
-
+fn cmd_ini() -> App<'static> {
+    App::new("ini").about("Performs an initiative roll for the current character")
+}
 
 pub fn generate_completions(printer: &mut impl OutputWrapper) {
     let mut app = get_app();

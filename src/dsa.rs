@@ -3,8 +3,9 @@ use super::config::Config;
 use super::util;
 use super::util::OutputWrapper;
 use clap::ArgMatches;
-use rand::Rng;
 use rand::distributions::{Distribution, Uniform};
+use rand::Rng;
+use std::cmp::Ordering;
 
 pub fn skill_check(
     cmd_matches: &ArgMatches,
@@ -44,7 +45,11 @@ pub fn skill_check(
     );
 }
 
-pub fn attack_check(cmd_matches: &ArgMatches, character: &Character, output: &mut impl OutputWrapper) {
+pub fn attack_check(
+    cmd_matches: &ArgMatches,
+    character: &Character,
+    output: &mut impl OutputWrapper,
+) {
     let technique_name = cmd_matches.value_of("technique_name").unwrap();
     let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
@@ -84,26 +89,27 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
         //Dice
         if term.contains('d') {
             let split: Vec<&str> = term.split('d').filter(|s| !s.is_empty()).collect();
-            if split.len()==0 {
+            if split.len() == 0 {
                 output.new_line();
                 output.output_line(format!("Die type missing in expression \"{}\"", term));
                 return;
-            } else if split.len()<3 {
+            } else if split.len() < 3 {
                 let num_dice = match split.len() {
                     1 => 1,
                     //2
-                    _ => {
-                        match split[0].parse::<u32>() {
-                            Ok(num) => num,
-                            Err(_) => {
-                                output.new_line();
-                                output.output_line(format!("Invalid die number in expression \"{}\"", term));
-                                return;
-                            }
+                    _ => match split[0].parse::<u32>() {
+                        Ok(num) => num,
+                        Err(_) => {
+                            output.new_line();
+                            output.output_line(format!(
+                                "Invalid die number in expression \"{}\"",
+                                term
+                            ));
+                            return;
                         }
-                    }
+                    },
                 };
-                match split[split.len()-1].parse::<u32>() {
+                match split[split.len() - 1].parse::<u32>() {
                     Ok(d_type) => {
                         for _ in 0..num_dice {
                             let roll = rng.gen_range(1..=d_type);
@@ -124,7 +130,9 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
             }
         } else {
             match term.trim().parse::<u32>() {
-                Ok(num) => { res += num; }
+                Ok(num) => {
+                    res += num;
+                }
                 Err(_) => {
                     output.new_line();
                     output.output_line(format!("Unable to parse number \"{}\"", term));
@@ -136,6 +144,96 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
 
     output.new_line();
     output.output_line(format!("Total: {}", res));
+}
+
+/*
+Accepts a slice of (name, iniative-level) tupels, rolls and prints their initiatives
+Returns a sorted vector of (index, rolls) tuples
+*/
+pub fn roll_ini(
+    characters: &[(String, i64)],
+    output: &mut impl OutputWrapper,
+) -> Vec<(usize, Vec<i64>)> {
+    let mut rng = rand::thread_rng();
+    let d6 = Uniform::new_inclusive(1, 6);
+
+    //A vector saving (index, rolls) for each character
+    let mut inis: Vec<(usize, Vec<i64>)> = Vec::with_capacity(characters.len());
+    for (i, _) in characters.iter().enumerate() {
+        inis.push((i, vec![d6.sample(&mut rng)]));
+    }
+
+    //Roll additional dice for characters that have equal INI and rolls
+    for i in 0..inis.len() {
+        for j in i + 1..inis.len() {
+            if characters[inis[i].0].1 == characters[inis[j].0].1 {
+                while {
+                    let mut needs_additional_rolls = true;
+                    for k in 0..std::cmp::min(inis[i].1.len(), inis[j].1.len()) {
+                        if inis[i].1[k] != inis[j].1[k] {
+                            needs_additional_rolls = false;
+                            break;
+                        }
+                    }
+                    needs_additional_rolls
+                } {
+                    if inis[i].1.len() < inis[j].1.len() {
+                        inis[i].1.push(d6.sample(&mut rng));
+                    } else if inis[j].1.len() < inis[i].1.len() {
+                        inis[j].1.push(d6.sample(&mut rng));
+                    } else {
+                        inis[i].1.push(d6.sample(&mut rng));
+                        inis[j].1.push(d6.sample(&mut rng));
+                    }
+                }
+            }
+        }
+    }
+
+    //Reverse sort
+    inis.sort_by(|(index1, rolls1), (index2, rolls2)| {
+        if characters[*index1].1 + rolls1[0] < characters[*index2].1 + rolls2[0] {
+            Ordering::Greater
+        } else if characters[*index1].1 + rolls1[0] > characters[*index2].1 + rolls2[0] {
+            Ordering::Less
+        } else {
+            if characters[*index1].1 < characters[*index2].1 {
+                Ordering::Greater
+            } else if characters[*index1].1 > characters[*index2].1 {
+                Ordering::Less
+            } else {
+                for i in 1..rolls1.len() {
+                    if rolls1[i] < rolls2[i] {
+                        return Ordering::Greater;
+                    } else if rolls1[i] > rolls2[i] {
+                        return Ordering::Less;
+                    }
+                }
+                panic!("Unable to sort initiatives");
+            }
+        }
+    });
+
+    //Display
+    output.output_line(String::from("Initiative:"));
+    output.new_line();
+    let mut table: Vec<Vec<String>> = Vec::new();
+    for (rolls, name, ini_level) in inis
+        .iter()
+        .map(|(index, rolls)| (rolls, &characters[*index].0, characters[*index].1))
+    {
+        let mut row: Vec<String> = vec![
+            format!("{}:", name),
+            format!("{} ({} + {}/6)", ini_level + rolls[0], ini_level, rolls[0]),
+        ];
+        for roll in rolls.iter().skip(1) {
+            row.push(format!("{}/6", roll));
+        }
+        table.push(row);
+    }
+
+    output.output_table(&table);
+    inis
 }
 
 enum CheckType {

@@ -63,7 +63,7 @@ impl OutputWrapper for CLIOutputWrapper {
     fn output_table(&mut self, table: &Vec<Vec<String>>) {
         for row in table {
             for entry in row {
-                print!("{:<17}", entry);
+                print!("{:<22}", entry);
             }
             println!();
         }
