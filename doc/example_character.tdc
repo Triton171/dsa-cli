@@ -1,0 +1,68 @@
+{
+    "name" : "Insert name",
+
+    
+    "attributes": [
+        {
+            "id": "mut",
+            "level": 8
+        },
+        {
+            "id": "klugheit",
+            "level": 8
+        },
+        {
+            "id": "intuition",
+            "level": 8
+        },
+        {
+            "id": "charisma",
+            "level": 8
+        },
+        {
+            "id": "fingerfertigkeit",
+            "level": 8
+        },
+        {
+            "id": "gewandtheit",
+            "level": 8
+        },
+        {
+            "id": "konstitution",
+            "level": 8
+        },
+        {
+            "id": "koerperkraft",
+            "level": 8
+        }
+    ],
+
+
+    "skills": [
+        {
+            "id": "koerperbeherrschung",
+            "level": 8
+        },
+        {
+            "id": "selbstbeherrschung",
+            "level": 8
+        },
+        {
+            "id": "sinnesschaerfe",
+            "level": 8
+        }
+    ],
+
+
+
+    "combattechniques": [
+        {
+            "id": "boegen",
+            "level": 8
+        },
+        {
+            "id": "dolche",
+            "level": 8
+        }
+    ],
+}
