@@ -220,7 +220,7 @@ impl EventHandler for Handler {
                                 output.send(&ctx).await;
                                 return;
                             }
-                            Ok(m) => m
+                            Ok(m) => m,
                         };
                         let mut rename_futs = Vec::new();
                         for member in members {
@@ -231,12 +231,15 @@ impl EventHandler for Handler {
                             if std::path::Path::exists(&path) {
                                 if let Some(nickname) = member.nick.clone() {
                                     if let Some(index) = nickname.find('_') {
-                                        let new_name = nickname[index+1..].to_string();
+                                        let new_name = nickname[index + 1..].to_string();
                                         /*rename_futs.push(member.edit(&ctx.http,
-                                            |edit| edit.nickname(new_name)));*/
+                                        |edit| edit.nickname(new_name)));*/
                                         rename_futs.push(async {
                                             let member = member;
-                                            match member.edit(&ctx.http, |edit| edit.nickname(new_name)).await {
+                                            match member
+                                                .edit(&ctx.http, |edit| edit.nickname(new_name))
+                                                .await
+                                            {
                                                 Ok(_) => {}
                                                 Err(e) => {
                                                     println!("Error changing user nickname: {}", e);
@@ -245,7 +248,7 @@ impl EventHandler for Handler {
                                         });
                                     }
                                 }
-                            }  
+                            }
                         }
                         futures::future::join_all(rename_futs).await;
                     }
@@ -254,8 +257,6 @@ impl EventHandler for Handler {
                     let mut characters: Vec<(String, i64)> = Vec::new();
                     //The user_id for all the characters that have one (currently only used for renaming)
                     let mut characters_members: Vec<Option<Member>> = Vec::new();
-
-                    
 
                     if sub_m.is_present("all") {
                         //Add all guild member's characters to the list
@@ -370,14 +371,17 @@ impl EventHandler for Handler {
                                 new_name.push_str(&displ_name);
 
                                 /*rename_futs.push(
-                                    member.edit(&ctx.http, 
+                                    member.edit(&ctx.http,
                                     |edit| edit.nickname(new_name))
                                 );*/
                                 rename_futs.push(async {
                                     //Shadow the variable to force a move
                                     let roll = roll;
-                                    match characters_members[roll.0].as_ref().unwrap().edit(&ctx.http,
-                                        |edit| edit.nickname(new_name)).await
+                                    match characters_members[roll.0]
+                                        .as_ref()
+                                        .unwrap()
+                                        .edit(&ctx.http, |edit| edit.nickname(new_name))
+                                        .await
                                     {
                                         Ok(_) => {}
                                         Err(e) => {
@@ -385,7 +389,6 @@ impl EventHandler for Handler {
                                         }
                                     }
                                 });
-                                
                             }
                         }
 
@@ -393,8 +396,6 @@ impl EventHandler for Handler {
                     } else {
                         output.send(&ctx).await;
                     }
-                    
-                    
                 }
                 _ => {}
             };

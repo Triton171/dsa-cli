@@ -176,6 +176,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
         Err(_) => {
             return Err(IOError::from_str(
                 "Could not read environment variable \"appdata\"",
+                IOErrorType::MissingEnvironmentVariable,
             ));
         }
     };
@@ -185,10 +186,10 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
-            return Err(IOError::from_string(format!(
-                "Unable to create config folder ({})",
-                e.to_string()
-            )));
+            return Err(IOError::from_string(
+                format!("Unable to create config folder ({})", e.to_string()),
+                IOErrorType::FileSystemError,
+            ));
         }
     }
     Ok(path)
@@ -201,6 +202,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
         Err(_) => {
             return Err(IOError::from_str(
                 "Could not read environment variable \"appdata\"",
+                IOErrorType::MissingEnvironmentVariable,
             ));
         }
     };
@@ -212,10 +214,10 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
-            return Err(IOError::from_string(format!(
-                "Unable to create config folder ({})",
-                e.to_string()
-            )));
+            return Err(IOError::from_string(
+                format!("Unable to create config folder ({})", e.to_string()),
+                IOErrorType::FileSystemError,
+            ));
         }
     }
     Ok(path)

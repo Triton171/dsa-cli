@@ -74,7 +74,7 @@ pub fn attack_check(
 pub fn dodge_check(
     cmd_matches: &ArgMatches,
     character: &Character,
-    output: &mut impl OutputWrapper
+    output: &mut impl OutputWrapper,
 ) {
     let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
@@ -91,7 +91,7 @@ pub fn dodge_check(
         facilitation,
         CheckType::SimpleCheck,
         CritType::ConfirmableCrits,
-        output
+        output,
     );
 }
 
