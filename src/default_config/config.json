@@ -246,6 +246,36 @@
         },
         "menetekel" : {
             "attributes" : ["klugheit", "charisma", "fingerfertigkeit"]
+        },
+        "pentagramma" : {
+            "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "analys" : {
+            "attributes" : ["klugheit", "klugheit", "intuition"]
+        },
+        "motoricus" : {
+            "attributes" : ["klugheit", "fingerfertigkeit", "koerperkraft"]
+        },
+        "transversalis" : {
+            "attributes" : ["mut", "charisma", "konstitution"]
+        },
+        "nuntiovolo" : {
+            "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "bannbaladin" : {
+            "attributes" : ["mut", "intuition", "charisma"]
+        },
+        "odemarcanum" : {
+            "attributes" : ["mut", "klugheit", "intuition"]
+        },
+        "manusmiracula" : {
+            "attributes" : ["klugheit", "fingerfertigkeit", "koerperkraft"]
+        },
+        "blitzdichfind" : {
+            "attributes" : ["mut", "intuition", "charisma"]
+        },
+        "flimflam" : {
+            "attributes" : ["mut", "klugheit", "charisma"]
         }
     }
 }

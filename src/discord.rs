@@ -3,7 +3,7 @@ use super::cli;
 use super::config;
 use super::config::Config;
 use super::dsa;
-use super::util::IOErrorType;
+use super::util::ErrorType;
 use super::util::OutputWrapper;
 use async_std::fs;
 use async_std::io;
@@ -18,6 +18,8 @@ use serenity::{
     },
     prelude::*,
 };
+use std::fmt;
+use std::fmt::Write;
 use std::path::PathBuf;
 use tokio::runtime::Builder;
 
@@ -51,7 +53,7 @@ impl EventHandler for Handler {
             });
             let matches = match matches {
                 Err(e) => {
-                    output.output_line(format!("{}", e));
+                    output.output_line(&format!("{}", e));
                     output.send(&ctx).await;
                     return;
                 }
@@ -61,7 +63,7 @@ impl EventHandler for Handler {
                 Some(("upload", _)) => {
                     //Attachement validation
                     if message.attachments.len() != 1 {
-                        output.output_line(format!(
+                        output.output_line(&format!(
                             "Invalid number of attachements: {}",
                             message.attachments.len()
                         ));
@@ -69,7 +71,7 @@ impl EventHandler for Handler {
                         return;
                     } else if message.attachments[0].size > self.config.discord.max_attachement_size
                     {
-                        output.output_line(format!(
+                        output.output_line(&format!(
                             "Attachement too big ({} bytes)",
                             message.attachments[0].size
                         ));
@@ -79,7 +81,7 @@ impl EventHandler for Handler {
                     //Get character path
                     let mut char_path = match config::get_config_dir() {
                         Err(_) => {
-                            output.output_line(String::from("Error retrieving config directory"));
+                            output.output_line(&"Error retrieving config directory");
                             output.send(&ctx).await;
                             return;
                         }
@@ -88,7 +90,7 @@ impl EventHandler for Handler {
                     char_path.push("discord_characters");
                     match fs::create_dir_all(&char_path).await {
                         Err(_) => {
-                            output.output_line(String::from("Error creating character folder"));
+                            output.output_line(&"Error creating character folder");
                             output.send(&ctx).await;
                             return;
                         }
@@ -98,7 +100,7 @@ impl EventHandler for Handler {
                     //Download data
                     let data = match message.attachments[0].download().await {
                         Err(_) => {
-                            output.output_line(String::from("Error downloading attachement"));
+                            output.output_line(&"Error downloading attachement");
                             output.send(&ctx).await;
                             return;
                         }
@@ -113,7 +115,7 @@ impl EventHandler for Handler {
                         .await
                     {
                         Err(_) => {
-                            output.output_line(String::from("Error creating character file"));
+                            output.output_line(&"Error creating character file");
                             output.send(&ctx).await;
                             return;
                         }
@@ -122,30 +124,24 @@ impl EventHandler for Handler {
                     //Write
                     let mut writer = io::BufWriter::new(file);
                     if let Err(_) = writer.write(&data).await {
-                        output.output_line(String::from("Error writing to character file"));
+                        output.output_line(&"Error writing to character file");
                     }
                     if let Err(_) = writer.flush().await {
-                        output.output_line(String::from(
-                            "Error writing to character file (Unable to flush output streamm)",
-                        ));
+                        output.output_line(&"Error writing to character file (Unable to flush output stream)");
                     }
                     match Character::from_file(&char_path) {
                         Ok(c) => {
-                            output.output_line(format!(
+                            output.output_line(&format!(
                                 "Successfully loaded character \"{}\"",
                                 c.get_name()
                             ));
                         }
                         Err(e) => match e.err_type() {
-                            IOErrorType::InvalidFormat => {
-                                output.output_line(String::from(
-                                    "Error loading character: Invalid character file",
-                                ));
+                            ErrorType::InvalidFormat => {
+                                output.output_line(&"Error loading character: Invalid character file");
                             }
                             _ => {
-                                output.output_line(String::from(
-                                    "Unknown error while loading character",
-                                ));
+                                output.output_line(&"Unknown error while loading character");
                             }
                         },
                     };
@@ -156,7 +152,7 @@ impl EventHandler for Handler {
                     let character = match try_get_character(&message.author.id) {
                         Ok(c) => c,
                         Err(e) => {
-                            output.output_line(e);
+                            output.output_line(&e);
                             output.send(&ctx).await;
                             return;
                         }
@@ -169,7 +165,7 @@ impl EventHandler for Handler {
                     let character = match try_get_character(&message.author.id) {
                         Ok(c) => c,
                         Err(e) => {
-                            output.output_line(e);
+                            output.output_line(&e);
                             output.send(&ctx).await;
                             return;
                         }
@@ -182,7 +178,7 @@ impl EventHandler for Handler {
                     let character = match try_get_character(&message.author.id) {
                         Ok(c) => c,
                         Err(e) => {
-                            output.output_line(e);
+                            output.output_line(&e);
                             output.send(&ctx).await;
                             return;
                         }
@@ -195,7 +191,7 @@ impl EventHandler for Handler {
                     let character = match try_get_character(&message.author.id) {
                         Ok(c) => c,
                         Err(e) => {
-                            output.output_line(e);
+                            output.output_line(&e);
                             output.send(&ctx).await;
                             return;
                         }
@@ -213,7 +209,7 @@ impl EventHandler for Handler {
                     let config_path = match config::get_config_dir() {
                         Ok(p) => p,
                         Err(_) => {
-                            output.output_line(String::from("Unable to retrieve config folder"));
+                            output.output_line(&"Unable to retrieve config folder");
                             output.send(&ctx).await;
                             return;
                         }
@@ -227,7 +223,7 @@ impl EventHandler for Handler {
                         {
                             Some(g) => g,
                             None => {
-                                output.output_line(String::from("This option can only be used in a server"));
+                                output.output_line(&"This option can only be used in a server");
                                 output.send(&ctx).await;
                                 return;
                             }
@@ -237,7 +233,7 @@ impl EventHandler for Handler {
                             .await
                         {
                             Err(e) => {
-                                output.output_line(format!("Unable to get guild members: {}", e));
+                                output.output_line(&format!("Unable to get guild members: {}", e));
                                 output.send(&ctx).await;
                                 return;
                             }
@@ -287,7 +283,7 @@ impl EventHandler for Handler {
                         {
                             Some(g) => g,
                             None => {
-                                output.output_line(String::from("This option can only be used in a server"));
+                                output.output_line(&"This option can only be used in a server");
                                 output.send(&ctx).await;
                                 return;
                             }
@@ -300,7 +296,7 @@ impl EventHandler for Handler {
                             Ok(m) => m,
                             Err(e) => {
                                 println!("Error getting guild members: {}", e);
-                                output.output_line(format!("Unable to get guild members: {}", e));
+                                output.output_line(&format!("Unable to get guild members: {}", e));
                                 output.send(&ctx).await;
                                 return;
                             }
@@ -313,7 +309,7 @@ impl EventHandler for Handler {
                             if std::path::Path::exists(&path) {
                                 match Character::from_file(&path) {
                                     Err(_) => {
-                                        output.output_line(format!(
+                                        output.output_line(&format!(
                                             "Unable to retrieve character for {}",
                                             member.display_name()
                                         ));
@@ -336,7 +332,7 @@ impl EventHandler for Handler {
                         if std::path::Path::exists(&path) {
                             match Character::from_file(&path) {
                                 Err(_) => {
-                                    output.output_line(format!(
+                                    output.output_line(&format!(
                                         "Error: Unable to retrieve character"
                                     ));
                                     output.send(&ctx).await;
@@ -351,23 +347,21 @@ impl EventHandler for Handler {
                                 }
                             }
                         } else {
-                            output.output_line(String::from(
-                                "No character found for your discord account",
-                            ));
+                            output.output_line(&"No character found for your discord account");
                         }
                     }
 
                     if sub_m.is_present("new") {
                         let custom_args: Vec<&str> = sub_m.values_of("new").unwrap().collect();
                         if custom_args.len() % 2 != 0 {
-                            output.output_line(String::from("The \"new\" argument expects an even number of values (name and level for each custom character)"));
+                            output.output_line(&"The \"new\" argument expects an even number of values (name and level for each custom character)");
                             output.send(&ctx).await;
                             return;
                         }
                         for custom_char in custom_args.chunks(2) {
                             let ini_level = match custom_char[1].parse::<i64>() {
                                 Err(_) => {
-                                    output.output_line(format!(
+                                    output.output_line(&format!(
                                         "Unable to parse custom initiative level: {}",
                                         custom_char[1]
                                     ));
@@ -400,10 +394,6 @@ impl EventHandler for Handler {
                                 new_name.push('_');
                                 new_name.push_str(&displ_name);
 
-                                /*rename_futs.push(
-                                    member.edit(&ctx.http,
-                                    |edit| edit.nickname(new_name))
-                                );*/
                                 rename_futs.push(async {
                                     //Shadow the variable to force a move
                                     let roll = roll;
@@ -481,12 +471,11 @@ impl<'a> DiscordOutputWrapper<'a> {
 }
 
 impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
-    fn output(&mut self, msg: String) {
-        self.msg_buf.push_str(&msg);
+    fn output(&mut self, msg: &impl fmt::Display) {
+        write!(self.msg_buf, "{}", msg).unwrap();
     }
-    fn output_line(&mut self, msg: String) {
-        self.msg_buf.push_str(&msg);
-        self.msg_buf.push('\n');
+    fn output_line(&mut self, msg: &impl fmt::Display) {
+        write!(self.msg_buf, "{}\n", msg).unwrap();
     }
     fn output_table(&mut self, table: &Vec<Vec<String>>) {
         for row in table {

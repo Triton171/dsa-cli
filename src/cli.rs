@@ -12,7 +12,7 @@ Returns the clap app definition
 pub fn get_app() -> App<'static> {
     App::new("dsa-cli")
         .about("Simple command line tool to simplify playing \"Das Schwarze Auge\"")
-        .version("1.1")
+        .version(get_version())
         .subcommand(
             App::new("load")
                 .about("Loads a character from the given JSON file")
@@ -39,12 +39,14 @@ pub fn get_app() -> App<'static> {
 pub fn get_discord_app() -> App<'static> {
     App::new("dsa-cli")
         .about("Simple discord bot to simplify playing \"Das Schwarze Auge\"")
+        .version(get_version())
         .subcommand(App::new("upload")
             .about("Uploads and loads a character for your discord account. The .json file has to be attached to this message")
         )
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
         .subcommand(cmd_attack())
+        .subcommand(cmd_spell())
         .subcommand(cmd_dodge())
         .subcommand(cmd_roll())
         .subcommand(cmd_ini()
@@ -82,13 +84,17 @@ pub fn get_discord_app() -> App<'static> {
         .override_usage("![subcommand]")
 }
 
+fn get_version() -> &'static str {
+    "1.1"
+}
+
 fn cmd_skillcheck() -> App<'static> {
     App::new("check")
         .about("Performs a skillcheck for the given skill")
         .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("skill_name")
-                .about("The name of the skill (all lowercase with no spaces or special characters)")
+                .about("The (partial) name of the skill")
                 .takes_value(true)
                 .required(true),
         )
@@ -105,7 +111,7 @@ fn cmd_attack() -> App<'static> {
         .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("technique_name")
-                .about("The name of the combat technique")
+                .about("The (partial) name of the combat technique")
                 .takes_value(true)
                 .required(true),
         )
@@ -122,7 +128,7 @@ fn cmd_spell() -> App<'static> {
         .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("spell_name")
-                .about("The name of the spell")
+                .about("The (partial) name of the spell")
                 .takes_value(true)
                 .required(true),
         )
@@ -164,7 +170,7 @@ pub fn generate_completions(printer: &mut impl OutputWrapper) {
         let home = match env::var("HOME") {
             Ok(s) => s,
             Err(_) => {
-                printer.output_line(String::from("Could not read environment variable $HOME"));
+                printer.output_line(&"Could not read environment variable $HOME");
                 return;
             }
         };
@@ -188,19 +194,17 @@ pub fn generate_completions(printer: &mut impl OutputWrapper) {
                             generate::<Bash, _>(&mut app, "dsa-cli", &mut writer);
 
                             if path::Path::exists(&bash_completions) {
-                                printer.output_line(format!(
+                                printer.output_line(&format!(
                                     "Generated bash completions script at {}",
                                     bash_completions_str
                                 ));
-                                printer.output_line(String::from(
-                                    "Call this script in your ~/.bashrc to enable completions",
-                                ));
+                                printer.output_line(&"Call this script in your ~/.bashrc to enable completions");
                             } else {
-                                printer.output_line(String::from("Unknown error occurred while trying to generate bash completions script"));
+                                printer.output_line(&"Unknown error occurred while trying to generate bash completions script");
                             }
                         }
                         Err(e) => {
-                            printer.output_line(format!(
+                            printer.output_line(&format!(
                                 "Unable to write to {}: {}",
                                 bash_completions_str,
                                 e.to_string()
@@ -209,7 +213,7 @@ pub fn generate_completions(printer: &mut impl OutputWrapper) {
                     };
                 }
                 Err(e) => {
-                    printer.output_line(format!("Error resolving config folder: {}", e.message()));
+                    printer.output_line(&format!("Error resolving config folder: {}", e.message()));
                     return;
                 }
             };

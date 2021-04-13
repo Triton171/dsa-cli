@@ -1,5 +1,5 @@
 use super::config::Config;
-use super::util::{IOError, IOErrorType};
+use super::util::{Error, ErrorType};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -35,11 +35,11 @@ pub struct CharacterCombatTechnique {
 #[derive(Deserialize)]
 pub struct CharacterSpell {
     id: String,
-    level: i64
+    level: Option<i64>
 }
 
 impl Character {
-    pub fn loaded_character(config: &Config) -> Result<Option<Character>, IOError> {
+    pub fn loaded_character(config: &Config) -> Result<Option<Character>, Error> {
         let char_path = match &config.loaded_character_path {
             Some(p) => p,
             None => {
@@ -52,43 +52,43 @@ impl Character {
         }
     }
 
-    pub fn from_file(path: &Path) -> Result<Character, IOError> {
+    pub fn from_file(path: &Path) -> Result<Character, Error> {
         let char_file = match File::open(path) {
             Ok(f) => f,
             Err(_) => {
-                return Err(IOError::from_str(
+                return Err(Error::from_str(
                     "Unable to open character file",
-                    IOErrorType::FileSystemError,
+                    ErrorType::FileSystemError,
                 ));
             }
         };
         let reader = BufReader::new(char_file);
         match serde_json::from_reader(reader) {
             Ok(c) => Ok(c),
-            Err(e) => Err(IOError::from_string(
+            Err(e) => Err(Error::from_string(
                 format!("Invalid character format, detected at line {}", e.line()),
-                IOErrorType::InvalidFormat,
+                ErrorType::InvalidFormat,
             )),
         }
     }
 
-    pub fn load(path: &str, config: &mut Config) -> Result<Character, IOError> {
+    pub fn load(path: &str, config: &mut Config) -> Result<Character, Error> {
         let p = Path::new(path);
         let p = match std::fs::canonicalize(p) {
             Ok(p) => p,
             Err(_) => {
-                return Err(IOError::from_str(
+                return Err(Error::from_str(
                     "Unable to resolve character path",
-                    IOErrorType::FileSystemError,
+                    ErrorType::FileSystemError,
                 ));
             }
         };
         config.loaded_character_path = Some(p.to_str().unwrap().to_owned());
         match Character::loaded_character(config) {
             Ok(Some(c)) => Ok(c),
-            Ok(None) => Err(IOError::from_str(
+            Ok(None) => Err(Error::from_str(
                 "Character was not loaded correctly",
-                IOErrorType::Unknown,
+                ErrorType::Unknown,
             )),
             Err(e) => Err(e),
         }
@@ -145,7 +145,7 @@ impl Character {
         };
         for spell in spells {
             if spell.id.eq_ignore_ascii_case(spell_id) {
-                return spell.level;
+                return spell.level.unwrap_or(0);
             }
         }
         0

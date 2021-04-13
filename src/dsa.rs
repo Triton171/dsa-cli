@@ -13,24 +13,24 @@ pub fn skill_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let skill_name = match config.find_skill(cmd_matches.value_of("skill_name").unwrap()) {
+    let skill_name = match Config::match_search(&config.skills, cmd_matches.value_of("skill_name").unwrap()) {
         Ok(name) => name,
         Err(e) => {
-            output.output_line(e);
+            output.output_line(&e);
             return;
         }
     };
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
-            output.output_line(String::from("Error: facilitation must be an integer"));
+            output.output_line(&"Error: facilitation must be an integer");
             return;
         }
     };
 
-    let skill_attrs = match config.skills.get(&skill_name) {
+    let skill_attrs = match config.skills.get(skill_name) {
         None => {
-            output.output_line(format!("Unknown skill: \"{}\"", skill_name));
+            output.output_line(&format!("Unknown skill: \"{}\"", skill_name));
             return;
         }
         Some(skill) => &skill.attributes
@@ -64,22 +64,22 @@ pub fn attack_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let technique_name = match config.find_technique(cmd_matches.value_of("technique_name").unwrap()) {
+    let technique_name = match Config::match_search(&config.combattechniques, cmd_matches.value_of("technique_name").unwrap()) {
         Ok(name) => name,
         Err(e) => {
-            output.output_line(e);
+            output.output_line(&e);
             return;
         }
     };
     let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
-            output.output_line(String::from("Error: facilitation must be an integer"));
+            output.output_line(&"Error: facilitation must be an integer");
             return;
         }
     };
 
-    let attack_level = character.get_attack_level(&technique_name);
+    let attack_level = character.get_attack_level(technique_name);
     roll_check(
         &[(technique_name.to_string(), attack_level)],
         &format!("Attack: {}", technique_name),
@@ -97,24 +97,24 @@ pub fn spell_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let spell_name = match config.find_spell(cmd_matches.value_of("spell_name").unwrap()) {
+    let spell_name = match Config::match_search(&config.spells, cmd_matches.value_of("spell_name").unwrap()) {
         Ok(name) => name,
         Err(e) => {
-            output.output_line(e);
+            output.output_line(&format!("{}", e));
             return;
         }
     };
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
-            output.output_line(String::from("Error: facilitation must be an integer"));
+            output.output_line(&"Error: facilitation must be an integer");
             return;
         }
     };
 
-    let skill_attrs = match config.spells.get(&spell_name) {
+    let skill_attrs = match config.spells.get(spell_name) {
         None => {
-            output.output_line(format!("Unknown spell: \"{}\"", spell_name));
+            output.output_line(&format!("Unknown spell: \"{}\"", spell_name));
             return;
         }
         Some(skill) => &skill.attributes
@@ -150,7 +150,7 @@ pub fn dodge_check(
     let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
-            output.output_line(String::from("Error: facilitation must be an integer"));
+            output.output_line(&"Error: facilitation must be an integer");
             return;
         }
     };
@@ -179,14 +179,14 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
             });
     let terms = expr.split('+').map(|term| term.trim());
     let mut res = 0;
-    output.output(String::from("Rolls: "));
+    output.output(&"Rolls: ");
     for term in terms {
         //Dice
         if term.contains('d') {
             let split: Vec<&str> = term.split('d').filter(|s| !s.is_empty()).collect();
             if split.len() == 0 {
                 output.new_line();
-                output.output_line(format!("Die type missing in expression \"{}\"", term));
+                output.output_line(&format!("Die type missing in expression \"{}\"", term));
                 return;
             } else if split.len() < 3 {
                 let num_dice = match split.len() {
@@ -196,7 +196,7 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                         Ok(num) => num,
                         Err(_) => {
                             output.new_line();
-                            output.output_line(format!(
+                            output.output_line(&format!(
                                 "Invalid die number in expression \"{}\"",
                                 term
                             ));
@@ -208,19 +208,19 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                     Ok(d_type) => {
                         for _ in 0..num_dice {
                             let roll = rng.gen_range(1..=d_type);
-                            output.output(format!("{}/{} ", roll, d_type));
+                            output.output(&format!("{}/{} ", roll, d_type));
                             res += roll;
                         }
                     }
                     Err(_) => {
                         output.new_line();
-                        output.output_line(format!("Invalid die type in expression \"{}\"", term));
+                        output.output_line(&format!("Invalid die type in expression \"{}\"", term));
                         return;
                     }
                 }
             } else {
                 output.new_line();
-                output.output_line(format!("Too many \"d\"s in expression \"{}\"", term));
+                output.output_line(&format!("Too many \"d\"s in expression \"{}\"", term));
                 return;
             }
         } else {
@@ -230,7 +230,7 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                 }
                 Err(_) => {
                     output.new_line();
-                    output.output_line(format!("Unable to parse number \"{}\"", term));
+                    output.output_line(&format!("Unable to parse number \"{}\"", term));
                     return;
                 }
             }
@@ -238,7 +238,7 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
     }
 
     output.new_line();
-    output.output_line(format!("Total: {}", res));
+    output.output_line(&format!("Total: {}", res));
 }
 
 /*
@@ -310,7 +310,7 @@ pub fn roll_ini(
     });
 
     //Display
-    output.output_line(String::from("Initiative:"));
+    output.output_line(&"Initiative:");
     output.new_line();
     let mut table: Vec<Vec<String>> = Vec::new();
     for (rolls, name, ini_level) in inis
@@ -429,14 +429,14 @@ fn roll_check(
     //Output
     match check_type {
         CheckType::SimpleCheck => {
-            output.output_line(format!(
+            output.output_line(&format!(
                 "{}, Check for \"{}\"",
                 character_name,
                 util::uppercase_first(check_name)
             ));
         }
         CheckType::PointsCheck(avail_points) => {
-            output.output_line(format!(
+            output.output_line(&format!(
                 "{}, Check for {} (level {})",
                 character_name,
                 util::uppercase_first(check_name),
@@ -490,11 +490,11 @@ fn roll_check(
     output.new_line();
 
     if points < 0 {
-        output.output_line(String::from("Check failed"));
+        output.output_line(&"Check failed");
     } else {
         match check_type {
             CheckType::SimpleCheck => {
-                output.output_line(String::from("Check passed"));
+                output.output_line(&"Check passed");
             }
             CheckType::PointsCheck(_) => {
                 let mut quality: u32 = (points as f32 / 3f32).ceil() as u32;
@@ -503,34 +503,34 @@ fn roll_check(
                 } else if quality > 6 {
                     quality = 6;
                 }
-                output.output_line(format!("Check passed, quality level {}", quality));
+                output.output_line(&format!("Check passed, quality level {}", quality));
             }
         }
     }
 
     if crits {
         if crit_succ == 1 {
-            output.output_line(String::from("Critical success"));
+            output.output_line(&"Critical success");
         } else if crit_succ > 1 {
-            output.output_line(format!("{} critical successes", crit_succ));
+            output.output_line(&format!("{} critical successes", crit_succ));
         }
         if unconfirmed_crit_succ == 1 {
-            output.output_line(String::from("Unconfirmed critical success"));
+            output.output_line(&"Unconfirmed critical success");
         } else if unconfirmed_crit_succ > 1 {
-            output.output_line(format!(
+            output.output_line(&format!(
                 "{} unconfirmed critical successes",
                 unconfirmed_crit_succ
             ));
         }
         if crit_fail == 1 {
-            output.output_line(String::from("Critical failure"));
+            output.output_line(&"Critical failure");
         } else if crit_fail > 1 {
-            output.output_line(format!("{} critical failures", crit_fail));
+            output.output_line(&format!("{} critical failures", crit_fail));
         }
         if unconfirmed_crit_fail == 1 {
-            output.output_line(String::from("Unconfirmed critical failure"));
+            output.output_line(&"Unconfirmed critical failure");
         } else if unconfirmed_crit_fail > 1 {
-            output.output_line(format!(
+            output.output_line(&format!(
                 "{} unconfirmed critical failures",
                 unconfirmed_crit_fail
             ));

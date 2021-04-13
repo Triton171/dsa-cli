@@ -1,5 +1,5 @@
-use super::util::IOError;
-use super::util::IOErrorType;
+use super::util::Error;
+use super::util::ErrorType;
 use super::util::OutputWrapper;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -44,8 +44,10 @@ pub struct SpellConfig {
     pub attributes: Vec<String>
 }
 
+
+
 impl Config {
-    pub fn get_or_create(output: &mut dyn OutputWrapper) -> Result<Config, IOError> {
+    pub fn get_or_create(output: &mut impl OutputWrapper) -> Result<Config, Error> {
         let mut path = get_config_dir()?;
         path.push("config.json");
 
@@ -54,20 +56,20 @@ impl Config {
                 Ok(c) => Ok(c),
                 Err(e) => {
                     let err_type = e.err_type();
-                    if let IOErrorType::InvalidFormat = err_type {
+                    if let ErrorType::InvalidFormat = err_type {
                         let mut old_config = get_config_dir()?;
                         old_config.push("old_config.json");
                         match fs::rename(&path, old_config) {
                             Ok(()) => {
-                                output.output_line(format!("Found invalid configuration file at {}, renamed it to \"old_config.json\"",
+                                output.output_line(&format!("Found invalid configuration file at {}, renamed it to \"old_config.json\"",
                                     path.to_str().unwrap()));
-                                output.output_line(String::from("If you made any changes to the old configuration file, make sure to transfer them, otherwise you don't need to do anything"));
+                                output.output_line(&"If you made any changes to the old configuration file, make sure to transfer them, otherwise you don't need to do anything");
                                 output.new_line();
                                 Config::get_or_create(output)
                             }
-                            Err(e) => Err(IOError::from_string(
+                            Err(e) => Err(Error::from_string(
                                 format!("Unable to rename outdated config file: {}", e.to_string()),
-                                IOErrorType::FileSystemError,
+                                ErrorType::FileSystemError,
                             )),
                         }
                     } else {
@@ -78,27 +80,27 @@ impl Config {
         } else {
             match fs::write(&path, DEFAULT_CONFIG) {
                 Ok(()) => {
-                    output.output_line(format!(
+                    output.output_line(&format!(
                         "Created default config file at: {}",
                         path.to_str().unwrap()
                     ));
                     Config::get_or_create(output)
                 }
-                Err(e) => Err(IOError::from_string(
+                Err(e) => Err(Error::from_string(
                     format!("Unable to write to config file ({})", e.to_string()),
-                    IOErrorType::FileSystemError,
+                    ErrorType::FileSystemError,
                 )),
             }
         }
     }
 
-    fn get(path: &path::Path) -> Result<Config, IOError> {
+    fn get(path: &path::Path) -> Result<Config, Error> {
         let file = match fs::File::open(path) {
             Ok(f) => f,
             Err(_) => {
-                return Err(IOError::from_string(
+                return Err(Error::from_string(
                     format!("Unable to open config file at: {}", path.to_str().unwrap()),
-                    IOErrorType::FileSystemError,
+                    ErrorType::FileSystemError,
                 ));
             }
         };
@@ -106,18 +108,18 @@ impl Config {
         let config: serde_json::Result<Config> = serde_json::from_reader(reader);
         match config {
             Ok(c) => Ok(c),
-            Err(e) => Err(IOError::from_string(
+            Err(e) => Err(Error::from_string(
                 format!(
                     "Invalid syntax in {}, detected at line {}",
                     path.to_str().unwrap(),
                     e.line()
                 ),
-                IOErrorType::InvalidFormat,
+                ErrorType::InvalidFormat,
             )),
         }
     }
 
-    pub fn save(self) -> Result<(), IOError> {
+    pub fn save(self) -> Result<(), Error> {
         let mut config_path = get_config_dir()?;
         config_path.push("config.json");
         let file = match fs::OpenOptions::new()
@@ -128,9 +130,9 @@ impl Config {
         {
             Ok(f) => f,
             Err(e) => {
-                return Err(IOError::from_string(
+                return Err(Error::from_string(
                     format!("Unable to write to config file ({})", e.to_string()),
-                    IOErrorType::FileSystemError,
+                    ErrorType::FileSystemError,
                 ));
             }
         };
@@ -138,9 +140,9 @@ impl Config {
         match serde_json::to_writer_pretty(writer, &self) {
             Ok(()) => {}
             Err(_) => {
-                return Err(IOError::from_str(
+                return Err(Error::from_str(
                     "Unable to serialize configuration",
-                    IOErrorType::Unknown,
+                    ErrorType::Unknown,
                 ))
             }
         }
@@ -148,69 +150,61 @@ impl Config {
     }
 
 
-    pub fn find_skill(&self, search: &str) -> Result<String, String> {
-        let mut skill_name: Option<String> = None;
-        for (name, _) in &self.skills {
-            if name.contains(search) {
-                if let Some(orig_name) = skill_name {
-                    return Err(format!("Ambiguous skill identifier \"{}\": Matched {} and {}", search, orig_name, name));
-                } else {
-                    skill_name = Some(name.to_string());
-                }
-            }
-        }
-        if let Some(skill_name) = skill_name {
-            Ok(skill_name)
+    /*
+    Searches for a search term among the keys of the given hashmap
+    '_' at the beginning or end of the search term marks the beginning/end of the name
+    */
+    pub fn match_search<'a, V>(entries: &'a HashMap<String, V>, search: &str) -> Result<&'a str, Error> {
+        let mut found_name: Option<&str> = None;
+        let mut search_trimmed = search;
+        let search_at_beg = if search_trimmed.starts_with('_') {
+            search_trimmed = &search_trimmed[1..];
+            true
         } else {
-            Err(format!("No skill matches \"{}\"", search))
-        }
-    }
+            false
+        };
+        let search_at_end = if search_trimmed.ends_with('_') {
+            search_trimmed = &search_trimmed[..search_trimmed.len()-1];
+            true
+        } else {
+            false
+        };
+        for (name, _) in entries {
+            if name.contains(search_trimmed) {
+                let mut matches_search = true;
+                if search_at_beg && !name.starts_with(search_trimmed) {
+                    matches_search = false;
+                }
+                if search_at_end && !name.ends_with(search_trimmed) {
+                    matches_search = false;
+                }
 
-    pub fn find_technique(&self, search: &str) -> Result<String, String> {
-        let mut technique_name: Option<String> = None;
-        for (name, _) in &self.combattechniques {
-            if name.contains(search) {
-                if let Some(orig_name) = technique_name {
-                    return Err(format!("Ambiguous combat technique identifier \"{}\": Matched {} and {}", search, orig_name, name));
-                } else {
-                    technique_name = Some(name.to_string());
+                if matches_search {
+                    if let Some(found_name) = found_name {
+                        return Err(Error::from_string(format!("Ambiguous identifier \"{}\": Matched \"{}\" and \"{}\".\nNote: You can use \"_\" to mark the beginning and/or end of the name.", search, found_name, name),
+                            ErrorType::InvalidArgument));
+                    } else {
+                        found_name = Some(name);
+                    }
                 }
             }
         }
-        if let Some(technique_name) = technique_name {
-            Ok(technique_name)
+        if let Some(found_name) = found_name {
+            Ok(found_name)
         } else {
-            Err(format!("No combat technique matches \"{}\"", search))
-        }
-    }
-
-    pub fn find_spell(&self, search: &str) -> Result<String, String> {
-        let mut spell_name: Option<String> = None;
-        for (name, _) in &self.spells {
-            if name.contains(search) {
-                if let Some(orig_name) = spell_name {
-                    return Err(format!("Ambiguous spell identifier \"{}\": Matched {} and {}", search, orig_name, name));
-                } else {
-                    spell_name = Some(name.to_string());
-                }
-            }
-        }
-        if let Some(spell_name) = spell_name {
-            Ok(spell_name)
-        } else {
-            Err(format!("No spell matches \"{}\"", search))
+            Err(Error::from_string(format!("No matches found for \"{}\"", search), ErrorType::InvalidArgument))
         }
     }
 }
 
 #[cfg(target_os = "linux")]
-pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
+pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     let home = match env::var("HOME") {
         Ok(s) => s,
         Err(_) => {
-            return Err(IOError::from_str(
+            return Err(Error::from_str(
                 "Could not read environment variable $HOME",
-                IOErrorType::MissingEnvironmentVariable,
+                ErrorType::MissingEnvironmentVariable,
             ));
         }
     };
@@ -221,9 +215,9 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
-            return Err(IOError::from_string(
+            return Err(Error::from_string(
                 format!("Unable to create config folder ({})", e.to_string()),
-                IOErrorType::FileSystemError,
+                ErrorType::FileSystemError,
             ));
         }
     }
@@ -231,13 +225,13 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
 }
 
 #[cfg(target_os = "windows")]
-pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
+pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     let appdata = match env::var("appdata") {
         Ok(s) => s,
         Err(_) => {
-            return Err(IOError::from_str(
+            return Err(Error::from_str(
                 "Could not read environment variable \"appdata\"",
-                IOErrorType::MissingEnvironmentVariable,
+                ErrorType::MissingEnvironmentVariable,
             ));
         }
     };
@@ -247,9 +241,9 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
-            return Err(IOError::from_string(
+            return Err(Error::from_string(
                 format!("Unable to create config folder ({})", e.to_string()),
-                IOErrorType::FileSystemError,
+                ErrorType::FileSystemError,
             ));
         }
     }
@@ -257,13 +251,13 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
+pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     let appdata = match env::var("HOME") {
         Ok(s) => s,
         Err(_) => {
-            return Err(IOError::from_str(
+            return Err(Error::from_str(
                 "Could not read environment variable \"appdata\"",
-                IOErrorType::MissingEnvironmentVariable,
+                ErrorType::MissingEnvironmentVariable,
             ));
         }
     };
@@ -275,9 +269,9 @@ pub fn get_config_dir() -> Result<path::PathBuf, IOError> {
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
-            return Err(IOError::from_string(
+            return Err(Error::from_string(
                 format!("Unable to create config folder ({})", e.to_string()),
-                IOErrorType::FileSystemError,
+                ErrorType::FileSystemError,
             ));
         }
     }

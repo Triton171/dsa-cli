@@ -15,7 +15,7 @@ fn main() {
     let mut config = match Config::get_or_create(&mut output) {
         Ok(c) => c,
         Err(e) => {
-            output.output_line(format!(
+            output.output_line(&format!(
                 "Error while trying to retrieve config: {}",
                 e.message()
             ));
@@ -32,38 +32,38 @@ fn main() {
                 match Character::load(sub_m.value_of("character_path").unwrap(), &mut config) {
                     Ok(c) => c,
                     Err(e) => {
-                        output.output_line(format!("Error loading character: {}", e.message()));
+                        output.output_line(&format!("Error loading character: {}", e.message()));
                         return;
                     }
                 };
             match config.save() {
                 Ok(()) => {
-                    output.output_line(format!(
+                    output.output_line(&format!(
                         "Successfully loaded character \"{}\"",
                         character.get_name()
                     ));
                 }
                 Err(e) => {
-                    output.output_line(format!("Error saving new config: {}", e.message()));
+                    output.output_line(&format!("Error saving new config: {}", e.message()));
                 }
             }
         }
 
         Some(("unload", _)) => match Character::loaded_character(&config) {
             Ok(None) => {
-                output.output_line(String::from("There is no character currently loaded"));
+                output.output_line(&"There is no character currently loaded");
             }
             Ok(Some(c)) => {
                 Character::unload(&mut config);
                 match config.save() {
                     Ok(()) => {
-                        output.output_line(format!(
+                        output.output_line(&format!(
                             "Successfully unloaded character \"{}\"",
                             c.get_name()
                         ));
                     }
                     Err(e) => {
-                        output.output_line(format!("Error saving new config: {}", e.message()));
+                        output.output_line(&format!("Error saving new config: {}", e.message()));
                     }
                 }
             }
@@ -71,10 +71,10 @@ fn main() {
                 Character::unload(&mut config);
                 match config.save() {
                     Ok(()) => {
-                        output.output_line(String::from("Successfully unloaded invalid character"));
+                        output.output_line(&"Successfully unloaded invalid character");
                     }
                     Err(e) => {
-                        output.output_line(format!("Error saving new config: {}", e.message()));
+                        output.output_line(&format!("Error saving new config: {}", e.message()));
                     }
                 }
             }
@@ -92,11 +92,11 @@ fn main() {
             let character = match Character::loaded_character(&config) {
                 Ok(Some(c)) => c,
                 Ok(None) => {
-                    output.output_line(String::from("Error: No character loaded"));
+                    output.output_line(&"Error: No character loaded");
                     return;
                 }
                 Err(e) => {
-                    output.output_line(format!(
+                    output.output_line(&format!(
                         "Error retrieving loaded character: {}",
                         e.message()
                     ));
@@ -110,11 +110,11 @@ fn main() {
             let character = match Character::loaded_character(&config) {
                 Ok(Some(c)) => c,
                 Ok(None) => {
-                    output.output_line(String::from("Error: No character loaded"));
+                    output.output_line(&"Error: No character loaded");
                     return;
                 }
                 Err(e) => {
-                    output.output_line(format!(
+                    output.output_line(&format!(
                         "Error retrieving loaded character: {}",
                         e.message()
                     ));
@@ -128,11 +128,11 @@ fn main() {
             let character = match Character::loaded_character(&config) {
                 Ok(Some(c)) => c,
                 Ok(None) => {
-                    output.output_line(String::from("Error: No character loaded"));
+                    output.output_line(&"Error: No character loaded");
                     return;
                 }
                 Err(e) => {
-                    output.output_line(format!(
+                    output.output_line(&format!(
                         "Error retrieving loaded character: {}",
                         e.message()
                     ));
@@ -146,11 +146,11 @@ fn main() {
             let character = match Character::loaded_character(&config) {
                 Ok(Some(c)) => c,
                 Ok(None) => {
-                    output.output_line(String::from("Error: No character loaded"));
+                    output.output_line(&"Error: No character loaded");
                     return;
                 }
                 Err(e) => {
-                    output.output_line(format!(
+                    output.output_line(&format!(
                         "Error retrieving loaded character: {}",
                         e.message()
                     ));
@@ -168,11 +168,11 @@ fn main() {
             let character = match Character::loaded_character(&config) {
                 Ok(Some(c)) => c,
                 Ok(None) => {
-                    output.output_line(String::from("Error: No character loaded"));
+                    output.output_line(&"Error: No character loaded");
                     return;
                 }
                 Err(e) => {
-                    output.output_line(format!(
+                    output.output_line(&format!(
                         "Error retrieving loaded character: {}",
                         e.message()
                     ));
@@ -189,9 +189,7 @@ fn main() {
         }
 
         _ => {
-            output.output_line(String::from(
-                "Unknown or missing subcommand. Use -h to get help",
-            ));
+            output.output_line(&"Unknown or missing subcommand. Use -h to get help");
         }
     };
 }
