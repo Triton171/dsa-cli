@@ -18,7 +18,7 @@ pub struct Config {
     pub discord: DiscordConfig,
     pub skills: HashMap<String, SkillConfig>,
     pub combattechniques: HashMap<String, CombatTechniqueConfig>,
-    pub spells: HashMap<String, SpellConfig>
+    pub spells: HashMap<String, SpellConfig>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -41,10 +41,8 @@ pub struct DiscordConfig {
 
 #[derive(Serialize, Deserialize)]
 pub struct SpellConfig {
-    pub attributes: Vec<String>
+    pub attributes: Vec<String>,
 }
-
-
 
 impl Config {
     pub fn get_or_create(output: &mut impl OutputWrapper) -> Result<Config, Error> {
@@ -149,12 +147,14 @@ impl Config {
         Ok(())
     }
 
-
     /*
     Searches for a search term among the keys of the given hashmap
     '_' at the beginning or end of the search term marks the beginning/end of the name
     */
-    pub fn match_search<'a, V>(entries: &'a HashMap<String, V>, search: &str) -> Result<&'a str, Error> {
+    pub fn match_search<'a, V>(
+        entries: &'a HashMap<String, V>,
+        search: &str,
+    ) -> Result<&'a str, Error> {
         let mut found_name: Option<&str> = None;
         let mut search_trimmed = search;
         let search_at_beg = if search_trimmed.starts_with('_') {
@@ -164,7 +164,7 @@ impl Config {
             false
         };
         let search_at_end = if search_trimmed.ends_with('_') {
-            search_trimmed = &search_trimmed[..search_trimmed.len()-1];
+            search_trimmed = &search_trimmed[..search_trimmed.len() - 1];
             true
         } else {
             false
@@ -192,13 +192,35 @@ impl Config {
         if let Some(found_name) = found_name {
             Ok(found_name)
         } else {
-            Err(Error::from_string(format!("No matches found for \"{}\"", search), ErrorType::InvalidArgument))
+            Err(Error::from_string(
+                format!("No matches found for \"{}\"", search),
+                ErrorType::InvalidArgument,
+            ))
         }
     }
 }
 
 #[cfg(target_os = "linux")]
 pub fn get_config_dir() -> Result<path::PathBuf, Error> {
+    match env::var("DSA_CLI_CONFIG_DIR") {
+        Err(_) => {}
+        Ok(s) => {
+            let mut path = path::PathBuf::new();
+            path.push(s);
+            match fs::create_dir_all(&path) {
+                Ok(()) => {
+                    return Ok(path);
+                }
+                Err(e) => {
+                    return Err(Error::from_string(
+                        format!("Unable to create config folder ({})", e.to_string()),
+                        ErrorType::FileSystemError,
+                    ));
+                }
+            }
+        }
+    };
+
     let home = match env::var("HOME") {
         Ok(s) => s,
         Err(_) => {
@@ -211,7 +233,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     let mut path = path::PathBuf::new();
     path.push(home);
     path.push(".config");
-    path.push("dsa_cli");
+    path.push("dsa-cli");
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
@@ -226,6 +248,25 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
 
 #[cfg(target_os = "windows")]
 pub fn get_config_dir() -> Result<path::PathBuf, Error> {
+    match env::var("DSA_CLI_CONFIG_DIR") {
+        Err(_) => {}
+        Ok(s) => {
+            let mut path = path::PathBuf::new();
+            path.push(s);
+            match fs::create_dir_all(&path) {
+                Ok(()) => {
+                    return Ok(path);
+                }
+                Err(e) => {
+                    return Err(Error::from_string(
+                        format!("Unable to create config folder ({})", e.to_string()),
+                        ErrorType::FileSystemError,
+                    ));
+                }
+            }
+        }
+    };
+
     let appdata = match env::var("appdata") {
         Ok(s) => s,
         Err(_) => {
@@ -237,7 +278,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     };
     let mut path = path::PathBuf::new();
     path.push(appdata);
-    path.push("dsa_cli");
+    path.push("dsa-cli");
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
@@ -252,6 +293,25 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
 
 #[cfg(target_os = "macos")]
 pub fn get_config_dir() -> Result<path::PathBuf, Error> {
+    match env::var("DSA_CLI_CONFIG_DIR") {
+        Err(_) => {}
+        Ok(s) => {
+            let mut path = path::PathBuf::new();
+            path.push(s);
+            match fs::create_dir_all(&path) {
+                Ok(()) => {
+                    return Ok(path);
+                }
+                Err(e) => {
+                    return Err(Error::from_string(
+                        format!("Unable to create config folder ({})", e.to_string()),
+                        ErrorType::FileSystemError,
+                    ));
+                }
+            }
+        }
+    };
+
     let appdata = match env::var("HOME") {
         Ok(s) => s,
         Err(_) => {
@@ -265,7 +325,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     path.push(appdata);
     path.push("Library");
     path.push("Application Support");
-    path.push("dsa_cli");
+    path.push("dsa-cli");
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {

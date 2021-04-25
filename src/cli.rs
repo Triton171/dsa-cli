@@ -198,7 +198,9 @@ pub fn generate_completions(printer: &mut impl OutputWrapper) {
                                     "Generated bash completions script at {}",
                                     bash_completions_str
                                 ));
-                                printer.output_line(&"Call this script in your ~/.bashrc to enable completions");
+                                printer.output_line(
+                                    &"Call this script in your ~/.bashrc to enable completions",
+                                );
                             } else {
                                 printer.output_line(&"Unknown error occurred while trying to generate bash completions script");
                             }

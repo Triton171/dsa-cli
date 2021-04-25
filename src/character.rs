@@ -11,7 +11,7 @@ pub struct Character {
     attributes: Vec<CharacterAttribute>,
     skills: Option<Vec<CharacterSkill>>,
     combattechniques: Option<Vec<CharacterCombatTechnique>>,
-    spells: Option<Vec<CharacterSpell>>
+    spells: Option<Vec<CharacterSpell>>,
 }
 
 #[derive(Deserialize)]
@@ -35,7 +35,7 @@ pub struct CharacterCombatTechnique {
 #[derive(Deserialize)]
 pub struct CharacterSpell {
     id: String,
-    level: Option<i64>
+    level: Option<i64>,
 }
 
 impl Character {
@@ -105,7 +105,9 @@ impl Character {
     pub fn get_skill_level(&self, skill_id: &str) -> i64 {
         let skills = match &self.skills {
             Some(skills) => skills,
-            None => { return 0; }
+            None => {
+                return 0;
+            }
         };
         for skill in skills {
             if skill.id.eq_ignore_ascii_case(skill_id) {
@@ -127,7 +129,9 @@ impl Character {
     pub fn get_attack_level(&self, technique_id: &str) -> i64 {
         let techniques = match &self.combattechniques {
             Some(techniques) => techniques,
-            None => { return 0; }
+            None => {
+                return 0;
+            }
         };
         for technique in techniques {
             if technique.id.eq_ignore_ascii_case(technique_id) {
@@ -141,7 +145,9 @@ impl Character {
     pub fn get_spell_level(&self, spell_id: &str) -> i64 {
         let spells = match &self.spells {
             Some(spells) => spells,
-            None => { return 0; }
+            None => {
+                return 0;
+            }
         };
         for spell in spells {
             if spell.id.eq_ignore_ascii_case(spell_id) {

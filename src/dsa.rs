@@ -13,13 +13,14 @@ pub fn skill_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let skill_name = match Config::match_search(&config.skills, cmd_matches.value_of("skill_name").unwrap()) {
-        Ok(name) => name,
-        Err(e) => {
-            output.output_line(&e);
-            return;
-        }
-    };
+    let skill_name =
+        match Config::match_search(&config.skills, cmd_matches.value_of("skill_name").unwrap()) {
+            Ok(name) => name,
+            Err(e) => {
+                output.output_line(&e);
+                return;
+            }
+        };
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
@@ -33,9 +34,9 @@ pub fn skill_check(
             output.output_line(&format!("Unknown skill: \"{}\"", skill_name));
             return;
         }
-        Some(skill) => &skill.attributes
+        Some(skill) => &skill.attributes,
     };
-    
+
     let attrs: Vec<(String, i64)> = skill_attrs
         .iter()
         .map(|attr| (attr.clone(), character.get_attribute_level(attr)))
@@ -64,7 +65,10 @@ pub fn attack_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let technique_name = match Config::match_search(&config.combattechniques, cmd_matches.value_of("technique_name").unwrap()) {
+    let technique_name = match Config::match_search(
+        &config.combattechniques,
+        cmd_matches.value_of("technique_name").unwrap(),
+    ) {
         Ok(name) => name,
         Err(e) => {
             output.output_line(&e);
@@ -97,13 +101,14 @@ pub fn spell_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let spell_name = match Config::match_search(&config.spells, cmd_matches.value_of("spell_name").unwrap()) {
-        Ok(name) => name,
-        Err(e) => {
-            output.output_line(&format!("{}", e));
-            return;
-        }
-    };
+    let spell_name =
+        match Config::match_search(&config.spells, cmd_matches.value_of("spell_name").unwrap()) {
+            Ok(name) => name,
+            Err(e) => {
+                output.output_line(&format!("{}", e));
+                return;
+            }
+        };
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
@@ -117,9 +122,9 @@ pub fn spell_check(
             output.output_line(&format!("Unknown spell: \"{}\"", spell_name));
             return;
         }
-        Some(skill) => &skill.attributes
+        Some(skill) => &skill.attributes,
     };
-    
+
     let attrs: Vec<(String, i64)> = skill_attrs
         .iter()
         .map(|attr| (attr.clone(), character.get_attribute_level(attr)))

@@ -127,7 +127,9 @@ impl EventHandler for Handler {
                         output.output_line(&"Error writing to character file");
                     }
                     if let Err(_) = writer.flush().await {
-                        output.output_line(&"Error writing to character file (Unable to flush output stream)");
+                        output.output_line(
+                            &"Error writing to character file (Unable to flush output stream)",
+                        );
                     }
                     match Character::from_file(&char_path) {
                         Ok(c) => {
@@ -138,7 +140,9 @@ impl EventHandler for Handler {
                         }
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidFormat => {
-                                output.output_line(&"Error loading character: Invalid character file");
+                                output.output_line(
+                                    &"Error loading character: Invalid character file",
+                                );
                             }
                             _ => {
                                 output.output_line(&"Unknown error while loading character");
@@ -217,10 +221,7 @@ impl EventHandler for Handler {
 
                     //Reset trumps all other arguments
                     if sub_m.is_present("reset") {
-                        let guild = match message
-                            .guild(&ctx.cache)
-                            .await 
-                        {
+                        let guild = match message.guild(&ctx.cache).await {
                             Some(g) => g,
                             None => {
                                 output.output_line(&"This option can only be used in a server");
@@ -228,10 +229,7 @@ impl EventHandler for Handler {
                                 return;
                             }
                         };
-                        let members = match guild
-                            .members(&ctx.http, Some(50), None)
-                            .await
-                        {
+                        let members = match guild.members(&ctx.http, Some(50), None).await {
                             Err(e) => {
                                 output.output_line(&format!("Unable to get guild members: {}", e));
                                 output.send(&ctx).await;
@@ -277,10 +275,7 @@ impl EventHandler for Handler {
 
                     if sub_m.is_present("all") {
                         //Add all guild member's characters to the list
-                        let guild = match message
-                            .guild(&ctx.cache)
-                            .await 
-                        {
+                        let guild = match message.guild(&ctx.cache).await {
                             Some(g) => g,
                             None => {
                                 output.output_line(&"This option can only be used in a server");
@@ -289,10 +284,7 @@ impl EventHandler for Handler {
                             }
                         };
 
-                        let members = match guild
-                            .members(&ctx.http, Some(50), None)
-                            .await
-                        {
+                        let members = match guild.members(&ctx.http, Some(50), None).await {
                             Ok(m) => m,
                             Err(e) => {
                                 println!("Error getting guild members: {}", e);
