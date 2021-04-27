@@ -1,0 +1,10 @@
+version: '3.2'
+services:
+  dsa-cli:
+    container_name: dsa-cli
+    build:
+      dockerfile: Dockerfile
+      context: .
+    restart: unless-stopped
+    volumes:
+      - /opt/dsa-cli:/dsa-cli-config
