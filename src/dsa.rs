@@ -102,7 +102,7 @@ pub fn spell_check(
         match DSAData::match_search(&dsa_data.spells, cmd_matches.value_of("spell_name").unwrap()) {
             Ok(s) => s,
             Err(e) => {
-                output.output_line(&format!("{}", e));
+                output.output_line(&e);
                 return;
             }
         };
@@ -160,6 +160,40 @@ pub fn dodge_check(
         CritType::ConfirmableCrits,
         output,
     );
+}
+
+pub fn parry_check(
+    cmd_matches: &ArgMatches,
+    character: &Character,
+    dsa_data: &DSAData,
+    output: &mut impl OutputWrapper
+) {
+    let (technique_name, technique_entry) = match DSAData::match_search(
+        &dsa_data.combat_techniques, 
+        cmd_matches.value_of("technique_name").unwrap()
+    ) {
+        Err(e) => {
+            output.output_line(&e);
+            return;
+        }
+        Ok(r) => r
+    };
+    let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
+        Ok(f) => f,
+        Err(_) => {
+            output.output_line(&"Error: facilitation must be an integer");
+            return;
+        }
+    };
+    let parry_level = character.get_parry_level(&technique_name, &technique_entry.attributes);
+    roll_check(
+        &[(String::from("Parade"), parry_level)], 
+        technique_name, 
+        character.get_name(), 
+        facilitation, 
+        CheckType::SimpleCheck, 
+        CritType::ConfirmableCrits, 
+        output)
 }
 
 pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {

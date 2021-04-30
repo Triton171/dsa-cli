@@ -32,6 +32,7 @@ pub fn get_app() -> App<'static> {
         .subcommand(cmd_attack())
         .subcommand(cmd_spell())
         .subcommand(cmd_dodge())
+        .subcommand(cmd_parry())
         .subcommand(cmd_roll())
         .subcommand(cmd_ini())
 }
@@ -48,6 +49,7 @@ pub fn get_discord_app() -> App<'static> {
         .subcommand(cmd_attack())
         .subcommand(cmd_spell())
         .subcommand(cmd_dodge())
+        .subcommand(cmd_parry())
         .subcommand(cmd_roll())
         .subcommand(cmd_ini()
             .arg(
@@ -150,6 +152,23 @@ fn cmd_dodge() -> App<'static> {
                 .default_value("0"),
         )
 }
+fn cmd_parry() -> App<'static> {
+    App::new("parry")
+        .about("Performs a parry skillcheck for the given combat technique")
+        .setting(AppSettings::AllowLeadingHyphen)
+        .arg(
+            Arg::new("technique_name")
+                .about("The (partial) name of the combat technique")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
+            Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
+        )
+}
 fn cmd_roll() -> App<'static> {
     App::new("roll").about("Rolls some dice").arg(
         Arg::new("dice_expression")
@@ -162,6 +181,7 @@ fn cmd_roll() -> App<'static> {
 fn cmd_ini() -> App<'static> {
     App::new("ini").about("Performs an initiative roll for the current character")
 }
+
 
 pub fn generate_completions(printer: &mut impl OutputWrapper) {
     let mut app = get_app();

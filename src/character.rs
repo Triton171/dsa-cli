@@ -185,4 +185,28 @@ impl Character {
         }
         (attr_mut + attr_gew) / 2
     }
+
+    pub fn get_parry_level(&self, technique_id: &str, technique_attributes: &[String]) -> i64 {
+        let mut technique_level = 0;
+        let techniques = match &self.combattechniques {
+            Some(t) => t,
+            None => { return 0; }
+        };
+        for technique in techniques {
+            if technique.id.eq_ignore_ascii_case(technique_id) {
+                technique_level = technique.level;
+                break;
+            }
+        }
+
+        let mut max_attr = 0;
+        for attr in &self.attributes {
+            for bonus_attr in technique_attributes {
+                if attr.id.eq_ignore_ascii_case(bonus_attr) {
+                    max_attr = std::cmp::max(max_attr, attr.level);
+                }
+            }
+        }
+        technique_level/2 + std::cmp::max(0, (max_attr-8)/3)
+    }
 }

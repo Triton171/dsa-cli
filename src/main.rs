@@ -111,6 +111,14 @@ fn main() {
             dsa::dodge_check(sub_m, &character, &mut output);
         }
 
+        Some(("parry", sub_m)) => {
+            if let Some((character, dsa_data)) = try_get_character_and_dsa_data(&config, &mut output) {
+                dsa::parry_check(sub_m, &character, &dsa_data, &mut output);
+            } else {
+                return;
+            }
+        }
+
         Some(("roll", sub_m)) => {
             dsa::roll(sub_m, &mut output);
         }

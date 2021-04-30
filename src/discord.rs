@@ -222,6 +222,19 @@ impl EventHandler for Handler {
                     output.send(&ctx).await;
                 }
 
+                Some(("parry", sub_m)) => {
+                    let character = match try_get_character(&message.author.id) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            output.output_line(&e);
+                            output.send(&ctx).await;
+                            return;
+                        }
+                    };
+                    dsa::parry_check(sub_m, &character, &self.dsa_data, &mut output);
+                    output.send(&ctx).await;
+                } 
+
                 Some(("roll", sub_m)) => {
                     dsa::roll(sub_m, &mut output);
                     output.send(&ctx).await;
