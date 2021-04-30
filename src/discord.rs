@@ -1,7 +1,6 @@
 use super::character::Character;
 use super::cli;
-use super::config;
-use super::config::Config;
+use super::config::{self,Config,DSAData};
 use super::dsa;
 use super::util::ErrorType;
 use super::util::OutputWrapper;
@@ -25,6 +24,7 @@ use tokio::runtime::Builder;
 
 struct Handler {
     config: Config,
+    dsa_data: DSAData
 }
 
 #[async_trait]
@@ -133,16 +133,34 @@ impl EventHandler for Handler {
                     }
                     match Character::from_file(&char_path) {
                         Ok(c) => {
-                            output.output_line(&format!(
-                                "Successfully loaded character \"{}\"",
-                                c.get_name()
-                            ));
+                            if c.get_name().len()>self.config.discord.max_name_length {
+                                output.output_line(&format!("Error loading character: Character name exceeds {} characters", self.config.discord.max_name_length));
+                                match fs::remove_file(&char_path).await {
+                                    Ok(()) => {}
+                                    Err(e) => {
+                                        println!("Error deleting invalid character file: {}", e);
+                                    }
+                                }
+                                output.send(&ctx).await;
+                                return;
+                            } else {
+                                output.output_line(&format!(
+                                    "Successfully loaded character \"{}\"",
+                                    c.get_name()
+                                ));
+                            }
                         }
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidFormat => {
                                 output.output_line(
                                     &"Error loading character: Invalid character file",
                                 );
+                                match fs::remove_file(&char_path).await {
+                                    Ok(()) => {}
+                                    Err(e) => {
+                                        println!("Error deleting invalid character file: {}", e);
+                                    }
+                                }
                             }
                             _ => {
                                 output.output_line(&"Unknown error while loading character");
@@ -161,7 +179,7 @@ impl EventHandler for Handler {
                             return;
                         }
                     };
-                    dsa::skill_check(sub_m, &character, &self.config, &mut output);
+                    dsa::talent_check(sub_m, &character, &self.dsa_data, &self.config, &mut output);
                     output.send(&ctx).await;
                 }
 
@@ -174,7 +192,7 @@ impl EventHandler for Handler {
                             return;
                         }
                     };
-                    dsa::attack_check(sub_m, &character, &self.config, &mut output);
+                    dsa::attack_check(sub_m, &character, &self.dsa_data, &mut output);
                     output.send(&ctx).await;
                 }
 
@@ -187,7 +205,7 @@ impl EventHandler for Handler {
                             return;
                         }
                     };
-                    dsa::spell_check(sub_m, &character, &self.config, &mut output);
+                    dsa::spell_check(sub_m, &character, &self.dsa_data, &self.config, &mut output);
                     output.send(&ctx).await;
                 }
 
@@ -482,7 +500,7 @@ impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
     }
 }
 
-pub fn start_bot(config: Config) {
+pub fn start_bot(config: Config, dsa_data: DSAData) {
     let login_token = match &config.discord.login_token {
         Some(token) => token.clone(),
         None => {
@@ -491,7 +509,10 @@ pub fn start_bot(config: Config) {
         }
     };
 
-    let handler = Handler { config };
+    let handler = Handler { 
+        config,
+        dsa_data
+    };
 
     let runtime = Builder::new_current_thread()
         .enable_io()

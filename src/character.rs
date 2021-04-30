@@ -1,9 +1,11 @@
-use super::config::Config;
+use super::config;
 use super::util::{Error, ErrorType};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+
+const LOADED_CHARACTER_FILE: &'static str = "loaded_character";
 
 #[derive(Deserialize)]
 pub struct Character {
@@ -39,16 +41,16 @@ pub struct CharacterSpell {
 }
 
 impl Character {
-    pub fn loaded_character(config: &Config) -> Result<Option<Character>, Error> {
-        let char_path = match &config.loaded_character_path {
-            Some(p) => p,
-            None => {
-                return Ok(None);
-            }
-        };
-        match Character::from_file(Path::new(char_path)) {
-            Ok(c) => Ok(Some(c)),
-            Err(e) => Err(e),
+    pub fn loaded_character() -> Result<Option<Character>, Error> {
+        let mut path = config::get_config_dir()?;
+        path.push(LOADED_CHARACTER_FILE);
+        if Path::exists(&path) {
+            let char_path = std::fs::read_to_string(&path)?;
+            let char_path = Path::new(&char_path);
+            let character = Self::from_file(&char_path)?;
+            Ok(Some(character))
+        } else {
+            Ok(None)
         }
     }
 
@@ -58,7 +60,7 @@ impl Character {
             Err(_) => {
                 return Err(Error::new(
                     "Unable to open character file",
-                    ErrorType::FileSystemError,
+                    ErrorType::IOError,
                 ));
             }
         };
@@ -72,19 +74,21 @@ impl Character {
         }
     }
 
-    pub fn load(path: &str, config: &mut Config) -> Result<Character, Error> {
-        let p = Path::new(path);
-        let p = match std::fs::canonicalize(p) {
+    pub fn load(path: &str) -> Result<Character, Error> {
+        let character_path = Path::new(path);
+        let character_path = match std::fs::canonicalize(character_path) {
             Ok(p) => p,
             Err(_) => {
                 return Err(Error::new(
                     "Unable to resolve character path",
-                    ErrorType::FileSystemError,
+                    ErrorType::IOError,
                 ));
             }
         };
-        config.loaded_character_path = Some(p.to_str().unwrap().to_owned());
-        match Character::loaded_character(config) {
+        let mut path = config::get_config_dir()?;
+        path.push(LOADED_CHARACTER_FILE);
+        std::fs::write(&path, character_path.to_str().unwrap())?;
+        match Character::loaded_character() {
             Ok(Some(c)) => Ok(c),
             Ok(None) => Err(Error::new(
                 "Character was not loaded correctly",
@@ -94,8 +98,11 @@ impl Character {
         }
     }
 
-    pub fn unload(config: &mut Config) {
-        config.loaded_character_path = None;
+    pub fn unload() -> Result<(), Error> {
+        let mut path = config::get_config_dir()?;
+        path.push(LOADED_CHARACTER_FILE);
+        std::fs::remove_file(&path)?;
+        Ok(())
     }
 
     pub fn get_name(&self) -> &str {

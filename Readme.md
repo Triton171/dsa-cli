@@ -12,7 +12,7 @@ Additionally, you can create a discord bot by running "dsa-cli discord". This re
 Once your bot is running, you can invite it to your server or message it directly. It will try to interpret any message starting with "!" as a command. Write "!help" for a list of commands.
 
 ## Configuration
-When first run, a config folder and a default config file ("config.json") will be created. The location depends on your operating system:
+When first run, a config folder and default config files (`config.json`, `dsa_data.json`) will be created. The location depends on your operating system:
 
 * Linux: `$HOME/.config/dsa-cli/`
 * Windows: `%appdata%/dsa-cli/`
@@ -20,15 +20,7 @@ When first run, a config folder and a default config file ("config.json") will b
 
 You can change the config folder location by setting the environment variable `DSA_CLI_CONFIG_DIR`, though this shouldn't be necessary usually.
 
-The config file contains among other things:
-
-* The currently loaded character
-* Some customization options (such as the rules for critical successes/failures)
-* A list of skills and associated attributes (this can be extended to include custom skills, spells, etc.)
-* The login token for the discord bot account (if configured)
-
-If you update the application, by default your old configuration file will not be replaced by a newer version (unless it is found incompatible). 
-If you need the new version of the configuration file (for example if new spells have been added to the default config), you can manually rename or delete the old version to force an update.
+Both files can be edited to customize the behavior and rules. 
 
 ## Docker
 If you want to use the discord bot, you can also run it as a docker container. 

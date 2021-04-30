@@ -1,5 +1,5 @@
 use super::character::Character;
-use super::config::Config;
+use super::config::{self,Config, DSAData};
 use super::util;
 use super::util::OutputWrapper;
 use clap::ArgMatches;
@@ -7,14 +7,15 @@ use rand::distributions::{Distribution, Uniform};
 use rand::Rng;
 use std::cmp::Ordering;
 
-pub fn skill_check(
+pub fn talent_check(
     cmd_matches: &ArgMatches,
     character: &Character,
+    dsa_data: &DSAData,
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let skill_name =
-        match Config::match_search(&config.skills, cmd_matches.value_of("skill_name").unwrap()) {
+    let (talent_name, talent_entry) =
+        match DSAData::match_search(&dsa_data.talents, cmd_matches.value_of("skill_name").unwrap()) {
             Ok(name) => name,
             Err(e) => {
                 output.output_line(&e);
@@ -29,28 +30,23 @@ pub fn skill_check(
         }
     };
 
-    let skill_attrs = match config.skills.get(skill_name) {
-        None => {
-            output.output_line(&format!("Unknown skill: \"{}\"", skill_name));
-            return;
-        }
-        Some(skill) => &skill.attributes,
-    };
+    let skill_attrs = &talent_entry.attributes;
 
     let attrs: Vec<(String, i64)> = skill_attrs
         .iter()
         .map(|attr| (attr.clone(), character.get_attribute_level(attr)))
         .collect();
-    let skill_level = character.get_skill_level(&skill_name);
+    let skill_level = character.get_skill_level(&talent_name);
 
-    let crit_type = match config.alternative_crits {
-        Some(true) => CritType::ConfirmableCrits,
-        _ => CritType::MultipleRequiredCrits(2),
+    let crit_type = match config.dsa_rules.crit_rules {
+        config::ConfigDSACritType::NoCrits => CritType::NoCrits,
+        config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
+        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits
     };
 
     roll_check(
         &attrs,
-        &skill_name,
+        &talent_name,
         character.get_name(),
         facilitation,
         CheckType::PointsCheck(skill_level),
@@ -62,14 +58,14 @@ pub fn skill_check(
 pub fn attack_check(
     cmd_matches: &ArgMatches,
     character: &Character,
-    config: &Config,
+    dsa_data: &DSAData,
     output: &mut impl OutputWrapper,
 ) {
-    let technique_name = match Config::match_search(
-        &config.combattechniques,
+    let (technique_name, _) = match DSAData::match_search(
+        &dsa_data.combat_techniques,
         cmd_matches.value_of("technique_name").unwrap(),
     ) {
-        Ok(name) => name,
+        Ok(t) => t,
         Err(e) => {
             output.output_line(&e);
             return;
@@ -98,12 +94,13 @@ pub fn attack_check(
 pub fn spell_check(
     cmd_matches: &ArgMatches,
     character: &Character,
+    dsa_data: &DSAData,
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let spell_name =
-        match Config::match_search(&config.spells, cmd_matches.value_of("spell_name").unwrap()) {
-            Ok(name) => name,
+    let (spell_name, spell_entry) =
+        match DSAData::match_search(&dsa_data.spells, cmd_matches.value_of("spell_name").unwrap()) {
+            Ok(s) => s,
             Err(e) => {
                 output.output_line(&format!("{}", e));
                 return;
@@ -116,14 +113,7 @@ pub fn spell_check(
             return;
         }
     };
-
-    let skill_attrs = match config.spells.get(spell_name) {
-        None => {
-            output.output_line(&format!("Unknown spell: \"{}\"", spell_name));
-            return;
-        }
-        Some(skill) => &skill.attributes,
-    };
+    let skill_attrs = &spell_entry.attributes;
 
     let attrs: Vec<(String, i64)> = skill_attrs
         .iter()
@@ -131,9 +121,10 @@ pub fn spell_check(
         .collect();
     let skill_level = character.get_spell_level(&spell_name);
 
-    let crit_type = match config.alternative_crits {
-        Some(true) => CritType::ConfirmableCrits,
-        _ => CritType::MultipleRequiredCrits(2),
+    let crit_type = match config.dsa_rules.crit_rules {
+        config::ConfigDSACritType::NoCrits => CritType::NoCrits,
+        config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
+        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits
     };
 
     roll_check(

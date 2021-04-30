@@ -1,162 +1,136 @@
 use super::util::Error;
 use super::util::ErrorType;
 use super::util::OutputWrapper;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, de::DeserializeOwned};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::BufReader;
-use std::io::BufWriter;
-use std::path;
+use std::path::{PathBuf, Path};
 
-static DEFAULT_CONFIG: &'static str = include_str!("default_config/config.json");
+const DSA_DATA_NEWEST_VERSION: u64 = 1;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct Config {
-    pub loaded_character_path: Option<String>,
-    pub alternative_crits: Option<bool>,
-    pub discord: DiscordConfig,
-    pub skills: HashMap<String, SkillConfig>,
-    pub combattechniques: HashMap<String, CombatTechniqueConfig>,
-    pub spells: HashMap<String, SpellConfig>,
+    pub auto_update_dsa_data: bool,
+    pub dsa_rules: ConfigDSARules,
+    pub discord: ConfigDiscord
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct SkillConfig {
+#[derive(Deserialize)]
+pub struct ConfigDiscord {
+    pub login_token: Option<String>,
+    pub require_complete_command: bool,
+    pub use_reply: bool,
+    pub max_attachement_size: u64,
+    pub max_name_length: usize
+}
+#[derive(Deserialize)]
+pub struct ConfigDSARules {
+    pub crit_rules: ConfigDSACritType
+}
+
+#[derive(Deserialize)]
+pub enum ConfigDSACritType {
+    NoCrits,
+    DefaultCrits,
+    AlternativeCrits
+}
+
+
+
+#[derive(Deserialize)]
+pub struct DSAData {
+    pub version: u64,
+    pub talents: HashMap<String, TalentConfig>,
+    pub combat_techniques: HashMap<String, CombatTechniqueConfig>,
+    pub spells: HashMap<String, SpellConfig>
+}
+
+#[derive(Deserialize)]
+pub struct TalentConfig {
     pub attributes: Vec<String>,
 }
-
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct CombatTechniqueConfig {
     pub attributes: Vec<String>,
 }
-
-#[derive(Serialize, Deserialize)]
-pub struct DiscordConfig {
-    pub login_token: Option<String>,
-    pub require_complete_command: bool,
-    pub max_attachement_size: u64,
-    pub use_reply: bool,
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct SpellConfig {
     pub attributes: Vec<String>,
 }
 
-impl Config {
-    pub fn get_or_create(output: &mut impl OutputWrapper) -> Result<Config, Error> {
+
+/*
+A trait that handles reading (and creating default) configuration data
+*/
+pub trait AbstractConfig where Self: DeserializeOwned {
+    const DEFAULT_CONFIG: &'static str;
+    const RELATIVE_PATH: &'static str;
+
+    fn absolute_path() -> Result<PathBuf, Error> {
         let mut path = get_config_dir()?;
-        path.push("config.json");
+        path.push(Self::RELATIVE_PATH);
+        Ok(path)
+    }
 
-        if path::Path::exists(&path) {
-            match Config::get(&path) {
-                Ok(c) => Ok(c),
-                Err(e) => {
-                    let err_type = e.err_type();
-                    if let ErrorType::InvalidFormat = err_type {
-                        let mut old_config = get_config_dir()?;
-                        old_config.push("old_config.json");
-                        match fs::rename(&path, old_config) {
-                            Ok(()) => {
-                                output.output_line(&format!("Found invalid configuration file at {}, renamed it to \"old_config.json\"",
-                                    path.to_str().unwrap()));
-                                output.output_line(&"If you made any changes to the old configuration file, make sure to transfer them, otherwise you don't need to do anything");
-                                output.new_line();
-                                Config::get_or_create(output)
-                            }
-                            Err(e) => Err(Error::new(
-                                format!("Unable to rename outdated config file: {}", e.to_string()),
-                                ErrorType::FileSystemError,
-                            )),
-                        }
-                    } else {
-                        Err(e)
-                    }
-                }
-            }
+    fn read() -> Result<Self, Error> {
+        let path = Self::absolute_path()?;
+        if Path::exists(&path) {
+            let file = fs::File::open(&path)?;
+            let reader = BufReader::new(file);
+            let config: Self = serde_json::from_reader(reader)?;
+            Ok(config)
         } else {
-            match fs::write(&path, DEFAULT_CONFIG) {
-                Ok(()) => {
-                    output.output_line(&format!(
-                        "Created default config file at: {}",
-                        path.to_str().unwrap()
-                    ));
-                    Config::get_or_create(output)
-                }
-                Err(e) => Err(Error::new(
-                    format!("Unable to write to config file ({})", e.to_string()),
-                    ErrorType::FileSystemError,
-                )),
-            }
+            Err(Error::new(format!("Missing file: {}", path.to_str().unwrap_or("[Invalid Path]")),
+                ErrorType::MissingFile))
         }
     }
 
-    fn get(path: &path::Path) -> Result<Config, Error> {
-        let file = match fs::File::open(path) {
-            Ok(f) => f,
-            Err(_) => {
-                return Err(Error::new(
-                    format!("Unable to open config file at: {}", path.to_str().unwrap()),
-                    ErrorType::FileSystemError,
-                ));
-            }
-        };
-        let reader = BufReader::new(file);
-        let config: serde_json::Result<Config> = serde_json::from_reader(reader);
-        match config {
-            Ok(c) => Ok(c),
-            Err(e) => Err(Error::new(
-                format!(
-                    "Invalid syntax in {}, detected at line {}",
-                    path.to_str().unwrap(),
-                    e.line()
-                ),
-                ErrorType::InvalidFormat,
-            )),
-        }
-    }
 
-    pub fn save(self) -> Result<(), Error> {
-        let mut config_path = get_config_dir()?;
-        config_path.push("config.json");
-        let file = match fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(config_path)
-        {
-            Ok(f) => f,
-            Err(e) => {
-                return Err(Error::new(
-                    format!("Unable to write to config file ({})", e.to_string()),
-                    ErrorType::FileSystemError,
-                ));
-            }
-        };
-        let writer = BufWriter::new(file);
-        match serde_json::to_writer_pretty(writer, &self) {
-            Ok(()) => {}
-            Err(_) => {
-                return Err(Error::new(
-                    "Unable to serialize configuration",
-                    ErrorType::Unknown,
-                ))
-            }
-        }
+    fn create_default() -> Result<(), Error> {
+        let path = Self::absolute_path()?;
+        fs::write(path, Self::DEFAULT_CONFIG)?;
         Ok(())
     }
 
+    fn get_or_create(output: &mut impl OutputWrapper) -> Result<Self, Error> {
+        match Self::read() {
+            Ok(config) => Ok(config),
+            Err(e) => {
+                if let ErrorType::MissingFile = e.err_type() {
+                    output.output_line(&format!("Creating default config (did not find file \"{}\")", Self::absolute_path()?.to_str().unwrap_or("[Invalid Path]")));
+                    Self::create_default()?;
+                    Self::read()
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+}
+
+impl AbstractConfig for Config {
+    const DEFAULT_CONFIG: &'static str = include_str!("default_config/config.json");
+    const RELATIVE_PATH: &'static str = "config.json";
+}
+
+impl AbstractConfig for DSAData {
+    const DEFAULT_CONFIG: &'static str = include_str!("default_config/dsa_data.json");
+    const RELATIVE_PATH: &'static str = "dsa_data.json";
+}
+
+impl DSAData {
     /*
     Searches for a search term among the keys of the given hashmap
     '_' at the beginning or end of the search term marks the beginning/end of the name
     */
     pub fn match_search<'a, V>(
         entries: &'a HashMap<String, V>,
-        search: &str,
-    ) -> Result<&'a str, Error> {
-        let mut found_name: Option<&str> = None;
-        let mut search_trimmed = search;
+        search: &str
+    ) -> Result<(&'a str, &'a V), Error> {
+        let mut found_entry: Option<(&str, &V)> = None;
+        let mut search_trimmed: &str = &search.to_lowercase();
         let search_at_beg = if search_trimmed.starts_with('_') {
             search_trimmed = &search_trimmed[1..];
             true
@@ -169,7 +143,7 @@ impl Config {
         } else {
             false
         };
-        for (name, _) in entries {
+        for (name, entry) in entries {
             if name.contains(search_trimmed) {
                 let mut matches_search = true;
                 if search_at_beg && !name.starts_with(search_trimmed) {
@@ -180,17 +154,17 @@ impl Config {
                 }
 
                 if matches_search {
-                    if let Some(found_name) = found_name {
-                        return Err(Error::new(format!("Ambiguous identifier \"{}\": Matched \"{}\" and \"{}\".\nNote: You can use \"_\" to mark the beginning and/or end of the name.", search, found_name, name),
+                    if let Some(found_entry) = found_entry {
+                        return Err(Error::new(format!("Ambiguous identifier \"{}\": Matched \"{}\" and \"{}\".\nNote: You can use \"_\" to mark the beginning and/or end of the name.", search, found_entry.0, name),
                             ErrorType::InvalidArgument));
                     } else {
-                        found_name = Some(name);
+                        found_entry = Some((name, entry));
                     }
                 }
             }
         }
-        if let Some(found_name) = found_name {
-            Ok(found_name)
+        if let Some(found_entry) = found_entry {
+            Ok(found_entry)
         } else {
             Err(Error::new(
                 format!("No matches found for \"{}\"", search),
@@ -198,26 +172,45 @@ impl Config {
             ))
         }
     }
+
+
+    pub fn check_replacement_needed(self, config: &Config, output: &mut impl OutputWrapper) -> DSAData {
+        if config.auto_update_dsa_data && self.version<DSA_DATA_NEWEST_VERSION {
+            match Self::create_default() {
+                Err(e) => {
+                    output.output_line(&format!("Error replacing dsa data with newer version: {}", e));
+                    self
+                }
+                Ok(()) => {
+                    output.output_line(&"Replaced dsa data with newer version");
+                    match Self::read() {
+                        Err(_) => {
+                            output.output_line(&"Error reading newly created dsa data, continuing with old version");
+                            self
+                        }
+                        Ok(new_data) => new_data
+                    }
+                }
+            }
+        } else {
+            self
+        }
+    }
 }
 
+
+
+
+
 #[cfg(target_os = "linux")]
-pub fn get_config_dir() -> Result<path::PathBuf, Error> {
+pub fn get_config_dir() -> Result<PathBuf, Error> {
     match env::var("DSA_CLI_CONFIG_DIR") {
         Err(_) => {}
         Ok(s) => {
-            let mut path = path::PathBuf::new();
+            let mut path = PathBuf::new();
             path.push(s);
-            match fs::create_dir_all(&path) {
-                Ok(()) => {
-                    return Ok(path);
-                }
-                Err(e) => {
-                    return Err(Error::new(
-                        format!("Unable to create config folder ({})", e.to_string()),
-                        ErrorType::FileSystemError,
-                    ));
-                }
-            }
+            fs::create_dir_all(&path)?;
+            return Ok(path);
         }
     };
 
@@ -230,7 +223,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
             ));
         }
     };
-    let mut path = path::PathBuf::new();
+    let mut path = PathBuf::new();
     path.push(home);
     path.push(".config");
     path.push("dsa-cli");
@@ -239,7 +232,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
         Err(e) => {
             return Err(Error::new(
                 format!("Unable to create config folder ({})", e.to_string()),
-                ErrorType::FileSystemError,
+                ErrorType::IOError,
             ));
         }
     }
@@ -247,23 +240,14 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
 }
 
 #[cfg(target_os = "windows")]
-pub fn get_config_dir() -> Result<path::PathBuf, Error> {
+pub fn get_config_dir() -> Result<PathBuf, Error> {
     match env::var("DSA_CLI_CONFIG_DIR") {
         Err(_) => {}
         Ok(s) => {
-            let mut path = path::PathBuf::new();
+            let mut path = PathBuf::new();
             path.push(s);
-            match fs::create_dir_all(&path) {
-                Ok(()) => {
-                    return Ok(path);
-                }
-                Err(e) => {
-                    return Err(Error::from_string(
-                        format!("Unable to create config folder ({})", e.to_string()),
-                        ErrorType::FileSystemError,
-                    ));
-                }
-            }
+            fs::create_dir_all(&path)?;
+            return Ok(path);
         }
     };
 
@@ -276,7 +260,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
             ));
         }
     };
-    let mut path = path::PathBuf::new();
+    let mut path = PathBuf::new();
     path.push(appdata);
     path.push("dsa-cli");
     match fs::create_dir_all(&path) {
@@ -298,17 +282,8 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
         Ok(s) => {
             let mut path = path::PathBuf::new();
             path.push(s);
-            match fs::create_dir_all(&path) {
-                Ok(()) => {
-                    return Ok(path);
-                }
-                Err(e) => {
-                    return Err(Error::from_string(
-                        format!("Unable to create config folder ({})", e.to_string()),
-                        ErrorType::FileSystemError,
-                    ));
-                }
-            }
+            fs::create_dir_all(&path)?;
+            Ok(path);
         }
     };
 
@@ -321,7 +296,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
             ));
         }
     };
-    let mut path = path::PathBuf::new();
+    let mut path = PathBuf::new();
     path.push(appdata);
     path.push("Library");
     path.push("Application Support");

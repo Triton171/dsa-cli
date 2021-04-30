@@ -1,5 +1,6 @@
 use std::fmt;
 
+
 pub struct Error {
     message: String,
     err_type: ErrorType,
@@ -10,7 +11,8 @@ pub enum ErrorType {
     InvalidFormat,
     InvalidArgument,
     MissingEnvironmentVariable,
-    FileSystemError,
+    IOError,
+    MissingFile
 }
 
 impl Error {
@@ -30,11 +32,33 @@ impl Error {
     }
 }
 
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Error {
+        Error {
+            message: e.to_string(),
+            err_type: ErrorType::IOError
+        }
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Error {
+        Error {
+            message: e.to_string(),
+            err_type: ErrorType::InvalidFormat
+        }
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message())
     }
 }
+
+
+
+
 
 pub fn uppercase_first(s: &str) -> String {
     let mut c = s.chars();
