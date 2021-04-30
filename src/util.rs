@@ -14,15 +14,11 @@ pub enum ErrorType {
 }
 
 impl Error {
-    pub fn from_str(message: &str, err_type: ErrorType) -> Error {
+    pub fn new<S: Into<String>>(message: S, err_type: ErrorType) -> Error {
         Error {
-            message: String::from(message),
-            err_type,
+            message: message.into(),
+            err_type
         }
-    }
-
-    pub fn from_string(message: String, err_type: ErrorType) -> Error {
-        Error { message, err_type }
     }
 
     pub fn message<'a>(&'a self) -> &'a str {

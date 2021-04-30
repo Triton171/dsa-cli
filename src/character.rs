@@ -56,7 +56,7 @@ impl Character {
         let char_file = match File::open(path) {
             Ok(f) => f,
             Err(_) => {
-                return Err(Error::from_str(
+                return Err(Error::new(
                     "Unable to open character file",
                     ErrorType::FileSystemError,
                 ));
@@ -65,7 +65,7 @@ impl Character {
         let reader = BufReader::new(char_file);
         match serde_json::from_reader(reader) {
             Ok(c) => Ok(c),
-            Err(e) => Err(Error::from_string(
+            Err(e) => Err(Error::new(
                 format!("Invalid character format, detected at line {}", e.line()),
                 ErrorType::InvalidFormat,
             )),
@@ -77,7 +77,7 @@ impl Character {
         let p = match std::fs::canonicalize(p) {
             Ok(p) => p,
             Err(_) => {
-                return Err(Error::from_str(
+                return Err(Error::new(
                     "Unable to resolve character path",
                     ErrorType::FileSystemError,
                 ));
@@ -86,7 +86,7 @@ impl Character {
         config.loaded_character_path = Some(p.to_str().unwrap().to_owned());
         match Character::loaded_character(config) {
             Ok(Some(c)) => Ok(c),
-            Ok(None) => Err(Error::from_str(
+            Ok(None) => Err(Error::new(
                 "Character was not loaded correctly",
                 ErrorType::Unknown,
             )),

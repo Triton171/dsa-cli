@@ -65,7 +65,7 @@ impl Config {
                                 output.new_line();
                                 Config::get_or_create(output)
                             }
-                            Err(e) => Err(Error::from_string(
+                            Err(e) => Err(Error::new(
                                 format!("Unable to rename outdated config file: {}", e.to_string()),
                                 ErrorType::FileSystemError,
                             )),
@@ -84,7 +84,7 @@ impl Config {
                     ));
                     Config::get_or_create(output)
                 }
-                Err(e) => Err(Error::from_string(
+                Err(e) => Err(Error::new(
                     format!("Unable to write to config file ({})", e.to_string()),
                     ErrorType::FileSystemError,
                 )),
@@ -96,7 +96,7 @@ impl Config {
         let file = match fs::File::open(path) {
             Ok(f) => f,
             Err(_) => {
-                return Err(Error::from_string(
+                return Err(Error::new(
                     format!("Unable to open config file at: {}", path.to_str().unwrap()),
                     ErrorType::FileSystemError,
                 ));
@@ -106,7 +106,7 @@ impl Config {
         let config: serde_json::Result<Config> = serde_json::from_reader(reader);
         match config {
             Ok(c) => Ok(c),
-            Err(e) => Err(Error::from_string(
+            Err(e) => Err(Error::new(
                 format!(
                     "Invalid syntax in {}, detected at line {}",
                     path.to_str().unwrap(),
@@ -128,7 +128,7 @@ impl Config {
         {
             Ok(f) => f,
             Err(e) => {
-                return Err(Error::from_string(
+                return Err(Error::new(
                     format!("Unable to write to config file ({})", e.to_string()),
                     ErrorType::FileSystemError,
                 ));
@@ -138,7 +138,7 @@ impl Config {
         match serde_json::to_writer_pretty(writer, &self) {
             Ok(()) => {}
             Err(_) => {
-                return Err(Error::from_str(
+                return Err(Error::new(
                     "Unable to serialize configuration",
                     ErrorType::Unknown,
                 ))
@@ -181,7 +181,7 @@ impl Config {
 
                 if matches_search {
                     if let Some(found_name) = found_name {
-                        return Err(Error::from_string(format!("Ambiguous identifier \"{}\": Matched \"{}\" and \"{}\".\nNote: You can use \"_\" to mark the beginning and/or end of the name.", search, found_name, name),
+                        return Err(Error::new(format!("Ambiguous identifier \"{}\": Matched \"{}\" and \"{}\".\nNote: You can use \"_\" to mark the beginning and/or end of the name.", search, found_name, name),
                             ErrorType::InvalidArgument));
                     } else {
                         found_name = Some(name);
@@ -192,7 +192,7 @@ impl Config {
         if let Some(found_name) = found_name {
             Ok(found_name)
         } else {
-            Err(Error::from_string(
+            Err(Error::new(
                 format!("No matches found for \"{}\"", search),
                 ErrorType::InvalidArgument,
             ))
@@ -212,7 +212,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
                     return Ok(path);
                 }
                 Err(e) => {
-                    return Err(Error::from_string(
+                    return Err(Error::new(
                         format!("Unable to create config folder ({})", e.to_string()),
                         ErrorType::FileSystemError,
                     ));
@@ -224,7 +224,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     let home = match env::var("HOME") {
         Ok(s) => s,
         Err(_) => {
-            return Err(Error::from_str(
+            return Err(Error::new(
                 "Could not read environment variable $HOME",
                 ErrorType::MissingEnvironmentVariable,
             ));
@@ -237,7 +237,7 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     match fs::create_dir_all(&path) {
         Ok(()) => {}
         Err(e) => {
-            return Err(Error::from_string(
+            return Err(Error::new(
                 format!("Unable to create config folder ({})", e.to_string()),
                 ErrorType::FileSystemError,
             ));
