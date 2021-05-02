@@ -1,5 +1,5 @@
 use super::character::Character;
-use super::config::{self,Config, DSAData};
+use super::config::{self, Config, DSAData};
 use super::util;
 use super::util::OutputWrapper;
 use clap::ArgMatches;
@@ -14,14 +14,16 @@ pub fn talent_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let (talent_name, talent_entry) =
-        match DSAData::match_search(&dsa_data.talents, cmd_matches.value_of("skill_name").unwrap()) {
-            Ok(name) => name,
-            Err(e) => {
-                output.output_line(&e);
-                return;
-            }
-        };
+    let (talent_name, talent_entry) = match DSAData::match_search(
+        &dsa_data.talents,
+        cmd_matches.value_of("skill_name").unwrap(),
+    ) {
+        Ok(name) => name,
+        Err(e) => {
+            output.output_line(&e);
+            return;
+        }
+    };
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
@@ -41,7 +43,7 @@ pub fn talent_check(
     let crit_type = match config.dsa_rules.crit_rules {
         config::ConfigDSACritType::NoCrits => CritType::NoCrits,
         config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
-        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits
+        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits,
     };
 
     roll_check(
@@ -98,14 +100,16 @@ pub fn spell_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let (spell_name, spell_entry) =
-        match DSAData::match_search(&dsa_data.spells, cmd_matches.value_of("spell_name").unwrap()) {
-            Ok(s) => s,
-            Err(e) => {
-                output.output_line(&e);
-                return;
-            }
-        };
+    let (spell_name, spell_entry) = match DSAData::match_search(
+        &dsa_data.spells,
+        cmd_matches.value_of("spell_name").unwrap(),
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            output.output_line(&e);
+            return;
+        }
+    };
     let facilitation = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
@@ -124,7 +128,7 @@ pub fn spell_check(
     let crit_type = match config.dsa_rules.crit_rules {
         config::ConfigDSACritType::NoCrits => CritType::NoCrits,
         config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
-        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits
+        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits,
     };
 
     roll_check(
@@ -166,17 +170,17 @@ pub fn parry_check(
     cmd_matches: &ArgMatches,
     character: &Character,
     dsa_data: &DSAData,
-    output: &mut impl OutputWrapper
+    output: &mut impl OutputWrapper,
 ) {
     let (technique_name, technique_entry) = match DSAData::match_search(
-        &dsa_data.combat_techniques, 
-        cmd_matches.value_of("technique_name").unwrap()
+        &dsa_data.combat_techniques,
+        cmd_matches.value_of("technique_name").unwrap(),
     ) {
         Err(e) => {
             output.output_line(&e);
             return;
         }
-        Ok(r) => r
+        Ok(r) => r,
     };
     let facilitation: i64 = match cmd_matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
@@ -187,13 +191,14 @@ pub fn parry_check(
     };
     let parry_level = character.get_parry_level(&technique_name, &technique_entry.attributes);
     roll_check(
-        &[(String::from("Parade"), parry_level)], 
-        technique_name, 
-        character.get_name(), 
-        facilitation, 
-        CheckType::SimpleCheck, 
-        CritType::ConfirmableCrits, 
-        output)
+        &[(String::from("Parade"), parry_level)],
+        technique_name,
+        character.get_name(),
+        facilitation,
+        CheckType::SimpleCheck,
+        CritType::ConfirmableCrits,
+        output,
+    )
 }
 
 pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {

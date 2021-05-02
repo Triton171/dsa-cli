@@ -182,7 +182,6 @@ fn cmd_ini() -> App<'static> {
     App::new("ini").about("Performs an initiative roll for the current character")
 }
 
-
 pub fn generate_completions(printer: &mut impl OutputWrapper) {
     let mut app = get_app();
 

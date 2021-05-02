@@ -180,6 +180,6 @@ impl Character {
                 }
             }
         }
-        technique_level/2 + std::cmp::max(0, (max_attr-8)/3)
+        technique_level / 2 + std::cmp::max(0, (max_attr - 8) / 3)
     }
 }

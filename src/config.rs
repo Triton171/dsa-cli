@@ -1,10 +1,10 @@
 use super::util::*;
-use serde::{Deserialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::BufReader;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 const DSA_DATA_NEWEST_VERSION: u64 = 1;
 
@@ -12,7 +12,7 @@ const DSA_DATA_NEWEST_VERSION: u64 = 1;
 pub struct Config {
     pub auto_update_dsa_data: bool,
     pub dsa_rules: ConfigDSARules,
-    pub discord: ConfigDiscord
+    pub discord: ConfigDiscord,
 }
 
 #[derive(Deserialize)]
@@ -21,28 +21,26 @@ pub struct ConfigDiscord {
     pub require_complete_command: bool,
     pub use_reply: bool,
     pub max_attachement_size: u64,
-    pub max_name_length: usize
+    pub max_name_length: usize,
 }
 #[derive(Deserialize)]
 pub struct ConfigDSARules {
-    pub crit_rules: ConfigDSACritType
+    pub crit_rules: ConfigDSACritType,
 }
 
 #[derive(Deserialize)]
 pub enum ConfigDSACritType {
     NoCrits,
     DefaultCrits,
-    AlternativeCrits
+    AlternativeCrits,
 }
-
-
 
 #[derive(Deserialize)]
 pub struct DSAData {
     pub version: u64,
     pub talents: HashMap<String, TalentConfig>,
     pub combat_techniques: HashMap<String, CombatTechniqueConfig>,
-    pub spells: HashMap<String, SpellConfig>
+    pub spells: HashMap<String, SpellConfig>,
 }
 
 #[derive(Deserialize)]
@@ -58,11 +56,13 @@ pub struct SpellConfig {
     pub attributes: Vec<String>,
 }
 
-
 /*
 A trait that handles reading (and creating default) configuration data
 */
-pub trait AbstractConfig where Self: DeserializeOwned {
+pub trait AbstractConfig
+where
+    Self: DeserializeOwned,
+{
     const DEFAULT_CONFIG: &'static str;
     const RELATIVE_PATH: &'static str;
 
@@ -80,11 +80,15 @@ pub trait AbstractConfig where Self: DeserializeOwned {
             let config: Self = serde_json::from_reader(reader)?;
             Ok(config)
         } else {
-            Err(Error::new(format!("Missing file: {}", path.to_str().unwrap_or("[Invalid Path]")),
-                ErrorType::IO(IOErrorType::MissingFile)))
+            Err(Error::new(
+                format!(
+                    "Missing file: {}",
+                    path.to_str().unwrap_or("[Invalid Path]")
+                ),
+                ErrorType::IO(IOErrorType::MissingFile),
+            ))
         }
     }
-
 
     fn create_default() -> Result<(), Error> {
         let path = Self::absolute_path()?;
@@ -97,7 +101,10 @@ pub trait AbstractConfig where Self: DeserializeOwned {
             Ok(config) => Ok(config),
             Err(e) => {
                 if let ErrorType::IO(IOErrorType::MissingFile) = e.err_type() {
-                    output.output_line(&format!("Creating default config (did not find file \"{}\")", Self::absolute_path()?.to_str().unwrap_or("[Invalid Path]")));
+                    output.output_line(&format!(
+                        "Creating default config (did not find file \"{}\")",
+                        Self::absolute_path()?.to_str().unwrap_or("[Invalid Path]")
+                    ));
                     Self::create_default()?;
                     Self::read()
                 } else {
@@ -125,7 +132,7 @@ impl DSAData {
     */
     pub fn match_search<'a, V>(
         entries: &'a HashMap<String, V>,
-        search: &str
+        search: &str,
     ) -> Result<(&'a str, &'a V), Error> {
         let mut found_entry: Option<(&str, &V)> = None;
         let mut search_trimmed: &str = &search.to_lowercase();
@@ -171,12 +178,18 @@ impl DSAData {
         }
     }
 
-
-    pub fn check_replacement_needed(self, config: &Config, output: &mut impl OutputWrapper) -> DSAData {
-        if config.auto_update_dsa_data && self.version<DSA_DATA_NEWEST_VERSION {
+    pub fn check_replacement_needed(
+        self,
+        config: &Config,
+        output: &mut impl OutputWrapper,
+    ) -> DSAData {
+        if config.auto_update_dsa_data && self.version < DSA_DATA_NEWEST_VERSION {
             match Self::create_default() {
                 Err(e) => {
-                    output.output_line(&format!("Error replacing dsa data with newer version: {}", e));
+                    output.output_line(&format!(
+                        "Error replacing dsa data with newer version: {}",
+                        e
+                    ));
                     self
                 }
                 Ok(()) => {
@@ -186,7 +199,7 @@ impl DSAData {
                             output.output_line(&"Error reading newly created dsa data, continuing with old version");
                             self
                         }
-                        Ok(new_data) => new_data
+                        Ok(new_data) => new_data,
                     }
                 }
             }
@@ -195,10 +208,6 @@ impl DSAData {
         }
     }
 }
-
-
-
-
 
 #[cfg(target_os = "linux")]
 pub fn get_config_dir() -> Result<PathBuf, Error> {

@@ -6,7 +6,7 @@ mod dsa;
 mod util;
 
 use character::Character;
-use config::{Config, DSAData, AbstractConfig};
+use config::{AbstractConfig, Config, DSAData};
 use util::OutputWrapper;
 
 fn main() {
@@ -28,32 +28,31 @@ fn main() {
 
     match matches.subcommand() {
         Some(("load", sub_m)) => {
-            let character =
-                match Character::load(sub_m.value_of("character_path").unwrap()) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        output.output_line(&format!("Error loading character: {}", e.message()));
-                        return;
-                    }
-                };
-            output.output_line(&format!("Successfully loaded character \"{}\"", character.get_name()));
+            let character = match Character::load(sub_m.value_of("character_path").unwrap()) {
+                Ok(c) => c,
+                Err(e) => {
+                    output.output_line(&format!("Error loading character: {}", e.message()));
+                    return;
+                }
+            };
+            output.output_line(&format!(
+                "Successfully loaded character \"{}\"",
+                character.get_name()
+            ));
         }
 
         Some(("unload", _)) => match Character::loaded_character() {
             Ok(None) => {
                 output.output_line(&"There is no character currently loaded");
             }
-            _ => {
-                match Character::unload() {
-                    Ok(()) => {
-                        output.output_line(&"Successfully unloaded character");
-                    }
-                    Err(e) => {
-                        output.output_line(&format!("Error unloading character: {}", e.message()));
-                    }
+            _ => match Character::unload() {
+                Ok(()) => {
+                    output.output_line(&"Successfully unloaded character");
                 }
-                
-            }
+                Err(e) => {
+                    output.output_line(&format!("Error unloading character: {}", e.message()));
+                }
+            },
         },
 
         Some(("discord", _)) => {
@@ -73,15 +72,19 @@ fn main() {
         }
 
         Some(("check", sub_m)) => {
-            if let Some((character, dsa_data)) = try_get_character_and_dsa_data(&config, &mut output) {
+            if let Some((character, dsa_data)) =
+                try_get_character_and_dsa_data(&config, &mut output)
+            {
                 dsa::talent_check(sub_m, &character, &dsa_data, &config, &mut output);
             } else {
                 return;
-            }  
+            }
         }
 
         Some(("attack", sub_m)) => {
-            if let Some((character, dsa_data)) = try_get_character_and_dsa_data(&config, &mut output) {
+            if let Some((character, dsa_data)) =
+                try_get_character_and_dsa_data(&config, &mut output)
+            {
                 dsa::attack_check(sub_m, &character, &dsa_data, &mut output)
             } else {
                 return;
@@ -89,7 +92,9 @@ fn main() {
         }
 
         Some(("spell", sub_m)) => {
-            if let Some((character, dsa_data)) = try_get_character_and_dsa_data(&config, &mut output) {
+            if let Some((character, dsa_data)) =
+                try_get_character_and_dsa_data(&config, &mut output)
+            {
                 dsa::spell_check(sub_m, &character, &dsa_data, &config, &mut output)
             } else {
                 return;
@@ -112,7 +117,9 @@ fn main() {
         }
 
         Some(("parry", sub_m)) => {
-            if let Some((character, dsa_data)) = try_get_character_and_dsa_data(&config, &mut output) {
+            if let Some((character, dsa_data)) =
+                try_get_character_and_dsa_data(&config, &mut output)
+            {
                 dsa::parry_check(sub_m, &character, &dsa_data, &mut output);
             } else {
                 return;
@@ -153,10 +160,10 @@ fn main() {
     };
 }
 
-
-
-
-fn try_get_character_and_dsa_data(config: &Config, output: &mut impl OutputWrapper) -> Option<(Character, DSAData)> {
+fn try_get_character_and_dsa_data(
+    config: &Config,
+    output: &mut impl OutputWrapper,
+) -> Option<(Character, DSAData)> {
     let character = match Character::loaded_character() {
         Ok(Some(c)) => c,
         Ok(None) => {

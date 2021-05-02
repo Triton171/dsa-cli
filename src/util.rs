@@ -1,11 +1,8 @@
-use std::fmt::{self, Write};
 use serenity::{
-    model::{
-        channel::Message,
-        id::ChannelId
-    },
-    client::Context
+    client::Context,
+    model::{channel::Message, id::ChannelId},
 };
+use std::fmt::{self, Write};
 
 pub struct Error {
     message: String,
@@ -22,7 +19,7 @@ pub enum IOErrorType {
     Unknown,
     MissingEnvironmentVariable,
     MissingFile,
-    Discord
+    Discord,
 }
 
 pub enum InputErrorType {
@@ -38,7 +35,7 @@ impl Error {
     pub fn new<S: Into<String>>(message: S, err_type: ErrorType) -> Error {
         Error {
             message: message.into(),
-            err_type
+            err_type,
         }
     }
 
@@ -55,7 +52,7 @@ impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
         Error {
             message: e.to_string(),
-            err_type: ErrorType::IO(IOErrorType::Unknown)
+            err_type: ErrorType::IO(IOErrorType::Unknown),
         }
     }
 }
@@ -64,7 +61,7 @@ impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Error {
         Error {
             message: e.to_string(),
-            err_type: ErrorType::InvalidInput(InputErrorType::InvalidFormat)
+            err_type: ErrorType::InvalidInput(InputErrorType::InvalidFormat),
         }
     }
 }
@@ -73,7 +70,7 @@ impl From<serenity::Error> for Error {
     fn from(e: serenity::Error) -> Error {
         Error {
             message: e.to_string(),
-            err_type: ErrorType::IO(IOErrorType::Discord)
+            err_type: ErrorType::IO(IOErrorType::Discord),
         }
     }
 }
@@ -83,10 +80,6 @@ impl fmt::Display for Error {
         write!(f, "{}", self.message())
     }
 }
-
-
-
-
 
 pub fn uppercase_first(s: &str) -> String {
     let mut c = s.chars();
@@ -127,7 +120,6 @@ impl OutputWrapper for CLIOutputWrapper {
     }
 }
 
-
 pub enum DiscordOutputType<'a> {
     SimpleMessage(ChannelId),
     ReplyTo(&'a Message),
@@ -137,7 +129,7 @@ pub enum DiscordOutputType<'a> {
 pub struct DiscordOutputWrapper<'a> {
     output_type: DiscordOutputType<'a>,
     msg_buf: String,
-    msg_empty: bool
+    msg_empty: bool,
 }
 
 impl<'a> DiscordOutputWrapper<'a> {
@@ -145,7 +137,7 @@ impl<'a> DiscordOutputWrapper<'a> {
         DiscordOutputWrapper {
             output_type: DiscordOutputType::SimpleMessage(channel_id),
             msg_buf: String::from("```"),
-            msg_empty: true
+            msg_empty: true,
         }
     }
 
@@ -153,7 +145,7 @@ impl<'a> DiscordOutputWrapper<'a> {
         DiscordOutputWrapper {
             output_type: DiscordOutputType::ReplyTo(message),
             msg_buf: String::from("```"),
-            msg_empty: true
+            msg_empty: true,
         }
     }
 

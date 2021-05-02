@@ -1,6 +1,6 @@
 use super::character::Character;
 use super::cli;
-use super::config::{self,Config,DSAData};
+use super::config::{self, Config, DSAData};
 use super::dsa;
 use super::util::*;
 use async_std::fs;
@@ -8,12 +8,7 @@ use async_std::io;
 use async_std::prelude::*;
 use serenity::{
     async_trait,
-    model::{
-        channel::Message,
-        gateway::Ready,
-        guild::Member,
-        id::UserId,
-    },
+    model::{channel::Message, gateway::Ready, guild::Member, id::UserId},
     prelude::*,
 };
 use std::path::PathBuf;
@@ -21,7 +16,7 @@ use tokio::runtime::Builder;
 
 struct Handler {
     config: Config,
-    dsa_data: DSAData
+    dsa_data: DSAData,
 }
 
 #[async_trait]
@@ -59,17 +54,21 @@ impl EventHandler for Handler {
                 Some(("upload", _)) => {
                     match upload_character(&message, &self.config).await {
                         Ok(character) => {
-                            output.output_line(&format!("Successfully uploaded character \"{}\"", character.get_name()));
+                            output.output_line(&format!(
+                                "Successfully uploaded character \"{}\"",
+                                character.get_name()
+                            ));
                         }
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidInput(_) => {
                                 output.output_line(&format!("Error loading character: {}", e));
                             }
                             _ => {
-                                output.output_line(&"Internal server error while loading character");
+                                output
+                                    .output_line(&"Internal server error while loading character");
                                 println!("Error loading character: {}", e);
                             }
-                        }
+                        },
                     }
                     output.send(&ctx).await;
                 }
@@ -77,8 +76,14 @@ impl EventHandler for Handler {
                 Some(("check", sub_m)) => {
                     match try_get_character(&message.author.id) {
                         Ok(character) => {
-                            dsa::talent_check(sub_m, &character, &self.dsa_data, &self.config, &mut output);
-                        },
+                            dsa::talent_check(
+                                sub_m,
+                                &character,
+                                &self.dsa_data,
+                                &self.config,
+                                &mut output,
+                            );
+                        }
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidInput(_) => {
                                 output.output_line(&e);
@@ -87,7 +92,7 @@ impl EventHandler for Handler {
                                 output.output_line(&"Internal server error while rolling check");
                                 println!("Error rolling check: {}", e);
                             }
-                        }
+                        },
                     };
                     output.send(&ctx).await;
                 }
@@ -96,7 +101,7 @@ impl EventHandler for Handler {
                     match try_get_character(&message.author.id) {
                         Ok(character) => {
                             dsa::attack_check(sub_m, &character, &self.dsa_data, &mut output);
-                        },
+                        }
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidInput(_) => {
                                 output.output_line(&e);
@@ -105,7 +110,7 @@ impl EventHandler for Handler {
                                 output.output_line(&"Internal server error while rolling attack");
                                 println!("Error rolling attack: {}", e);
                             }
-                        }
+                        },
                     };
                     output.send(&ctx).await;
                 }
@@ -113,8 +118,14 @@ impl EventHandler for Handler {
                 Some(("spell", sub_m)) => {
                     match try_get_character(&message.author.id) {
                         Ok(character) => {
-                            dsa::spell_check(sub_m, &character, &self.dsa_data, &self.config, &mut output);
-                        },
+                            dsa::spell_check(
+                                sub_m,
+                                &character,
+                                &self.dsa_data,
+                                &self.config,
+                                &mut output,
+                            );
+                        }
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidInput(_) => {
                                 output.output_line(&e);
@@ -123,7 +134,7 @@ impl EventHandler for Handler {
                                 output.output_line(&"Internal server error while rolling spell");
                                 println!("Error rolling spell: {}", e);
                             }
-                        }
+                        },
                     };
                     output.send(&ctx).await;
                 }
@@ -132,7 +143,7 @@ impl EventHandler for Handler {
                     match try_get_character(&message.author.id) {
                         Ok(character) => {
                             dsa::dodge_check(sub_m, &character, &mut output);
-                        },
+                        }
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidInput(_) => {
                                 output.output_line(&e);
@@ -141,7 +152,7 @@ impl EventHandler for Handler {
                                 output.output_line(&"Internal server error while rolling dodge");
                                 println!("Error rolling dodge: {}", e);
                             }
-                        }
+                        },
                     };
                     output.send(&ctx).await;
                 }
@@ -150,7 +161,7 @@ impl EventHandler for Handler {
                     match try_get_character(&message.author.id) {
                         Ok(character) => {
                             dsa::parry_check(sub_m, &character, &self.dsa_data, &mut output);
-                        },
+                        }
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidInput(_) => {
                                 output.output_line(&e);
@@ -159,10 +170,10 @@ impl EventHandler for Handler {
                                 output.output_line(&"Internal server error while rolling parry");
                                 println!("Error rolling parry: {}", e);
                             }
-                        }
+                        },
                     };
                     output.send(&ctx).await;
-                } 
+                }
 
                 Some(("roll", sub_m)) => {
                     dsa::roll(sub_m, &mut output);
@@ -171,16 +182,17 @@ impl EventHandler for Handler {
 
                 Some(("ini", sub_m)) => {
                     match initiative(&sub_m, &message, &ctx, &mut output).await {
-                        Ok(()) => {},
+                        Ok(()) => {}
                         Err(e) => match e.err_type() {
                             ErrorType::InvalidInput(_) => {
                                 output.output_line(&e);
                             }
                             _ => {
-                                output.output_line(&"Internal server error while rolling initiative");
+                                output
+                                    .output_line(&"Internal server error while rolling initiative");
                                 println!("Error rolling initiative: {}", e);
                             }
-                        }
+                        },
                     };
                     output.send(&ctx).await;
                 }
@@ -189,8 +201,6 @@ impl EventHandler for Handler {
         }
     }
 }
-
-
 
 pub fn start_bot(config: Config, dsa_data: DSAData) {
     let login_token = match &config.discord.login_token {
@@ -201,10 +211,7 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
         }
     };
 
-    let handler = Handler { 
-        config,
-        dsa_data
-    };
+    let handler = Handler { config, dsa_data };
 
     let runtime = Builder::new_current_thread()
         .enable_io()
@@ -233,27 +240,29 @@ fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
     if !std::path::Path::exists(&char_path) {
         return Err(Error::new(
             "Error loading character: No character found for your discord account",
-            ErrorType::InvalidInput(InputErrorType::MissingCharacter)
+            ErrorType::InvalidInput(InputErrorType::MissingCharacter),
         ));
     }
     Character::from_file(&char_path)
 }
 
-
-
-
-async fn upload_character(message: &Message, config: &Config) -> Result<Character, Error>{
+async fn upload_character(message: &Message, config: &Config) -> Result<Character, Error> {
     //Attachement validation
     if message.attachments.len() != 1 {
         return Err(Error::new(
-            format!("Invalid number of attachements: {}", message.attachments.len()),
-            ErrorType::InvalidInput(InputErrorType::InvalidAttachements)
+            format!(
+                "Invalid number of attachements: {}",
+                message.attachments.len()
+            ),
+            ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
         ));
-    } else if message.attachments[0].size > config.discord.max_attachement_size
-    {
+    } else if message.attachments[0].size > config.discord.max_attachement_size {
         return Err(Error::new(
-            format!("Attachement too big ({} bytes)", message.attachments[0].size),
-            ErrorType::InvalidInput(InputErrorType::InvalidAttachements)
+            format!(
+                "Attachement too big ({} bytes)",
+                message.attachments[0].size
+            ),
+            ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
         ));
     }
     //Get character path
@@ -276,11 +285,14 @@ async fn upload_character(message: &Message, config: &Config) -> Result<Characte
     writer.flush().await?;
     match Character::from_file(&char_path) {
         Ok(c) => {
-            if c.get_name().len()>config.discord.max_name_length {
+            if c.get_name().len() > config.discord.max_name_length {
                 fs::remove_file(&char_path).await?;
                 Err(Error::new(
-                    format!("Character name exceeds {} characters", config.discord.max_name_length),
-                    ErrorType::InvalidInput(InputErrorType::CharacterNameTooLong)
+                    format!(
+                        "Character name exceeds {} characters",
+                        config.discord.max_name_length
+                    ),
+                    ErrorType::InvalidInput(InputErrorType::CharacterNameTooLong),
                 ))
             } else {
                 Ok(c)
@@ -291,16 +303,17 @@ async fn upload_character(message: &Message, config: &Config) -> Result<Characte
                 fs::remove_file(&char_path).await?;
                 Err(e)
             }
-            _ => {
-                Err(e)
-            }
+            _ => Err(e),
         },
     }
 }
 
-
-
-async fn initiative(sub_m: &clap::ArgMatches, message: &Message, ctx: &Context, output: &mut impl OutputWrapper) -> Result<(), Error> {
+async fn initiative(
+    sub_m: &clap::ArgMatches,
+    message: &Message,
+    ctx: &Context,
+    output: &mut impl OutputWrapper,
+) -> Result<(), Error> {
     let config_path = config::get_config_dir()?;
 
     //Reset trumps all other arguments
@@ -310,7 +323,7 @@ async fn initiative(sub_m: &clap::ArgMatches, message: &Message, ctx: &Context, 
             None => {
                 return Err(Error::new(
                     String::from("This option can only be used in a server"),
-                    ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext)
+                    ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
                 ));
             }
         };
@@ -332,17 +345,14 @@ async fn initiative(sub_m: &clap::ArgMatches, message: &Message, ctx: &Context, 
                     if let Some(index) = nickname.find(' ') {
                         if !nickname[..index]
                             .split(',')
-                            .all(|ini_part| ini_part.parse::<i64>().is_ok()) 
+                            .all(|ini_part| ini_part.parse::<i64>().is_ok())
                         {
                             continue;
                         }
                         let new_name = nickname[index + 1..].to_string();
                         rename_futs.push(async {
                             let member = member;
-                            match member
-                                .edit(&ctx.http, |edit| edit.nickname(new_name))
-                                .await
-                            {
+                            match member.edit(&ctx.http, |edit| edit.nickname(new_name)).await {
                                 Ok(_) => {}
                                 Err(e) => {
                                     println!("Error changing user nickname: {}", e);
@@ -369,7 +379,7 @@ async fn initiative(sub_m: &clap::ArgMatches, message: &Message, ctx: &Context, 
             None => {
                 return Err(Error::new(
                     "This option can only be used in a server",
-                    ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext)
+                    ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
                 ));
             }
         };
@@ -385,7 +395,7 @@ async fn initiative(sub_m: &clap::ArgMatches, message: &Message, ctx: &Context, 
                     Err(_) => {
                         return Err(Error::new(
                             format!("Unable to retrieve character for {}", member.display_name()),
-                            ErrorType::InvalidInput(InputErrorType::InvalidFormat)
+                            ErrorType::InvalidInput(InputErrorType::InvalidFormat),
                         ));
                     }
                     Ok(character) => {
@@ -413,7 +423,7 @@ async fn initiative(sub_m: &clap::ArgMatches, message: &Message, ctx: &Context, 
         } else {
             return Err(Error::new(
                 "No character found for your discord account",
-                ErrorType::InvalidInput(InputErrorType::MissingCharacter)
+                ErrorType::InvalidInput(InputErrorType::MissingCharacter),
             ));
         }
     }
@@ -430,8 +440,11 @@ async fn initiative(sub_m: &clap::ArgMatches, message: &Message, ctx: &Context, 
             let ini_level = match custom_char[1].parse::<i64>() {
                 Err(_) => {
                     return Err(Error::new(
-                        format!("Unable to parse custom initiative level: {}", custom_char[1]),
-                        ErrorType::InvalidInput(InputErrorType::InvalidArgument)
+                        format!(
+                            "Unable to parse custom initiative level: {}",
+                            custom_char[1]
+                        ),
+                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
                     ));
                 }
                 Ok(level) => level,
