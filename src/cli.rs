@@ -102,7 +102,7 @@ fn cmd_skillcheck() -> App<'static> {
         )
         .arg(
             Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .about("The level of facilitation (if positive) or obstruction (if negative). Seperate several values by commas to use different values for each roll")
                 .takes_value(true)
                 .default_value("0"),
         )
@@ -136,7 +136,7 @@ fn cmd_spell() -> App<'static> {
         )
         .arg(
             Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .about("The level of facilitation (if positive) or obstruction (if negative). Seperate several values by commas to use different values for each roll")
                 .takes_value(true)
                 .default_value("0"),
         )

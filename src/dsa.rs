@@ -6,6 +6,42 @@ use rand::distributions::{Distribution, Uniform};
 use rand::Rng;
 use std::{cmp::Ordering, num::ParseIntError};
 
+
+enum CheckType {
+    //A simple check where you have to roll below your attributes (for example an attribute check)
+    SimpleCheck,
+    //A check where you can compensate for higher rolls with some available points
+    PointsCheck(i64),
+}
+
+enum CritType {
+    //A check without critical successes or failures
+    NoCrits,
+    //A check where crits have to be confirmed with a second roll
+    ConfirmableCrits,
+    //A check where some number of 1 (or 20) rolls are required to trigger a crit (this number can also be 1)
+    MultipleRequiredCrits(u32),
+}
+
+enum Facilitation {
+    SimpleFacilitation(i64),
+    IndividualFacilitation(Vec<i64>)
+}
+
+impl Facilitation {
+    fn iter<'a>(&'a self) -> Box<dyn std::iter::Iterator<Item=&i64> + 'a> {
+        match self {
+            Facilitation::SimpleFacilitation(fac) => {
+                Box::new(std::iter::repeat(fac))
+            }
+            Facilitation::IndividualFacilitation(facs) => {
+                Box::new(facs.iter())
+            }
+        }
+    }
+}
+
+
 pub fn talent_check(
     cmd_matches: &ArgMatches,
     character: &Character,
@@ -31,9 +67,9 @@ pub fn talent_check(
             return;
         }
     };
-    let attrs: Vec<(String, i64)> = skill_attrs
+    let attrs: Vec<(&str, i64)> = skill_attrs
         .iter()
-        .map(|attr| (attr.clone(), character.get_attribute_level(attr)))
+        .map(|attr| (attr.as_str(), character.get_attribute_level(attr)))
         .collect();
     let skill_level = character.get_skill_level(&talent_name);
 
@@ -80,7 +116,7 @@ pub fn attack_check(
 
     let attack_level = character.get_attack_level(technique_name);
     roll_check(
-        &[(technique_name.to_string(), attack_level)],
+        &[(technique_name, attack_level)],
         &format!("Attack: {}", technique_name),
         character.get_name(),
         facilitation,
@@ -116,9 +152,9 @@ pub fn spell_check(
         }
     };
 
-    let attrs: Vec<(String, i64)> = spell_attrs
+    let attrs: Vec<(&str, i64)> = spell_attrs
         .iter()
-        .map(|attr| (attr.clone(), character.get_attribute_level(attr)))
+        .map(|attr| (attr.as_str(), character.get_attribute_level(attr)))
         .collect();
     let skill_level = character.get_spell_level(&spell_name);
 
@@ -153,7 +189,7 @@ pub fn dodge_check(
     };
     let dodge_level = character.get_dodge_level();
     roll_check(
-        &[(String::from("Ausweichen"), dodge_level)],
+        &[("Ausweichen", dodge_level)],
         "Ausweichen",
         character.get_name(),
         facilitation,
@@ -188,7 +224,7 @@ pub fn parry_check(
     };
     let parry_level = character.get_parry_level(&technique_name, &technique_entry.attributes);
     roll_check(
-        &[(String::from("Parade"), parry_level)],
+        &[("Parade", parry_level)],
         technique_name,
         character.get_name(),
         facilitation,
@@ -364,23 +400,7 @@ pub fn roll_ini(
 }
 
 
-enum Facilitation {
-    SimpleFacilitation(i64),
-    IndividualFacilitation(Vec<i64>)
-}
 
-impl Facilitation {
-    fn iter<'a>(&'a self) -> Box<dyn std::iter::Iterator<Item=&i64> + 'a> {
-        match self {
-            Facilitation::SimpleFacilitation(fac) => {
-                Box::new(std::iter::repeat(fac))
-            }
-            Facilitation::IndividualFacilitation(facs) => {
-                Box::new(facs.iter())
-            }
-        }
-    }
-}
 
 fn get_facilitation(matches: &ArgMatches, num_attributes: usize) -> Result<Facilitation, Error> {
     let facilitation = matches.value_of("facilitation").unwrap();
@@ -421,24 +441,10 @@ fn get_facilitation(matches: &ArgMatches, num_attributes: usize) -> Result<Facil
 
 
 
-enum CheckType {
-    //A simple check where you have to roll below your attributes (for example an attribute check)
-    SimpleCheck,
-    //A check where you can compensate for higher rolls with some available points
-    PointsCheck(i64),
-}
 
-enum CritType {
-    //A check without critical successes or failures
-    NoCrits,
-    //A check where crits have to be confirmed with a second roll
-    ConfirmableCrits,
-    //A check where some number of 1 (or 20) rolls are required to trigger a crit (this number can also be 1)
-    MultipleRequiredCrits(u32),
-}
 
 fn roll_check(
-    attributes: &[(String, i64)],
+    attributes: &[(&str, i64)],
     check_name: &str,
     character_name: &str,
     facilitation: Facilitation,
