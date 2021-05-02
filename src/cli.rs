@@ -87,16 +87,16 @@ pub fn get_discord_app() -> App<'static> {
 }
 
 fn get_version() -> &'static str {
-    "1.1"
+    "1.2"
 }
 
 fn cmd_skillcheck() -> App<'static> {
     App::new("check")
-        .about("Performs a skillcheck for the given skill")
+        .about("Performs a skillcheck for the given talent")
         .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("skill_name")
-                .about("The (partial) name of the skill")
+                .about("The (partial) name of the talent")
                 .takes_value(true)
                 .required(true),
         )
