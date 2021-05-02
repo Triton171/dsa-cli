@@ -2,8 +2,7 @@ use super::character::Character;
 use super::cli;
 use super::config::{self,Config,DSAData};
 use super::dsa;
-use super::util::ErrorType;
-use super::util::OutputWrapper;
+use super::util::*;
 use async_std::fs;
 use async_std::io;
 use async_std::prelude::*;
@@ -13,12 +12,10 @@ use serenity::{
         channel::Message,
         gateway::Ready,
         guild::Member,
-        id::{ChannelId, UserId},
+        id::UserId,
     },
     prelude::*,
 };
-use std::fmt;
-use std::fmt::Write;
 use std::path::PathBuf;
 use tokio::runtime::Builder;
 
@@ -40,7 +37,6 @@ impl EventHandler for Handler {
         };
 
         if message.content.starts_with('!') {
-            println!("Received command: \"{}\"", message.content);
             let matches = cli::get_discord_app().try_get_matches_from({
                 let command = &message.content[1..];
                 let args: Box<dyn Iterator<Item = &str>> =
@@ -61,177 +57,110 @@ impl EventHandler for Handler {
             };
             match matches.subcommand() {
                 Some(("upload", _)) => {
-                    //Attachement validation
-                    if message.attachments.len() != 1 {
-                        output.output_line(&format!(
-                            "Invalid number of attachements: {}",
-                            message.attachments.len()
-                        ));
-                        output.send(&ctx).await;
-                        return;
-                    } else if message.attachments[0].size > self.config.discord.max_attachement_size
-                    {
-                        output.output_line(&format!(
-                            "Attachement too big ({} bytes)",
-                            message.attachments[0].size
-                        ));
-                        output.send(&ctx).await;
-                        return;
-                    }
-                    //Get character path
-                    let mut char_path = match config::get_config_dir() {
-                        Err(_) => {
-                            output.output_line(&"Error retrieving config directory");
-                            output.send(&ctx).await;
-                            return;
-                        }
-                        Ok(config_dir) => config_dir,
-                    };
-                    char_path.push("discord_characters");
-                    match fs::create_dir_all(&char_path).await {
-                        Err(_) => {
-                            output.output_line(&"Error creating character folder");
-                            output.send(&ctx).await;
-                            return;
-                        }
-                        Ok(()) => (),
-                    };
-                    char_path.push(message.author.id.to_string());
-                    //Download data
-                    let data = match message.attachments[0].download().await {
-                        Err(_) => {
-                            output.output_line(&"Error downloading attachement");
-                            output.send(&ctx).await;
-                            return;
-                        }
-                        Ok(data) => data,
-                    };
-                    //Open file
-                    let file = match fs::OpenOptions::new()
-                        .create(true)
-                        .write(true)
-                        .truncate(true)
-                        .open(&char_path)
-                        .await
-                    {
-                        Err(_) => {
-                            output.output_line(&"Error creating character file");
-                            output.send(&ctx).await;
-                            return;
-                        }
-                        Ok(f) => f,
-                    };
-                    //Write
-                    let mut writer = io::BufWriter::new(file);
-                    if let Err(_) = writer.write(&data).await {
-                        output.output_line(&"Error writing to character file");
-                    }
-                    if let Err(_) = writer.flush().await {
-                        output.output_line(
-                            &"Error writing to character file (Unable to flush output stream)",
-                        );
-                    }
-                    match Character::from_file(&char_path) {
-                        Ok(c) => {
-                            if c.get_name().len()>self.config.discord.max_name_length {
-                                output.output_line(&format!("Error loading character: Character name exceeds {} characters", self.config.discord.max_name_length));
-                                match fs::remove_file(&char_path).await {
-                                    Ok(()) => {}
-                                    Err(e) => {
-                                        println!("Error deleting invalid character file: {}", e);
-                                    }
-                                }
-                                output.send(&ctx).await;
-                                return;
-                            } else {
-                                output.output_line(&format!(
-                                    "Successfully loaded character \"{}\"",
-                                    c.get_name()
-                                ));
-                            }
+                    match upload_character(&message, &self.config).await {
+                        Ok(character) => {
+                            output.output_line(&format!("Successfully uploaded character \"{}\"", character.get_name()));
                         }
                         Err(e) => match e.err_type() {
-                            ErrorType::InvalidFormat => {
-                                output.output_line(
-                                    &"Error loading character: Invalid character file",
-                                );
-                                match fs::remove_file(&char_path).await {
-                                    Ok(()) => {}
-                                    Err(e) => {
-                                        println!("Error deleting invalid character file: {}", e);
-                                    }
-                                }
+                            ErrorType::InvalidInput(_) => {
+                                output.output_line(&format!("Error loading character: {}", e));
                             }
                             _ => {
-                                output.output_line(&"Unknown error while loading character");
+                                output.output_line(&"Internal server error while loading character");
+                                println!("Error loading character: {}", e);
                             }
-                        },
-                    };
+                        }
+                    }
                     output.send(&ctx).await;
                 }
 
                 Some(("check", sub_m)) => {
-                    let character = match try_get_character(&message.author.id) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            output.output_line(&e);
-                            output.send(&ctx).await;
-                            return;
+                    match try_get_character(&message.author.id) {
+                        Ok(character) => {
+                            dsa::talent_check(sub_m, &character, &self.dsa_data, &self.config, &mut output);
+                        },
+                        Err(e) => match e.err_type() {
+                            ErrorType::InvalidInput(_) => {
+                                output.output_line(&e);
+                            }
+                            _ => {
+                                output.output_line(&"Internal server error while rolling check");
+                                println!("Error rolling check: {}", e);
+                            }
                         }
                     };
-                    dsa::talent_check(sub_m, &character, &self.dsa_data, &self.config, &mut output);
                     output.send(&ctx).await;
                 }
 
                 Some(("attack", sub_m)) => {
-                    let character = match try_get_character(&message.author.id) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            output.output_line(&e);
-                            output.send(&ctx).await;
-                            return;
+                    match try_get_character(&message.author.id) {
+                        Ok(character) => {
+                            dsa::attack_check(sub_m, &character, &self.dsa_data, &mut output);
+                        },
+                        Err(e) => match e.err_type() {
+                            ErrorType::InvalidInput(_) => {
+                                output.output_line(&e);
+                            }
+                            _ => {
+                                output.output_line(&"Internal server error while rolling attack");
+                                println!("Error rolling attack: {}", e);
+                            }
                         }
                     };
-                    dsa::attack_check(sub_m, &character, &self.dsa_data, &mut output);
                     output.send(&ctx).await;
                 }
 
                 Some(("spell", sub_m)) => {
-                    let character = match try_get_character(&message.author.id) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            output.output_line(&e);
-                            output.send(&ctx).await;
-                            return;
+                    match try_get_character(&message.author.id) {
+                        Ok(character) => {
+                            dsa::spell_check(sub_m, &character, &self.dsa_data, &self.config, &mut output);
+                        },
+                        Err(e) => match e.err_type() {
+                            ErrorType::InvalidInput(_) => {
+                                output.output_line(&e);
+                            }
+                            _ => {
+                                output.output_line(&"Internal server error while rolling spell");
+                                println!("Error rolling spell: {}", e);
+                            }
                         }
                     };
-                    dsa::spell_check(sub_m, &character, &self.dsa_data, &self.config, &mut output);
                     output.send(&ctx).await;
                 }
 
                 Some(("dodge", sub_m)) => {
-                    let character = match try_get_character(&message.author.id) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            output.output_line(&e);
-                            output.send(&ctx).await;
-                            return;
+                    match try_get_character(&message.author.id) {
+                        Ok(character) => {
+                            dsa::dodge_check(sub_m, &character, &mut output);
+                        },
+                        Err(e) => match e.err_type() {
+                            ErrorType::InvalidInput(_) => {
+                                output.output_line(&e);
+                            }
+                            _ => {
+                                output.output_line(&"Internal server error while rolling dodge");
+                                println!("Error rolling dodge: {}", e);
+                            }
                         }
                     };
-                    dsa::dodge_check(sub_m, &character, &mut output);
                     output.send(&ctx).await;
                 }
 
                 Some(("parry", sub_m)) => {
-                    let character = match try_get_character(&message.author.id) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            output.output_line(&e);
-                            output.send(&ctx).await;
-                            return;
+                    match try_get_character(&message.author.id) {
+                        Ok(character) => {
+                            dsa::parry_check(sub_m, &character, &self.dsa_data, &mut output);
+                        },
+                        Err(e) => match e.err_type() {
+                            ErrorType::InvalidInput(_) => {
+                                output.output_line(&e);
+                            }
+                            _ => {
+                                output.output_line(&"Internal server error while rolling parry");
+                                println!("Error rolling parry: {}", e);
+                            }
                         }
                     };
-                    dsa::parry_check(sub_m, &character, &self.dsa_data, &mut output);
                     output.send(&ctx).await;
                 } 
 
@@ -241,204 +170,19 @@ impl EventHandler for Handler {
                 }
 
                 Some(("ini", sub_m)) => {
-                    let config_path = match config::get_config_dir() {
-                        Ok(p) => p,
-                        Err(_) => {
-                            output.output_line(&"Unable to retrieve config folder");
-                            output.send(&ctx).await;
-                            return;
+                    match initiative(&sub_m, &message, &ctx, &mut output).await {
+                        Ok(()) => {},
+                        Err(e) => match e.err_type() {
+                            ErrorType::InvalidInput(_) => {
+                                output.output_line(&e);
+                            }
+                            _ => {
+                                output.output_line(&"Internal server error while rolling initiative");
+                                println!("Error rolling initiative: {}", e);
+                            }
                         }
                     };
-
-                    //Reset trumps all other arguments
-                    if sub_m.is_present("reset") {
-                        let guild = match message.guild(&ctx.cache).await {
-                            Some(g) => g,
-                            None => {
-                                output.output_line(&"This option can only be used in a server");
-                                output.send(&ctx).await;
-                                return;
-                            }
-                        };
-                        let members = match guild.members(&ctx.http, Some(50), None).await {
-                            Err(e) => {
-                                output.output_line(&format!("Unable to get guild members: {}", e));
-                                output.send(&ctx).await;
-                                return;
-                            }
-                            Ok(m) => m,
-                        };
-                        let mut rename_futs = Vec::new();
-                        for member in members {
-                            let user_id = member.user.id.to_string();
-                            let mut path = PathBuf::from(&config_path);
-                            path.push("discord_characters");
-                            path.push(user_id);
-                            if std::path::Path::exists(&path) {
-                                if let Some(nickname) = member.nick.clone() {
-                                    if let Some(index) = nickname.find('_') {
-                                        let new_name = nickname[index + 1..].to_string();
-                                        /*rename_futs.push(member.edit(&ctx.http,
-                                        |edit| edit.nickname(new_name)));*/
-                                        rename_futs.push(async {
-                                            let member = member;
-                                            match member
-                                                .edit(&ctx.http, |edit| edit.nickname(new_name))
-                                                .await
-                                            {
-                                                Ok(_) => {}
-                                                Err(e) => {
-                                                    println!("Error changing user nickname: {}", e);
-                                                }
-                                            };
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                        futures::future::join_all(rename_futs).await;
-                    }
-
-                    //All (name, ini_level) tuples to include in the check
-                    let mut characters: Vec<(String, i64)> = Vec::new();
-                    //The user_id for all the characters that have one (currently only used for renaming)
-                    let mut characters_members: Vec<Option<Member>> = Vec::new();
-
-                    if sub_m.is_present("all") {
-                        //Add all guild member's characters to the list
-                        let guild = match message.guild(&ctx.cache).await {
-                            Some(g) => g,
-                            None => {
-                                output.output_line(&"This option can only be used in a server");
-                                output.send(&ctx).await;
-                                return;
-                            }
-                        };
-
-                        let members = match guild.members(&ctx.http, Some(50), None).await {
-                            Ok(m) => m,
-                            Err(e) => {
-                                println!("Error getting guild members: {}", e);
-                                output.output_line(&format!("Unable to get guild members: {}", e));
-                                output.send(&ctx).await;
-                                return;
-                            }
-                        };
-                        for member in members {
-                            let user_id = member.user.id.to_string();
-                            let mut path = PathBuf::from(&config_path);
-                            path.push("discord_characters");
-                            path.push(user_id);
-                            if std::path::Path::exists(&path) {
-                                match Character::from_file(&path) {
-                                    Err(_) => {
-                                        output.output_line(&format!(
-                                            "Unable to retrieve character for {}",
-                                            member.display_name()
-                                        ));
-                                    }
-                                    Ok(character) => {
-                                        characters.push((
-                                            character.get_name().to_string(),
-                                            character.get_initiative_level(),
-                                        ));
-                                        characters_members.push(Some(member));
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        //Add the authors character to the list
-                        let mut path = PathBuf::from(&config_path);
-                        path.push("discord_characters");
-                        path.push(message.author.id.to_string());
-                        if std::path::Path::exists(&path) {
-                            match Character::from_file(&path) {
-                                Err(_) => {
-                                    output.output_line(&format!(
-                                        "Error: Unable to retrieve character"
-                                    ));
-                                    output.send(&ctx).await;
-                                    return;
-                                }
-                                Ok(character) => {
-                                    characters.push((
-                                        character.get_name().to_string(),
-                                        character.get_initiative_level(),
-                                    ));
-                                    characters_members.push(None);
-                                }
-                            }
-                        } else {
-                            output.output_line(&"No character found for your discord account");
-                        }
-                    }
-
-                    if sub_m.is_present("new") {
-                        let custom_args: Vec<&str> = sub_m.values_of("new").unwrap().collect();
-                        if custom_args.len() % 2 != 0 {
-                            output.output_line(&"The \"new\" argument expects an even number of values (name and level for each custom character)");
-                            output.send(&ctx).await;
-                            return;
-                        }
-                        for custom_char in custom_args.chunks(2) {
-                            let ini_level = match custom_char[1].parse::<i64>() {
-                                Err(_) => {
-                                    output.output_line(&format!(
-                                        "Unable to parse custom initiative level: {}",
-                                        custom_char[1]
-                                    ));
-                                    output.send(&ctx).await;
-                                    return;
-                                }
-                                Ok(level) => level,
-                            };
-                            characters.push((custom_char[0].to_string(), ini_level));
-                            characters_members.push(None);
-                        }
-                    }
-
-                    let rolls = dsa::roll_ini(&characters, &mut output);
-
-                    if sub_m.is_present("rename") {
-                        let mut rename_futs = Vec::new();
-                        for roll in rolls {
-                            let character = &characters[roll.0];
-                            let member = &characters_members[roll.0];
-                            if let Some(member) = member {
-                                let displ_name = member.display_name();
-                                let mut new_name = roll.1.iter().skip(1).fold(
-                                    format!("{}", character.1 + roll.1[0]),
-                                    |mut s, roll| {
-                                        s.push_str(&format!(".{}", roll));
-                                        s
-                                    },
-                                );
-                                new_name.push('_');
-                                new_name.push_str(&displ_name);
-
-                                rename_futs.push(async {
-                                    //Shadow the variable to force a move
-                                    let roll = roll;
-                                    match characters_members[roll.0]
-                                        .as_ref()
-                                        .unwrap()
-                                        .edit(&ctx.http, |edit| edit.nickname(new_name))
-                                        .await
-                                    {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            println!("Error changing user nickname: {}", e);
-                                        }
-                                    }
-                                });
-                            }
-                        }
-
-                        tokio::join!(output.send(&ctx), futures::future::join_all(rename_futs));
-                    } else {
-                        output.send(&ctx).await;
-                    }
+                    output.send(&ctx).await;
                 }
                 _ => {}
             };
@@ -446,72 +190,7 @@ impl EventHandler for Handler {
     }
 }
 
-enum DiscordOutputType<'a> {
-    SimpleMessage(ChannelId),
-    ReplyTo(&'a Message),
-}
 
-//A lazy output wrapper for sending discord messages
-struct DiscordOutputWrapper<'a> {
-    output_type: DiscordOutputType<'a>,
-    msg_buf: String,
-}
-
-impl<'a> DiscordOutputWrapper<'a> {
-    fn new_simple_message(channel_id: ChannelId) -> DiscordOutputWrapper<'a> {
-        DiscordOutputWrapper {
-            output_type: DiscordOutputType::SimpleMessage(channel_id),
-            msg_buf: String::from("```"),
-        }
-    }
-
-    fn new_reply_to(message: &'a Message) -> DiscordOutputWrapper<'a> {
-        DiscordOutputWrapper {
-            output_type: DiscordOutputType::ReplyTo(message),
-            msg_buf: String::from("```"),
-        }
-    }
-
-    async fn send(&mut self, ctx: &Context) {
-        self.msg_buf.push_str("```");
-        match &self.output_type {
-            DiscordOutputType::SimpleMessage(channel_id) => {
-                match channel_id.say(ctx, &self.msg_buf).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        println!("Error sending simple message: {}", e);
-                    }
-                }
-            }
-            DiscordOutputType::ReplyTo(msg) => match msg.reply(&ctx.http, &self.msg_buf).await {
-                Ok(_) => {}
-                Err(e) => {
-                    println!("Error sending reply message: {}", e);
-                }
-            },
-        }
-    }
-}
-
-impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
-    fn output(&mut self, msg: &impl fmt::Display) {
-        write!(self.msg_buf, "{}", msg).unwrap();
-    }
-    fn output_line(&mut self, msg: &impl fmt::Display) {
-        write!(self.msg_buf, "{}\n", msg).unwrap();
-    }
-    fn output_table(&mut self, table: &Vec<Vec<String>>) {
-        for row in table {
-            for entry in row {
-                self.msg_buf.push_str(&format!("{:<22}", entry));
-            }
-            self.msg_buf.push('\n');
-        }
-    }
-    fn new_line(&mut self) {
-        self.msg_buf.push('\n');
-    }
-}
 
 pub fn start_bot(config: Config, dsa_data: DSAData) {
     let login_token = match &config.discord.login_token {
@@ -547,23 +226,259 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
     });
 }
 
-fn try_get_character(user_id: &UserId) -> Result<Character, String> {
-    let mut char_path = match config::get_config_dir() {
-        Ok(p) => p,
-        Err(_) => {
-            return Err(String::from("Error retrieving config directory"));
-        }
-    };
+fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
+    let mut char_path = config::get_config_dir()?;
     char_path.push("discord_characters");
     char_path.push(user_id.to_string());
     if !std::path::Path::exists(&char_path) {
-        return Err(String::from(
+        return Err(Error::new(
             "Error loading character: No character found for your discord account",
+            ErrorType::InvalidInput(InputErrorType::MissingCharacter)
         ));
     }
+    Character::from_file(&char_path)
+}
 
-    match Character::from_file(&char_path) {
-        Ok(c) => Ok(c),
-        Err(e) => Err(format!("Error loading character: {}", e.message())),
+
+
+
+async fn upload_character(message: &Message, config: &Config) -> Result<Character, Error>{
+    //Attachement validation
+    if message.attachments.len() != 1 {
+        return Err(Error::new(
+            format!("Invalid number of attachements: {}", message.attachments.len()),
+            ErrorType::InvalidInput(InputErrorType::InvalidAttachements)
+        ));
+    } else if message.attachments[0].size > config.discord.max_attachement_size
+    {
+        return Err(Error::new(
+            format!("Attachement too big ({} bytes)", message.attachments[0].size),
+            ErrorType::InvalidInput(InputErrorType::InvalidAttachements)
+        ));
     }
+    //Get character path
+    let mut char_path = config::get_config_dir()?;
+    char_path.push("discord_characters");
+    fs::create_dir_all(&char_path).await?;
+    char_path.push(message.author.id.to_string());
+    //Download data
+    let data = message.attachments[0].download().await?;
+    //Open file
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&char_path)
+        .await?;
+    //Write
+    let mut writer = io::BufWriter::new(file);
+    writer.write(&data).await?;
+    writer.flush().await?;
+    match Character::from_file(&char_path) {
+        Ok(c) => {
+            if c.get_name().len()>config.discord.max_name_length {
+                fs::remove_file(&char_path).await?;
+                Err(Error::new(
+                    format!("Character name exceeds {} characters", config.discord.max_name_length),
+                    ErrorType::InvalidInput(InputErrorType::CharacterNameTooLong)
+                ))
+            } else {
+                Ok(c)
+            }
+        }
+        Err(e) => match e.err_type() {
+            ErrorType::InvalidInput(_) => {
+                fs::remove_file(&char_path).await?;
+                Err(e)
+            }
+            _ => {
+                Err(e)
+            }
+        },
+    }
+}
+
+
+
+async fn initiative(sub_m: &clap::ArgMatches, message: &Message, ctx: &Context, output: &mut impl OutputWrapper) -> Result<(), Error> {
+    let config_path = config::get_config_dir()?;
+
+    //Reset trumps all other arguments
+    if sub_m.is_present("reset") {
+        let guild = match message.guild(&ctx.cache).await {
+            Some(g) => g,
+            None => {
+                return Err(Error::new(
+                    String::from("This option can only be used in a server"),
+                    ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext)
+                ));
+            }
+        };
+        let members = guild.members(&ctx.http, Some(50), None).await?;
+        let mut rename_futs = Vec::new();
+        for member in members {
+            let user_id = member.user.id.to_string();
+            let mut path = PathBuf::from(&config_path);
+            path.push("discord_characters");
+            path.push(user_id);
+            /*
+            Reset the nickname if all of the following apply
+            1. The user has uploaded a character
+            2. The user has a discord nickname
+            3. The discord nickname is of the form "[i64](,[i64]...,[i64]) orig_name"
+            */
+            if std::path::Path::exists(&path) {
+                if let Some(nickname) = member.nick.clone() {
+                    if let Some(index) = nickname.find(' ') {
+                        if !nickname[..index]
+                            .split(',')
+                            .all(|ini_part| ini_part.parse::<i64>().is_ok()) 
+                        {
+                            continue;
+                        }
+                        let new_name = nickname[index + 1..].to_string();
+                        rename_futs.push(async {
+                            let member = member;
+                            match member
+                                .edit(&ctx.http, |edit| edit.nickname(new_name))
+                                .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    println!("Error changing user nickname: {}", e);
+                                }
+                            };
+                        });
+                    }
+                }
+            }
+        }
+        futures::future::join_all(rename_futs).await;
+        return Ok(());
+    }
+
+    //All (name, ini_level) tuples to include in the check
+    let mut characters: Vec<(String, i64)> = Vec::new();
+    //The user_id for all the characters that have one (currently only used for renaming)
+    let mut characters_members: Vec<Option<Member>> = Vec::new();
+
+    if sub_m.is_present("all") {
+        //Add all guild member's characters to the list
+        let guild = match message.guild(&ctx.cache).await {
+            Some(g) => g,
+            None => {
+                return Err(Error::new(
+                    "This option can only be used in a server",
+                    ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext)
+                ));
+            }
+        };
+
+        let members = guild.members(&ctx.http, Some(50), None).await?;
+        for member in members {
+            let user_id = member.user.id.to_string();
+            let mut path = PathBuf::from(&config_path);
+            path.push("discord_characters");
+            path.push(user_id);
+            if std::path::Path::exists(&path) {
+                match Character::from_file(&path) {
+                    Err(_) => {
+                        return Err(Error::new(
+                            format!("Unable to retrieve character for {}", member.display_name()),
+                            ErrorType::InvalidInput(InputErrorType::InvalidFormat)
+                        ));
+                    }
+                    Ok(character) => {
+                        characters.push((
+                            character.get_name().to_string(),
+                            character.get_initiative_level(),
+                        ));
+                        characters_members.push(Some(member));
+                    }
+                }
+            }
+        }
+    } else {
+        //Add the authors character to the list
+        let mut path = PathBuf::from(&config_path);
+        path.push("discord_characters");
+        path.push(message.author.id.to_string());
+        if std::path::Path::exists(&path) {
+            let character = Character::from_file(&path)?;
+            characters.push((
+                character.get_name().to_string(),
+                character.get_initiative_level(),
+            ));
+            characters_members.push(None);
+        } else {
+            return Err(Error::new(
+                "No character found for your discord account",
+                ErrorType::InvalidInput(InputErrorType::MissingCharacter)
+            ));
+        }
+    }
+
+    if sub_m.is_present("new") {
+        let custom_args: Vec<&str> = sub_m.values_of("new").unwrap().collect();
+        if custom_args.len() % 2 != 0 {
+            return Err(Error::new(
+                "The \"new\" argument expects an even number of values (name and level for each custom character)",
+                ErrorType::InvalidInput(InputErrorType::InvalidArgument)
+            ));
+        }
+        for custom_char in custom_args.chunks(2) {
+            let ini_level = match custom_char[1].parse::<i64>() {
+                Err(_) => {
+                    return Err(Error::new(
+                        format!("Unable to parse custom initiative level: {}", custom_char[1]),
+                        ErrorType::InvalidInput(InputErrorType::InvalidArgument)
+                    ));
+                }
+                Ok(level) => level,
+            };
+            characters.push((custom_char[0].to_string(), ini_level));
+            characters_members.push(None);
+        }
+    }
+
+    let rolls = dsa::roll_ini(&characters, output);
+
+    if sub_m.is_present("rename") {
+        let mut rename_futs = Vec::new();
+        for roll in rolls {
+            let character = &characters[roll.0];
+            let member = &characters_members[roll.0];
+            if let Some(member) = member {
+                let displ_name = member.display_name();
+                let mut new_name = roll.1.iter().skip(1).fold(
+                    format!("{}", character.1 + roll.1[0]),
+                    |mut s, roll| {
+                        s.push_str(&format!(",{}", roll));
+                        s
+                    },
+                );
+                new_name.push(' ');
+                new_name.push_str(&displ_name);
+
+                rename_futs.push(async {
+                    //Shadow the variable to force a move
+                    let roll = roll;
+                    match characters_members[roll.0]
+                        .as_ref()
+                        .unwrap()
+                        .edit(&ctx.http, |edit| edit.nickname(new_name))
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("Error changing user nickname: {}", e);
+                        }
+                    }
+                });
+            }
+        }
+
+        futures::future::join_all(rename_futs).await;
+    }
+    Ok(())
 }

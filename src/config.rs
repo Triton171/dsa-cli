@@ -1,6 +1,4 @@
-use super::util::Error;
-use super::util::ErrorType;
-use super::util::OutputWrapper;
+use super::util::*;
 use serde::{Deserialize, de::DeserializeOwned};
 use std::collections::HashMap;
 use std::env;
@@ -83,7 +81,7 @@ pub trait AbstractConfig where Self: DeserializeOwned {
             Ok(config)
         } else {
             Err(Error::new(format!("Missing file: {}", path.to_str().unwrap_or("[Invalid Path]")),
-                ErrorType::MissingFile))
+                ErrorType::IO(IOErrorType::MissingFile)))
         }
     }
 
@@ -98,7 +96,7 @@ pub trait AbstractConfig where Self: DeserializeOwned {
         match Self::read() {
             Ok(config) => Ok(config),
             Err(e) => {
-                if let ErrorType::MissingFile = e.err_type() {
+                if let ErrorType::IO(IOErrorType::MissingFile) = e.err_type() {
                     output.output_line(&format!("Creating default config (did not find file \"{}\")", Self::absolute_path()?.to_str().unwrap_or("[Invalid Path]")));
                     Self::create_default()?;
                     Self::read()
@@ -156,7 +154,7 @@ impl DSAData {
                 if matches_search {
                     if let Some(found_entry) = found_entry {
                         return Err(Error::new(format!("Ambiguous identifier \"{}\": Matched \"{}\" and \"{}\".\nNote: You can use \"_\" to mark the beginning and/or end of the name.", search, found_entry.0, name),
-                            ErrorType::InvalidArgument));
+                            ErrorType::InvalidInput(InputErrorType::InvalidArgument)));
                     } else {
                         found_entry = Some((name, entry));
                     }
@@ -168,7 +166,7 @@ impl DSAData {
         } else {
             Err(Error::new(
                 format!("No matches found for \"{}\"", search),
-                ErrorType::InvalidArgument,
+                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
             ))
         }
     }
@@ -219,7 +217,7 @@ pub fn get_config_dir() -> Result<PathBuf, Error> {
         Err(_) => {
             return Err(Error::new(
                 "Could not read environment variable $HOME",
-                ErrorType::MissingEnvironmentVariable,
+                ErrorType::IO(IOErrorType::MissingEnvironmentVariable),
             ));
         }
     };
@@ -227,15 +225,7 @@ pub fn get_config_dir() -> Result<PathBuf, Error> {
     path.push(home);
     path.push(".config");
     path.push("dsa-cli");
-    match fs::create_dir_all(&path) {
-        Ok(()) => {}
-        Err(e) => {
-            return Err(Error::new(
-                format!("Unable to create config folder ({})", e.to_string()),
-                ErrorType::IOError,
-            ));
-        }
-    }
+    fs::create_dir_all(&path)?;
     Ok(path)
 }
 
@@ -254,24 +244,16 @@ pub fn get_config_dir() -> Result<PathBuf, Error> {
     let appdata = match env::var("appdata") {
         Ok(s) => s,
         Err(_) => {
-            return Err(Error::from_str(
+            return Err(Error::new(
                 "Could not read environment variable \"appdata\"",
-                ErrorType::MissingEnvironmentVariable,
+                ErrorType::IO(IOErrorType::MissingEnvironmentVariable),
             ));
         }
     };
     let mut path = PathBuf::new();
     path.push(appdata);
     path.push("dsa-cli");
-    match fs::create_dir_all(&path) {
-        Ok(()) => {}
-        Err(e) => {
-            return Err(Error::from_string(
-                format!("Unable to create config folder ({})", e.to_string()),
-                ErrorType::FileSystemError,
-            ));
-        }
-    }
+    fs::create_dir_all(&path)?;
     Ok(path)
 }
 
@@ -290,9 +272,9 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     let appdata = match env::var("HOME") {
         Ok(s) => s,
         Err(_) => {
-            return Err(Error::from_str(
-                "Could not read environment variable \"appdata\"",
-                ErrorType::MissingEnvironmentVariable,
+            return Err(Error::new(
+                "Could not read environment variable $HOME",
+                ErrorType::IO(IOErrorType::MissingEnvironmentVariable),
             ));
         }
     };
@@ -301,14 +283,6 @@ pub fn get_config_dir() -> Result<path::PathBuf, Error> {
     path.push("Library");
     path.push("Application Support");
     path.push("dsa-cli");
-    match fs::create_dir_all(&path) {
-        Ok(()) => {}
-        Err(e) => {
-            return Err(Error::from_string(
-                format!("Unable to create config folder ({})", e.to_string()),
-                ErrorType::FileSystemError,
-            ));
-        }
-    }
+    fs::create_dir_all(&path)?;
     Ok(path)
 }

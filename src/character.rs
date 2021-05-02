@@ -55,36 +55,15 @@ impl Character {
     }
 
     pub fn from_file(path: &Path) -> Result<Character, Error> {
-        let char_file = match File::open(path) {
-            Ok(f) => f,
-            Err(_) => {
-                return Err(Error::new(
-                    "Unable to open character file",
-                    ErrorType::IOError,
-                ));
-            }
-        };
+        let char_file = File::open(path)?;
         let reader = BufReader::new(char_file);
-        match serde_json::from_reader(reader) {
-            Ok(c) => Ok(c),
-            Err(e) => Err(Error::new(
-                format!("Invalid character format, detected at line {}", e.line()),
-                ErrorType::InvalidFormat,
-            )),
-        }
+        let character = serde_json::from_reader(reader)?;
+        Ok(character)
     }
 
     pub fn load(path: &str) -> Result<Character, Error> {
         let character_path = Path::new(path);
-        let character_path = match std::fs::canonicalize(character_path) {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(Error::new(
-                    "Unable to resolve character path",
-                    ErrorType::IOError,
-                ));
-            }
-        };
+        let character_path = std::fs::canonicalize(character_path)?;
         let mut path = config::get_config_dir()?;
         path.push(LOADED_CHARACTER_FILE);
         std::fs::write(&path, character_path.to_str().unwrap())?;
@@ -133,20 +112,24 @@ impl Character {
         0
     }
 
-    pub fn get_attack_level(&self, technique_id: &str) -> i64 {
+    fn get_technique_level(&self, technique_id: &str) -> i64 {
         let techniques = match &self.combattechniques {
             Some(techniques) => techniques,
             None => {
-                return 0;
+                return 6;
             }
         };
         for technique in techniques {
             if technique.id.eq_ignore_ascii_case(technique_id) {
-                let mut_level = self.get_attribute_level("mut");
-                return technique.level + std::cmp::max(0, (mut_level - 8) / 3);
+                return technique.level;
             }
         }
-        0
+        6
+    }
+
+    pub fn get_attack_level(&self, technique_id: &str) -> i64 {
+        let mut_level = self.get_attribute_level("mut");
+        self.get_technique_level(technique_id) + std::cmp::max(0, (mut_level - 8) / 3)
     }
 
     pub fn get_spell_level(&self, spell_id: &str) -> i64 {
@@ -187,17 +170,7 @@ impl Character {
     }
 
     pub fn get_parry_level(&self, technique_id: &str, technique_attributes: &[String]) -> i64 {
-        let mut technique_level = 0;
-        let techniques = match &self.combattechniques {
-            Some(t) => t,
-            None => { return 0; }
-        };
-        for technique in techniques {
-            if technique.id.eq_ignore_ascii_case(technique_id) {
-                technique_level = technique.level;
-                break;
-            }
-        }
+        let technique_level = self.get_technique_level(technique_id);
 
         let mut max_attr = 0;
         for attr in &self.attributes {

@@ -1,5 +1,11 @@
-use std::fmt;
-
+use std::fmt::{self, Write};
+use serenity::{
+    model::{
+        channel::Message,
+        id::ChannelId
+    },
+    client::Context
+};
 
 pub struct Error {
     message: String,
@@ -8,11 +14,24 @@ pub struct Error {
 
 pub enum ErrorType {
     Unknown,
+    InvalidInput(InputErrorType),
+    IO(IOErrorType),
+}
+
+pub enum IOErrorType {
+    Unknown,
+    MissingEnvironmentVariable,
+    MissingFile,
+    Discord
+}
+
+pub enum InputErrorType {
     InvalidFormat,
     InvalidArgument,
-    MissingEnvironmentVariable,
-    IOError,
-    MissingFile
+    InvalidAttachements,
+    InvalidDiscordContext,
+    MissingCharacter,
+    CharacterNameTooLong,
 }
 
 impl Error {
@@ -36,7 +55,7 @@ impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
         Error {
             message: e.to_string(),
-            err_type: ErrorType::IOError
+            err_type: ErrorType::IO(IOErrorType::Unknown)
         }
     }
 }
@@ -45,7 +64,16 @@ impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Error {
         Error {
             message: e.to_string(),
-            err_type: ErrorType::InvalidFormat
+            err_type: ErrorType::InvalidInput(InputErrorType::InvalidFormat)
+        }
+    }
+}
+
+impl From<serenity::Error> for Error {
+    fn from(e: serenity::Error) -> Error {
+        Error {
+            message: e.to_string(),
+            err_type: ErrorType::IO(IOErrorType::Discord)
         }
     }
 }
@@ -96,5 +124,83 @@ impl OutputWrapper for CLIOutputWrapper {
             }
             println!();
         }
+    }
+}
+
+
+pub enum DiscordOutputType<'a> {
+    SimpleMessage(ChannelId),
+    ReplyTo(&'a Message),
+}
+
+//A lazy output wrapper for sending discord messages
+pub struct DiscordOutputWrapper<'a> {
+    output_type: DiscordOutputType<'a>,
+    msg_buf: String,
+    msg_empty: bool
+}
+
+impl<'a> DiscordOutputWrapper<'a> {
+    pub fn new_simple_message(channel_id: ChannelId) -> DiscordOutputWrapper<'a> {
+        DiscordOutputWrapper {
+            output_type: DiscordOutputType::SimpleMessage(channel_id),
+            msg_buf: String::from("```"),
+            msg_empty: true
+        }
+    }
+
+    pub fn new_reply_to(message: &'a Message) -> DiscordOutputWrapper<'a> {
+        DiscordOutputWrapper {
+            output_type: DiscordOutputType::ReplyTo(message),
+            msg_buf: String::from("```"),
+            msg_empty: true
+        }
+    }
+
+    pub async fn send(&mut self, ctx: &Context) {
+        if self.msg_empty {
+            return;
+        }
+        self.msg_buf.push_str("```");
+        match &self.output_type {
+            DiscordOutputType::SimpleMessage(channel_id) => {
+                match channel_id.say(ctx, &self.msg_buf).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Error sending simple message: {}", e);
+                    }
+                }
+            }
+            DiscordOutputType::ReplyTo(msg) => match msg.reply(&ctx.http, &self.msg_buf).await {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Error sending reply message: {}", e);
+                }
+            },
+        }
+        self.msg_buf = String::from("```");
+    }
+}
+
+impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
+    fn output(&mut self, msg: &impl fmt::Display) {
+        write!(self.msg_buf, "{}", msg).unwrap();
+        self.msg_empty = false;
+    }
+    fn output_line(&mut self, msg: &impl fmt::Display) {
+        write!(self.msg_buf, "{}\n", msg).unwrap();
+        self.msg_empty = false;
+    }
+    fn output_table(&mut self, table: &Vec<Vec<String>>) {
+        for row in table {
+            for entry in row {
+                self.msg_buf.push_str(&format!("{:<22}", entry));
+            }
+            self.msg_buf.push('\n');
+        }
+        self.msg_empty = false;
+    }
+    fn new_line(&mut self) {
+        self.msg_buf.push('\n');
     }
 }
