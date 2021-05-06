@@ -5,6 +5,9 @@ mod discord;
 mod dsa;
 mod util;
 
+#[macro_use]
+extern crate enum_display_derive;
+
 use character::Character;
 use config::{AbstractConfig, Config, DSAData};
 use util::OutputWrapper;

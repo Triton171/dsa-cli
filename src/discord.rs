@@ -66,7 +66,7 @@ impl EventHandler for Handler {
                             _ => {
                                 output
                                     .output_line(&"Internal server error while loading character");
-                                println!("Error loading character: {}", e);
+                                println!("Error loading character: {:?}", e);
                             }
                         },
                     }
@@ -90,7 +90,7 @@ impl EventHandler for Handler {
                             }
                             _ => {
                                 output.output_line(&"Internal server error while rolling check");
-                                println!("Error rolling check: {}", e);
+                                println!("Error rolling check: {:?}", e);
                             }
                         },
                     };
@@ -108,7 +108,7 @@ impl EventHandler for Handler {
                             }
                             _ => {
                                 output.output_line(&"Internal server error while rolling attack");
-                                println!("Error rolling attack: {}", e);
+                                println!("Error rolling attack: {:?}", e);
                             }
                         },
                     };
@@ -132,7 +132,7 @@ impl EventHandler for Handler {
                             }
                             _ => {
                                 output.output_line(&"Internal server error while rolling spell");
-                                println!("Error rolling spell: {}", e);
+                                println!("Error rolling spell: {:?}", e);
                             }
                         },
                     };
@@ -150,7 +150,7 @@ impl EventHandler for Handler {
                             }
                             _ => {
                                 output.output_line(&"Internal server error while rolling dodge");
-                                println!("Error rolling dodge: {}", e);
+                                println!("Error rolling dodge: {:?}", e);
                             }
                         },
                     };
@@ -168,7 +168,7 @@ impl EventHandler for Handler {
                             }
                             _ => {
                                 output.output_line(&"Internal server error while rolling parry");
-                                println!("Error rolling parry: {}", e);
+                                println!("Error rolling parry: {:?}", e);
                             }
                         },
                     };
@@ -190,7 +190,7 @@ impl EventHandler for Handler {
                             _ => {
                                 output
                                     .output_line(&"Internal server error while rolling initiative");
-                                println!("Error rolling initiative: {}", e);
+                                println!("Error rolling initiative: {:?}", e);
                             }
                         },
                     };
@@ -308,6 +308,47 @@ async fn upload_character(message: &Message, config: &Config) -> Result<Characte
     }
 }
 
+async fn fetch_discord_members(ctx: &Context, message: &Message) -> Result<Vec<Member>, Error> {
+    let only_on_server_err = Err(Error::new(
+        String::from("This option can only be used in a server"),
+        ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
+    ));
+    let invalid_channel_err = Err(Error::new(
+        String::from("Invalid channel targeted"),
+        ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
+    ));
+
+    let channel = match message.channel(&ctx.cache).await {
+        Some(c) => c,
+        None => {
+            return only_on_server_err;
+        }
+    };
+
+    let channel = match channel.guild() {
+        Some(gc) => gc,
+        None => {
+            return invalid_channel_err;
+        }
+    };
+
+    match channel.kind {
+        serenity::model::channel::ChannelType::Text
+        | serenity::model::channel::ChannelType::Private => {}
+        _ => {
+            return invalid_channel_err;
+        }
+    }
+
+    match channel.members(&ctx.cache).await {
+        Ok(m) => Ok(m),
+        Err(r) => Err(Error::new(
+            format! {"{}", r},
+            ErrorType::IO(IOErrorType::Discord),
+        )),
+    }
+}
+
 async fn initiative(
     sub_m: &clap::ArgMatches,
     message: &Message,
@@ -318,16 +359,13 @@ async fn initiative(
 
     //Reset trumps all other arguments
     if sub_m.is_present("reset") {
-        let guild = match message.guild(&ctx.cache).await {
-            Some(g) => g,
-            None => {
-                return Err(Error::new(
-                    String::from("This option can only be used in a server"),
-                    ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
-                ));
+        let members = match fetch_discord_members(ctx, message).await {
+            Ok(m) => m,
+            Err(e) => {
+                return Err(e);
             }
         };
-        let members = guild.members(&ctx.http, Some(50), None).await?;
+
         let mut rename_futs = Vec::new();
         for member in members {
             let user_id = member.user.id.to_string();
@@ -373,18 +411,13 @@ async fn initiative(
     let mut characters_members: Vec<Option<Member>> = Vec::new();
 
     if sub_m.is_present("all") {
-        //Add all guild member's characters to the list
-        let guild = match message.guild(&ctx.cache).await {
-            Some(g) => g,
-            None => {
-                return Err(Error::new(
-                    "This option can only be used in a server",
-                    ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
-                ));
+        let members = match fetch_discord_members(ctx, message).await {
+            Ok(m) => m,
+            Err(e) => {
+                return Err(e);
             }
         };
 
-        let members = guild.members(&ctx.http, Some(50), None).await?;
         for member in members {
             let user_id = member.user.id.to_string();
             let mut path = PathBuf::from(&config_path);
@@ -456,6 +489,13 @@ async fn initiative(
 
     let rolls = dsa::roll_ini(&characters, output);
 
+    if rolls.is_empty() {
+        return Err(Error::new(
+            String::from("No player in this channel has uploaded a character"),
+            ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
+        ));
+    }
+
     if sub_m.is_present("rename") {
         let mut rename_futs = Vec::new();
         for roll in rolls {
@@ -484,7 +524,7 @@ async fn initiative(
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            println!("Error changing user nickname: {}", e);
+                            println!("Error changing user nickname: {:?}", e);
                         }
                     }
                 });
