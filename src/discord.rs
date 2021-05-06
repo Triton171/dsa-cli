@@ -14,8 +14,8 @@ use serenity::{
         gateway::Ready,
         guild::Member,
         id::UserId,
+        interactions::{ApplicationCommand, Interaction, InteractionResponseType},
         permissions::Permissions,
-        interactions::{Interaction, InteractionResponseType, ApplicationCommand},
     },
     prelude::*,
 };
@@ -30,15 +30,16 @@ struct Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
-
         println!("Started bot with username: {}", ready.user.name);
         let interactions = ApplicationCommand::get_global_application_commands(&ctx.http).await;
 
-        println!("I have the following global slash command(s): {:?}", interactions);
+        println!(
+            "I have the following global slash command(s): {:?}",
+            interactions
+        );
     }
 
-    async fn interaction_create(&self, ctx: Context, interaction: Interaction)
-    {
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         println!("interaction create!");
         let _ = interaction
             .create_interaction_response(&ctx.http, |response| {
@@ -250,7 +251,11 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
         .build()
         .unwrap();
     runtime.block_on(async {
-        let mut client = match Client::builder(&login_token).event_handler(handler).application_id(application_id).await {
+        let mut client = match Client::builder(&login_token)
+            .event_handler(handler)
+            .application_id(application_id)
+            .await
+        {
             Ok(client) => client,
             Err(e) => {
                 println!("Error creating discord client: {}", e.to_string());
@@ -375,19 +380,21 @@ async fn fetch_discord_members(ctx: &Context, message: &Message) -> Result<Vec<M
 
     let get_channel_perms = |member: &Member| guild.user_permissions_in(&channel, member); // life time hax
 
-    Ok(futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
-        .filter_map(|member| async move {
-            if get_channel_perms(&member)
-                .map(|p| p.contains(Permissions::READ_MESSAGES))
-                .unwrap_or(false)
-            {
-                Some(member)
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<Member>>()
-        .await)
+    Ok(
+        futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
+            .filter_map(|member| async move {
+                if get_channel_perms(&member)
+                    .map(|p| p.contains(Permissions::READ_MESSAGES))
+                    .unwrap_or(false)
+                {
+                    Some(member)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Member>>()
+            .await,
+    )
 }
 
 async fn initiative(
