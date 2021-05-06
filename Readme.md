@@ -20,7 +20,7 @@ Instead of inviting it you can also message it directly.
 
 The bot will now try to interpret any message sent to him (in server channels or private messages) starting with `!` as a command. Write `!help` for a list of commands.
 
-The server permission `Manage Nicknames` and the channel permissions `View Channel`, `Send Messages`, `Read Message History` are required.  
+The server permission `Manage Nicknames` and the channel permissions `View Channel`, `Send Messages` are required.  
 It is also favorable to have the Bot posses a role listed above all other roles with the `Manage Nicknames` permission. This ensures it being able to rename all users except the server owner.
 
 ## Configuration
