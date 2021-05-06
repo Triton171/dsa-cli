@@ -419,6 +419,7 @@ async fn initiative(
             }
         }
         futures::future::join_all(rename_futs).await;
+        output.output_line(&"Reset nicknames");
         return Ok(());
     }
 
