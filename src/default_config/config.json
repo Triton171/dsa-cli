@@ -5,6 +5,7 @@
     },
     "discord": {
         "login_token" : null,
+        "application_id": null,
         "require_complete_command" : false,
         "use_reply" : true,
         "max_attachement_size" : 1000000,
