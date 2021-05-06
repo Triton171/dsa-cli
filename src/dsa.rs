@@ -6,7 +6,6 @@ use rand::distributions::{Distribution, Uniform};
 use rand::Rng;
 use std::{cmp::Ordering, num::ParseIntError};
 
-
 enum CheckType {
     //A simple check where you have to roll below your attributes (for example an attribute check)
     SimpleCheck,
@@ -25,22 +24,17 @@ enum CritType {
 
 enum Facilitation {
     SimpleFacilitation(i64),
-    IndividualFacilitation(Vec<i64>)
+    IndividualFacilitation(Vec<i64>),
 }
 
 impl Facilitation {
-    fn iter<'a>(&'a self) -> Box<dyn std::iter::Iterator<Item=&i64> + 'a> {
+    fn iter<'a>(&'a self) -> Box<dyn std::iter::Iterator<Item = &i64> + 'a> {
         match self {
-            Facilitation::SimpleFacilitation(fac) => {
-                Box::new(std::iter::repeat(fac))
-            }
-            Facilitation::IndividualFacilitation(facs) => {
-                Box::new(facs.iter())
-            }
+            Facilitation::SimpleFacilitation(fac) => Box::new(std::iter::repeat(fac)),
+            Facilitation::IndividualFacilitation(facs) => Box::new(facs.iter()),
         }
     }
 }
-
 
 pub fn talent_check(
     cmd_matches: &ArgMatches,
@@ -399,9 +393,6 @@ pub fn roll_ini(
     inis
 }
 
-
-
-
 fn get_facilitation(matches: &ArgMatches, num_attributes: usize) -> Result<Facilitation, Error> {
     let facilitation = matches.value_of("facilitation").unwrap();
     if facilitation.contains(',') {
@@ -413,15 +404,15 @@ fn get_facilitation(matches: &ArgMatches, num_attributes: usize) -> Result<Facil
             Ok(vec) => vec,
             Err(_) => {
                 return Err(Error::new(
-                    "Unable to parse facilitation", 
-                    ErrorType::InvalidInput(InputErrorType::InvalidArgument)
+                    "Unable to parse facilitation",
+                    ErrorType::InvalidInput(InputErrorType::InvalidArgument),
                 ));
             }
         };
-        if facilitations.len()!=num_attributes {
+        if facilitations.len() != num_attributes {
             return Err(Error::new(
                 "Number of individual facilitations has to match number of check attributes",
-                ErrorType::InvalidInput(InputErrorType::InvalidArgument)
+                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
             ));
         }
         Ok(Facilitation::IndividualFacilitation(facilitations))
@@ -430,18 +421,14 @@ fn get_facilitation(matches: &ArgMatches, num_attributes: usize) -> Result<Facil
             Ok(num) => num,
             Err(_) => {
                 return Err(Error::new(
-                    "Unable to parse facilitation", 
-                    ErrorType::InvalidInput(InputErrorType::InvalidArgument)
+                    "Unable to parse facilitation",
+                    ErrorType::InvalidInput(InputErrorType::InvalidArgument),
                 ));
             }
         };
         Ok(Facilitation::SimpleFacilitation(facilitation))
     }
 }
-
-
-
-
 
 fn roll_check(
     attributes: &[(&str, i64)],
@@ -546,19 +533,13 @@ fn roll_check(
 
     let mut header: Vec<String> = Vec::with_capacity(attributes.len() + 1);
     header.push(String::from(""));
-    header.extend(
-        attributes
-            .iter()
-            .map(|(name, _)| uppercase_first(name)),
-    );
+    header.extend(attributes.iter().map(|(name, _)| uppercase_first(name)));
     table.push(header);
 
     let mut char_row: Vec<String> = Vec::with_capacity(attributes.len() + 1);
     char_row.push(String::from("Character:"));
-    char_row.extend(attributes
-        .iter()
-        .zip(facilitation.iter())
-        .map(|((_, level), facilitation)| 
+    char_row.extend(attributes.iter().zip(facilitation.iter()).map(
+        |((_, level), facilitation)| {
             if *facilitation == 0 {
                 level.to_string()
             } else if *facilitation > 0 {
@@ -566,6 +547,7 @@ fn roll_check(
             } else {
                 format!("{} - {}", level, -facilitation)
             }
+        },
     ));
     table.push(char_row);
 

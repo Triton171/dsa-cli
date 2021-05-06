@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serenity::{
     client::Context,
     model::{channel::Message, id::ChannelId},
@@ -9,12 +11,14 @@ pub struct Error {
     err_type: ErrorType,
 }
 
+#[derive(Display)]
 pub enum ErrorType {
     Unknown,
     InvalidInput(InputErrorType),
     IO(IOErrorType),
 }
 
+#[derive(Display)]
 pub enum IOErrorType {
     Unknown,
     MissingEnvironmentVariable,
@@ -22,6 +26,7 @@ pub enum IOErrorType {
     Discord,
 }
 
+#[derive(Display)]
 pub enum InputErrorType {
     InvalidFormat,
     InvalidArgument,
@@ -78,6 +83,17 @@ impl From<serenity::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message())
+    }
+}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Error {{ message: {}, err_type: {} }}",
+            self.message(),
+            self.err_type()
+        )
     }
 }
 
