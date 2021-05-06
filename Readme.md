@@ -33,7 +33,51 @@ When first run, a config folder and default config files (`config.json`, `dsa_da
 
 You can change the config folder location by setting the environment variable `DSA_CLI_CONFIG_DIR`, though this shouldn't be necessary usually.
 
-Both files can be edited to customize the behavior and rules.
+Both files can be edited to customize the behavior and rules. Here is a list of the options in `config.json`:
+
+* `auto_update_dsa_data`\
+    **Type:** Boolean\
+    **Default:** true
+
+    If true, the dsa_data.json file (which contains information on talents, etc.) will automatically be updated when starting a new version of dsa-cli. Note that this will erase any changes you make to that file.
+* `dsa_rules`
+    * `crit_rules`\
+        **Type:** String\
+        **Default:** DefaultCrits
+
+        The rules for critial successes and failures in talent and spell checks:
+        * NoCrits: No crits will be rolled
+        * DefaultCrits: The official crit rules: Two 1s (20s) constitute a critical success (failure)
+        * AlternativeCrits: A single 1 (20) constitutes a critical success (failure) which has to be confirmed by a second roll
+* `discord`
+    * `login_token`\
+        **Type:** String
+
+        The login token for a discord bot account. Required if you want to run a bot.
+    * `require_complete_command`\
+        **Type:** Boolean\
+        **Default:** false
+
+        If true, the bot reacts to commands of the form `!dsa-cli [SUB_COMMAND]`. 
+        Otherwise, you can use `![SUB_COMMAND]`
+    
+    * `use_reply`\
+        **Type:** Boolean\
+        **Default:** false
+
+        If true, the bot will send its response as a reply to the message that triggered it.
+    * `max_attachement_size`\
+        **Type:** Integer\
+        **Default:** 1,000,000
+
+        The maximum attachement size that the bot downloads. This currently applies just to the `!upload` command.
+    * `max_name_length`\
+        **Type:** Integer\
+        **Default:** 32
+
+        The maximum character name length. `.tdc` files that contain a longer name will be rejected.
+  
+
 
 ## Docker
 
