@@ -11,6 +11,8 @@ Additionally, you can create a discord bot by running "dsa-cli discord". This re
 
 Once your bot is running, you can invite it to your server or message it directly. It will try to interpret any message starting with "!" as a command. Write "!help" for a list of commands.
 
+The server permission `Manage Nicknames` and the channel permissions `View Channel`, `Send Messages`, `Read Message History` are required. 
+
 ## Configuration
 When first run, a config folder and default config files (`config.json`, `dsa_data.json`) will be created. The location depends on your operating system:
 
