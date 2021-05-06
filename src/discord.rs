@@ -8,7 +8,14 @@ use async_std::io;
 use async_std::prelude::*;
 use serenity::{
     async_trait,
-    model::{channel::Message, gateway::Ready, guild::Member, id::UserId},
+    model::{
+        channel::{ChannelType, Message},
+        gateway::Ready,
+        guild::Member,
+        id::UserId,
+        permissions::Permissions,
+        interactions::{Interaction, InteractionResponseType, ApplicationCommand},
+    },
     prelude::*,
 };
 use std::path::PathBuf;
@@ -21,8 +28,24 @@ struct Handler {
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+
         println!("Started bot with username: {}", ready.user.name);
+        let interactions = ApplicationCommand::get_global_application_commands(&ctx.http).await;
+
+        println!("I have the following global slash command(s): {:?}", interactions);
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction)
+    {
+        println!("interaction create!");
+        let _ = interaction
+            .create_interaction_response(&ctx.http, |response| {
+                response
+                    .kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|message| message.content("Received event!"))
+            })
+            .await;
     }
 
     async fn message(&self, ctx: Context, message: Message) {
@@ -210,6 +233,13 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
             return;
         }
     };
+    let application_id = match &config.discord.application_id {
+        Some(app_id) => app_id.clone(),
+        None => {
+            println!("Unable to start bot: Missing discord application id");
+            return;
+        }
+    };
 
     let handler = Handler { config, dsa_data };
 
@@ -219,7 +249,7 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
         .build()
         .unwrap();
     runtime.block_on(async {
-        let mut client = match Client::builder(&login_token).event_handler(handler).await {
+        let mut client = match Client::builder(&login_token).event_handler(handler).application_id(application_id).await {
             Ok(client) => client,
             Err(e) => {
                 println!("Error creating discord client: {}", e.to_string());

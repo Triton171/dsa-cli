@@ -17,6 +17,8 @@ async-std = "1.9.0"
 futures = "0.3.14"
 
 [dependencies.serenity]
-version = "0.10"
+version = "0.10.5"
+git = "https://github.com/serenity-rs/serenity"
+branch = "current"
 default-features = false
-features = ["rustls_backend", "builder", "cache", "client", "model", "gateway", "http"]
+features = ["rustls_backend", "builder", "cache", "client", "model", "gateway", "http", "unstable_discord_api"]
