@@ -6,9 +6,16 @@ use super::util::*;
 use async_std::fs;
 use async_std::io;
 use async_std::prelude::*;
+use futures::stream::StreamExt;
 use serenity::{
     async_trait,
-    model::{channel::Message, gateway::Ready, guild::Member, id::UserId},
+    model::{
+        channel::{ChannelType, Message},
+        gateway::Ready,
+        guild::Member,
+        id::UserId,
+        permissions::Permissions,
+    },
     prelude::*,
 };
 use std::path::PathBuf;
@@ -333,20 +340,30 @@ async fn fetch_discord_members(ctx: &Context, message: &Message) -> Result<Vec<M
     };
 
     match channel.kind {
-        serenity::model::channel::ChannelType::Text
-        | serenity::model::channel::ChannelType::Private => {}
+        ChannelType::Text | ChannelType::Private => {}
         _ => {
             return invalid_channel_err;
         }
     }
 
-    match channel.members(&ctx.cache).await {
-        Ok(m) => Ok(m),
-        Err(r) => Err(Error::new(
-            format! {"{}", r},
-            ErrorType::IO(IOErrorType::Discord),
-        )),
-    }
+    let guild = message.guild(&ctx).await.unwrap();
+    let g_members = guild.members(&ctx, Some(1000), None).await?;
+
+    let get_channel_perms = |member: &Member| guild.user_permissions_in(&channel, member); // life time hax
+
+    Ok(futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
+        .filter_map(|member| async move {
+            if get_channel_perms(&member)
+                .map(|p| p.contains(Permissions::READ_MESSAGES))
+                .unwrap_or(false)
+            {
+                Some(member)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<Member>>()
+        .await)
 }
 
 async fn initiative(
