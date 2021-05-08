@@ -44,7 +44,7 @@ jobs:
         id: meta
         uses: crazy-max/ghaction-docker-meta@v2
         with:
-          images: name/app
+          images: smephite/dsa-cli
       -
         name: Login to DockerHub
         if: github.event_name != 'pull_request'
