@@ -13,9 +13,9 @@ use serenity::{
         channel::{ChannelType, Message},
         gateway::Ready,
         guild::Member,
-        id::UserId,
+        id::{UserId, GuildId},
         permissions::Permissions,
-        interactions::{Interaction, InteractionResponseType, ApplicationCommand},
+        interactions::{Interaction, InteractionResponseType, ApplicationCommandOptionType},
     },
     prelude::*,
 };
@@ -27,14 +27,32 @@ struct Handler {
     dsa_data: DSAData,
 }
 
+
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, ctx: Context, ready: Ready) {
-
+    async fn ready(&self, _: Context, ready: Ready) {
         println!("Started bot with username: {}", ready.user.name);
-        let interactions = ApplicationCommand::get_global_application_commands(&ctx.http).await;
+    }
 
-        println!("I have the following global slash command(s): {:?}", interactions);
+    async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>)
+    {
+        
+        let test_server = GuildId(839621705701261332);
+        
+    
+        let a = test_server.create_application_command(&ctx.http, |a| {
+            a.name("echo")
+            .description("What is said is echoed")
+            .create_option(|o| {
+                o.name("to_say")
+                 .description("What will be echoed")
+                 .kind(ApplicationCommandOptionType::String)
+                 .required(true)
+            })
+        }).await;
+        
+
+        println!("{:?}", a);
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction)
@@ -250,7 +268,12 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
         .build()
         .unwrap();
     runtime.block_on(async {
-        let mut client = match Client::builder(&login_token).event_handler(handler).application_id(application_id).await {
+        let mut client = match Client::builder(&login_token)
+            .event_handler(handler)
+            .application_id(application_id)
+            .intents(serenity::client::bridge::gateway::GatewayIntents::all())
+            .await
+        {
             Ok(client) => client,
             Err(e) => {
                 println!("Error creating discord client: {}", e.to_string());
