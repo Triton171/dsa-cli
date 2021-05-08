@@ -1,28 +1,25 @@
 FROM rust:1.51 as build
 
-#Create a new empty shell project
-RUN USER=root cargo new --bin dsa-cli
-WORKDIR /dsa-cli
+# install https://lib.rs/crates/cargo-build-dependencies so we can cache dependencies in a seperate layer
+RUN cargo install cargo-build-dependencies 
 
-COPY ./Cargo.lock ./Cargo.lock
-COPY ./Cargo.toml ./Cargo.toml
+# Create a new empty shell project
+RUN cd /tmp && USER=root cargo new --bin dsa-cli
+WORKDIR /tmp/dsa-cli
 
-#Cache dependencies
-RUN cargo build --release
-RUN rm src/*.rs
+COPY Cargo.toml Cargo.lock ./
+# Build and cache dependencies
+RUN cargo build-dependencies --release
 
-#Copy source
-COPY ./src ./src
-
-#Build project
-RUN rm ./target/release/deps/dsa_cli*
+# Build application
+COPY src ./
 RUN cargo build --release
 
 #Final base
 FROM debian:stable
 
 #Copy executable
-COPY --from=build /dsa-cli/target/release/dsa-cli .
+COPY --from=build /tmp/dsa-cli/target/release/dsa-cli .
 
 #Change the config location
 ENV DSA_CLI_CONFIG_DIR=/dsa-cli-config
