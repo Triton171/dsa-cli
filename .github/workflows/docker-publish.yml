@@ -37,8 +37,6 @@ jobs:
         uses: crazy-max/ghaction-docker-meta@v2
         with:
           images: smephite/dsa-cli
-          labels: |
-            org.opencontainers.image.description=Running dsa-cli a helper for the Pen & Paper game Das Schwarze Auge
       -
         name: Login to DockerHub
         if: github.event_name != 'pull_request'
