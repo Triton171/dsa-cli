@@ -70,10 +70,6 @@ fn main() {
             discord::start_bot(config, dsa_data);
         }
 
-        Some(("gen-completions", _)) => {
-            cli::generate_completions(&mut output);
-        }
-
         Some(("check", sub_m)) => {
             if let Some((character, dsa_data)) =
                 try_get_character_and_dsa_data(&config, &mut output)

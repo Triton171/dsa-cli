@@ -1,10 +1,4 @@
-use super::util::OutputWrapper;
 use clap::{App, AppSettings, Arg};
-use clap_generate::{generate, generators::Bash};
-use std::env;
-use std::fs;
-use std::io::BufWriter;
-use std::path;
 
 /*
 Returns the clap app definition
@@ -25,9 +19,6 @@ pub fn get_app() -> App<'static> {
         )
         .subcommand(App::new("unload").about("Unloads the current character, if one is loaded"))
         .subcommand(App::new("discord").about("Starts the discord bot"))
-        .subcommand(
-            App::new("gen-completions").about("Generates completion scripts for detected shells"),
-        )
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
         .subcommand(cmd_spell())
@@ -180,64 +171,4 @@ fn cmd_roll() -> App<'static> {
 }
 fn cmd_ini() -> App<'static> {
     App::new("ini").about("Performs an initiative roll for the current character")
-}
-
-pub fn generate_completions(printer: &mut impl OutputWrapper) {
-    let mut app = get_app();
-
-    if cfg!(target_os = "linux") {
-        let home = match env::var("HOME") {
-            Ok(s) => s,
-            Err(_) => {
-                printer.output_line(&"Could not read environment variable $HOME");
-                return;
-            }
-        };
-        let mut path = path::PathBuf::new();
-        path.push(home);
-        path.push(".bashrc");
-        //Check for bash
-        if path::Path::exists(&path) {
-            match super::config::get_config_dir() {
-                Ok(mut bash_completions) => {
-                    bash_completions.push("completions_bash.bash");
-                    let bash_completions_str = String::from(bash_completions.to_str().unwrap());
-                    match fs::OpenOptions::new()
-                        .create(true)
-                        .write(true)
-                        .truncate(true)
-                        .open(&bash_completions)
-                    {
-                        Ok(file) => {
-                            let mut writer = BufWriter::new(file);
-                            generate::<Bash, _>(&mut app, "dsa-cli", &mut writer);
-
-                            if path::Path::exists(&bash_completions) {
-                                printer.output_line(&format!(
-                                    "Generated bash completions script at {}",
-                                    bash_completions_str
-                                ));
-                                printer.output_line(
-                                    &"Call this script in your ~/.bashrc to enable completions",
-                                );
-                            } else {
-                                printer.output_line(&"Unknown error occurred while trying to generate bash completions script");
-                            }
-                        }
-                        Err(e) => {
-                            printer.output_line(&format!(
-                                "Unable to write to {}: {}",
-                                bash_completions_str,
-                                e.to_string()
-                            ));
-                        }
-                    };
-                }
-                Err(e) => {
-                    printer.output_line(&format!("Error resolving config folder: {}", e.message()));
-                    return;
-                }
-            };
-        }
-    }
 }
