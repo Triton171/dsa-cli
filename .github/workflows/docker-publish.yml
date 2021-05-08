@@ -5,16 +5,8 @@ on:
     # Publish `master` as Docker `latest` image.
     branches:
       - master
-
-    # Publish `v1.2.3` tags as releases.
-    tags:
-      - v*
-
   # Run tests for any PRs.
   pull_request:
-
-env:
-  IMAGE_NAME: triton171/dsa-cli
 
 jobs:
   docker:
@@ -45,6 +37,8 @@ jobs:
         uses: crazy-max/ghaction-docker-meta@v2
         with:
           images: smephite/dsa-cli
+          labels: |
+            org.opencontainers.image.description=Running dsa-cli a helper for the Pen & Paper game Das Schwarze Auge
       -
         name: Login to DockerHub
         if: github.event_name != 'pull_request'
@@ -62,8 +56,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
-      
-      - name: Move cache
+      -
+        name: Move cache
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
