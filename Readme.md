@@ -15,13 +15,17 @@ Enter a name and search for the tab `Bot`.
 Here you need to press `Add Bot` and configure it as you wish.
 The checkbox `SERVER MEMBERS INTENT` needs to be checked.  
 
-Once your bot is up and running, you can invite it to your server using the URL [https://discord.com/oauth2/authorize?scope=bot&client_id=<application_id>](https://discord.com/oauth2/authorize?scope=bot&client_id=<application_id>) where `<application_id>` is replaced by the value found in `General Information`.  
+Next up it is time to give your BOT the required permissions and invite it to your server.  
+To do this open the tab `OAuth2` and add the URI `http://localhost` as a redirect under `Redirects`.  
+Now you are set to invite your bot.  
+To do so open the URL [https://discord.com/api/oauth2/authorize?permissions=134217728&redirect_uri=http%3A%2F%2Flocalhost&scope=bot%20applications.commands&client_id=<client_id>](https://discord.com/api/oauth2/authorize?permissions=134217728&redirect_uri=http%3A%2F%2Flocalhost&scope=bot%20applications.commands&client_id=<client_id>) where `<client_id>` is replaced by the value found under `OAuth2 -> Client Information`.
 Instead of inviting it you can also message it directly.
 
 The bot will now try to interpret any message sent to him (in server channels or private messages) starting with `!` as a command. Write `!help` for a list of commands.
 
 The server permission `Manage Nicknames` and the channel permissions `View Channel`, `Send Messages`, `Read Message History` are required.  
-It is also favorable to have the Bot posses a role listed above all other roles with the `Manage Nicknames` permission. This ensures it being able to rename all users except the server owner.
+Uppon inviting the Bot to a Server a role is created with the same name your BOT posseses:
+It is favorable to have either this role or a custom role with the `Manage Nicknames` permission and your Bot as a member listed above all other roles. This ensures it being able to rename all users except the server owner.
 
 ## Configuration
 
