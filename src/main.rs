@@ -11,9 +11,9 @@ extern crate enum_display_derive;
 use character::Character;
 use config::{AbstractConfig, Config, DSAData};
 use util::OutputWrapper;
-use futures::executor::block_on;
 
-fn main() {
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
     let mut output = util::CLIOutputWrapper {};
 
     let config = match Config::get_or_create(&mut output) {
@@ -32,7 +32,7 @@ fn main() {
 
     match matches.subcommand() {
         Some(("load", sub_m)) => {
-            let character = match block_on(Character::load(sub_m.value_of("character_path").unwrap())) {
+            let character = match Character::load(sub_m.value_of("character_path").unwrap()).await {
                 Ok(c) => c,
                 Err(e) => {
                     output.output_line(&format!("Error loading character: {}", e.message()));
@@ -45,11 +45,11 @@ fn main() {
             ));
         }
 
-        Some(("unload", _)) => match block_on(Character::loaded_character()) {
+        Some(("unload", _)) => match Character::loaded_character().await {
             Ok(None) => {
                 output.output_line(&"There is no character currently loaded");
             }
-            _ => match block_on(Character::unload()) {
+            _ => match Character::unload().await {
                 Ok(()) => {
                     output.output_line(&"Successfully unloaded character");
                 }
@@ -68,12 +68,12 @@ fn main() {
                 }
             };
             let dsa_data = dsa_data.check_replacement_needed(&config, &mut output);
-            discord::start_bot(config, dsa_data);
+            discord::start_bot(config, dsa_data).await;
         }
 
         Some(("check", sub_m)) => {
             if let Some((character, dsa_data)) =
-                try_get_character_and_dsa_data(&config, &mut output)
+                try_get_character_and_dsa_data(&config, &mut output).await
             {
                 dsa::talent_check(sub_m, &character, &dsa_data, &config, &mut output);
             } else {
@@ -83,7 +83,7 @@ fn main() {
 
         Some(("attack", sub_m)) => {
             if let Some((character, dsa_data)) =
-                try_get_character_and_dsa_data(&config, &mut output)
+                try_get_character_and_dsa_data(&config, &mut output).await
             {
                 dsa::attack_check(sub_m, &character, &dsa_data, &mut output)
             } else {
@@ -93,7 +93,7 @@ fn main() {
 
         Some(("spell", sub_m)) => {
             if let Some((character, dsa_data)) =
-                try_get_character_and_dsa_data(&config, &mut output)
+                try_get_character_and_dsa_data(&config, &mut output).await
             {
                 dsa::spell_check(sub_m, &character, &dsa_data, &config, &mut output)
             } else {
@@ -102,7 +102,7 @@ fn main() {
         }
 
         Some(("dodge", sub_m)) => {
-            let character = match block_on(Character::loaded_character()) {
+            let character = match Character::loaded_character().await {
                 Ok(Some(c)) => c,
                 Ok(None) => {
                     output.output_line(&"Error: No character loaded");
@@ -118,7 +118,7 @@ fn main() {
 
         Some(("parry", sub_m)) => {
             if let Some((character, dsa_data)) =
-                try_get_character_and_dsa_data(&config, &mut output)
+                try_get_character_and_dsa_data(&config, &mut output).await
             {
                 dsa::parry_check(sub_m, &character, &dsa_data, &mut output);
             } else {
@@ -131,7 +131,7 @@ fn main() {
         }
 
         Some(("ini", _)) => {
-            let character = match block_on(Character::loaded_character()) {
+            let character = match Character::loaded_character().await {
                 Ok(Some(c)) => c,
                 Ok(None) => {
                     output.output_line(&"Error: No character loaded");
@@ -160,11 +160,11 @@ fn main() {
     };
 }
 
-fn try_get_character_and_dsa_data(
+async fn try_get_character_and_dsa_data(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) -> Option<(Character, DSAData)> {
-    let character = match block_on(Character::loaded_character()) {
+    let character = match Character::loaded_character().await {
         Ok(Some(c)) => c,
         Ok(None) => {
             output.output_line(&"Error: No character loaded");

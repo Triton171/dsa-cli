@@ -3,7 +3,6 @@ use super::cli;
 use super::config::{self, Config, DSAData};
 use super::dsa;
 use super::util::*;
-use futures::stream::StreamExt;
 use serenity::{
     async_trait,
     model::{
@@ -17,7 +16,6 @@ use serenity::{
 };
 use std::path::PathBuf;
 use tokio::{
-    runtime::Builder, 
     fs, 
     io::{
         self,
@@ -214,7 +212,7 @@ impl EventHandler for Handler {
     }
 }
 
-pub fn start_bot(config: Config, dsa_data: DSAData) {
+pub async fn start_bot(config: Config, dsa_data: DSAData) {
     let login_token = match &config.discord.login_token {
         Some(token) => token.clone(),
         None => {
@@ -225,7 +223,7 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
 
     let handler = Handler { config, dsa_data };
 
-    let runtime = Builder::new_current_thread()
+    /*let runtime = Builder::new_current_thread()
         .enable_io()
         .enable_time()
         .build()
@@ -242,7 +240,17 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
         if let Err(e) = client.start().await {
             println!("Error starting discord client: {}", e.to_string());
         }
-    });
+    });*/
+    let mut client = match Client::builder(&login_token).event_handler(handler).await {
+        Ok(client) => client,
+        Err(e) => {
+            println!("Error creating discord client: {}", e.to_string());
+            return;
+        }
+    };
+    if let Err(e) = client.start().await {
+        println!("Error starting discord client: {}", e.to_string());
+    }
 }
 
 async fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
@@ -357,19 +365,17 @@ async fn fetch_discord_members(ctx: &Context, message: &Message) -> Result<Vec<M
     let get_channel_perms = |member: &Member| guild.user_permissions_in(&channel, member); // life time hax
 
     Ok(
-        futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
-            .filter_map(|member| async move {
-                if get_channel_perms(&member)
-                    .map(|p| p.contains(Permissions::READ_MESSAGES))
-                    .unwrap_or(false)
-                {
-                    Some(member)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<Member>>()
-            .await,
+        g_members
+            .iter()
+            .filter_map(|m| if get_channel_perms(&m)
+                .map(|p| p.contains(Permissions::READ_MESSAGES))
+                .unwrap_or(false)
+            {
+                Some(m.clone())
+            } else {
+                None
+            }
+        ).collect::<Vec<Member>>()
     )
 }
 
