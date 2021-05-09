@@ -67,7 +67,12 @@ pub fn talent_check(
         .collect();
     let skill_level = character.get_skill_level(&talent_name);
 
-    let crit_type = match config.dsa_rules.crit_rules {
+    let crit_type = match config
+        .dsa_rules
+        .crit_rules
+        .as_ref()
+        .unwrap_or(&config::ConfigDSACritType::DefaultCrits)
+    {
         config::ConfigDSACritType::NoCrits => CritType::NoCrits,
         config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
         config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits,
@@ -152,7 +157,12 @@ pub fn spell_check(
         .collect();
     let skill_level = character.get_spell_level(&spell_name);
 
-    let crit_type = match config.dsa_rules.crit_rules {
+    let crit_type = match config
+        .dsa_rules
+        .crit_rules
+        .as_ref()
+        .unwrap_or(&config::ConfigDSACritType::DefaultCrits)
+    {
         config::ConfigDSACritType::NoCrits => CritType::NoCrits,
         config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
         config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits,

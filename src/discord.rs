@@ -68,16 +68,17 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, message: Message) {
-        let mut output = match self.config.discord.use_reply {
-            true => DiscordOutputWrapper::new_reply_to(&message),
-            false => DiscordOutputWrapper::new_simple_message(message.channel_id),
+        let mut output = if let Some(true) = self.config.discord.use_reply {
+            DiscordOutputWrapper::new_reply_to(&message)
+        } else {
+            DiscordOutputWrapper::new_simple_message(message.channel_id)
         };
 
         if message.content.starts_with('!') {
             let matches = cli::get_discord_app().try_get_matches_from({
                 let command = &message.content[1..];
                 let args: Box<dyn Iterator<Item = &str>> =
-                    if self.config.discord.require_complete_command {
+                    if let Some(true) = self.config.discord.require_complete_command {
                         Box::new(command.split(' '))
                     } else {
                         Box::new(std::iter::once("dsa-cli").chain(command.split(' ')))
@@ -310,7 +311,7 @@ async fn upload_character(message: &Message, config: &Config) -> Result<Characte
             ),
             ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
         ));
-    } else if message.attachments[0].size > config.discord.max_attachement_size {
+    } else if message.attachments[0].size > config.discord.max_attachement_size.unwrap_or(1000000) {
         return Err(Error::new(
             format!(
                 "Attachement too big ({} bytes)",
@@ -339,12 +340,12 @@ async fn upload_character(message: &Message, config: &Config) -> Result<Characte
     writer.flush().await?;
     match Character::from_file(&char_path) {
         Ok(c) => {
-            if c.get_name().len() > config.discord.max_name_length {
+            if c.get_name().len() > config.discord.max_name_length.unwrap_or(32) {
                 fs::remove_file(&char_path).await?;
                 Err(Error::new(
                     format!(
                         "Character name exceeds {} characters",
-                        config.discord.max_name_length
+                        config.discord.max_name_length.unwrap_or(32)
                     ),
                     ErrorType::InvalidInput(InputErrorType::CharacterNameTooLong),
                 ))
@@ -398,19 +399,21 @@ async fn fetch_discord_members(ctx: &Context, message: &Message) -> Result<Vec<M
 
     let get_channel_perms = |member: &Member| guild.user_permissions_in(&channel, member); // life time hax
 
-    Ok(futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
-        .filter_map(|member| async move {
-            if get_channel_perms(&member)
-                .map(|p| p.contains(Permissions::READ_MESSAGES))
-                .unwrap_or(false)
-            {
-                Some(member)
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<Member>>()
-        .await)
+    Ok(
+        futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
+            .filter_map(|member| async move {
+                if get_channel_perms(&member)
+                    .map(|p| p.contains(Permissions::READ_MESSAGES))
+                    .unwrap_or(false)
+                {
+                    Some(member)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Member>>()
+            .await,
+    )
 }
 
 async fn initiative(
@@ -466,6 +469,7 @@ async fn initiative(
             }
         }
         futures::future::join_all(rename_futs).await;
+        output.output_line(&"Reset nicknames");
         return Ok(());
     }
 

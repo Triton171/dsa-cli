@@ -10,7 +10,7 @@ const DSA_DATA_NEWEST_VERSION: u64 = 1;
 
 #[derive(Deserialize)]
 pub struct Config {
-    pub auto_update_dsa_data: bool,
+    pub auto_update_dsa_data: Option<bool>,
     pub dsa_rules: ConfigDSARules,
     pub discord: ConfigDiscord,
 }
@@ -19,14 +19,14 @@ pub struct Config {
 pub struct ConfigDiscord {
     pub login_token: Option<String>,
     pub application_id: Option<u64>,
-    pub require_complete_command: bool,
-    pub use_reply: bool,
-    pub max_attachement_size: u64,
-    pub max_name_length: usize,
+    pub require_complete_command: Option<bool>,
+    pub use_reply: Option<bool>,
+    pub max_attachement_size: Option<u64>,
+    pub max_name_length: Option<usize>,
 }
 #[derive(Deserialize)]
 pub struct ConfigDSARules {
-    pub crit_rules: ConfigDSACritType,
+    pub crit_rules: Option<ConfigDSACritType>,
 }
 
 #[derive(Deserialize)]
@@ -184,7 +184,7 @@ impl DSAData {
         config: &Config,
         output: &mut impl OutputWrapper,
     ) -> DSAData {
-        if config.auto_update_dsa_data && self.version < DSA_DATA_NEWEST_VERSION {
+        if config.auto_update_dsa_data.unwrap_or(true) && self.version < DSA_DATA_NEWEST_VERSION {
             match Self::create_default() {
                 Err(e) => {
                     output.output_line(&format!(
