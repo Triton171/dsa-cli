@@ -10,8 +10,8 @@ extern crate enum_display_derive;
 
 use character::Character;
 use config::{AbstractConfig, Config, DSAData};
-use util::OutputWrapper;
 use tokio::runtime::Builder;
+use util::OutputWrapper;
 
 fn main() {
     let mut output = util::CLIOutputWrapper {};
@@ -50,10 +50,7 @@ fn main() {
         }
 
         _ => {
-            let runtime = Builder::new_current_thread()
-                .enable_io()
-                .build()
-                .unwrap();
+            let runtime = Builder::new_current_thread().enable_io().build().unwrap();
             runtime.block_on(parse_local_command(matches, config, output));
         }
     };
@@ -61,10 +58,14 @@ fn main() {
 
 /*
 This function parses and executes the local command defined by matches.
-Note that the 'discord' command is handled separately by other functions, 
+Note that the 'discord' command is handled separately by other functions,
 as it may require a different async runtime configuration
 */
-async fn parse_local_command(matches: clap::ArgMatches, config: Config, mut output: impl OutputWrapper) {
+async fn parse_local_command(
+    matches: clap::ArgMatches,
+    config: Config,
+    mut output: impl OutputWrapper,
+) {
     match matches.subcommand() {
         Some(("load", sub_m)) => {
             let character = match Character::load(sub_m.value_of("character_path").unwrap()).await {

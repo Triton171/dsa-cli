@@ -16,11 +16,8 @@ use serenity::{
 };
 use std::path::PathBuf;
 use tokio::{
-    fs, 
-    io::{
-        self,
-        AsyncWriteExt
-    }
+    fs,
+    io::{self, AsyncWriteExt},
 };
 
 struct Handler {
@@ -222,25 +219,6 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
     };
 
     let handler = Handler { config, dsa_data };
-
-    /*let runtime = Builder::new_current_thread()
-        .enable_io()
-        .enable_time()
-        .build()
-        .unwrap();
-    runtime.block_on(async {
-        let mut client = match Client::builder(&login_token).event_handler(handler).await {
-            Ok(client) => client,
-            Err(e) => {
-                println!("Error creating discord client: {}", e.to_string());
-                return;
-            }
-        };
-
-        if let Err(e) = client.start().await {
-            println!("Error starting discord client: {}", e.to_string());
-        }
-    });*/
     let mut client = match Client::builder(&login_token).event_handler(handler).await {
         Ok(client) => client,
         Err(e) => {
@@ -364,10 +342,10 @@ async fn fetch_discord_members(ctx: &Context, message: &Message) -> Result<Vec<M
 
     let get_channel_perms = |member: &Member| guild.user_permissions_in(&channel, member); // life time hax
 
-    Ok(
-        g_members
-            .iter()
-            .filter_map(|m| if get_channel_perms(&m)
+    Ok(g_members
+        .iter()
+        .filter_map(|m| {
+            if get_channel_perms(&m)
                 .map(|p| p.contains(Permissions::READ_MESSAGES))
                 .unwrap_or(false)
             {
@@ -375,8 +353,8 @@ async fn fetch_discord_members(ctx: &Context, message: &Message) -> Result<Vec<M
             } else {
                 None
             }
-        ).collect::<Vec<Member>>()
-    )
+        })
+        .collect::<Vec<Member>>())
 }
 
 async fn initiative(
