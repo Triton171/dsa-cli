@@ -54,13 +54,18 @@ Both files can be edited to customize the behavior and rules. Here is a list of 
         **Type:** String
 
         The login token for a discord bot account. Required if you want to run a bot.
+
+    * `num_threads`\
+        **Type:** Integer\
+        **Default:** 1
+
+        The number of threads to use when running the discord bot. Use this, if you expect the bot to be heavily used by many people.
     * `require_complete_command`\
         **Type:** Boolean\
         **Default:** false
 
         If true, the bot reacts to commands of the form `!dsa-cli [SUB_COMMAND]`. 
         Otherwise, you can use `![SUB_COMMAND]`
-    
     * `use_reply`\
         **Type:** Boolean\
         **Default:** false

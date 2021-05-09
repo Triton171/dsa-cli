@@ -11,9 +11,9 @@ extern crate enum_display_derive;
 use character::Character;
 use config::{AbstractConfig, Config, DSAData};
 use util::OutputWrapper;
+use tokio::runtime::Builder;
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
+fn main() {
     let mut output = util::CLIOutputWrapper {};
 
     let config = match Config::get_or_create(&mut output) {
@@ -30,6 +30,41 @@ async fn main() {
     let app = cli::get_app();
     let matches = app.get_matches();
 
+    match matches.subcommand() {
+        Some(("discord", _)) => {
+            let dsa_data = match DSAData::get_or_create(&mut output) {
+                Ok(d) => d,
+                Err(e) => {
+                    output.output_line(&format!("Unable to get dsa data: {}", e));
+                    return;
+                }
+            };
+            let dsa_data = dsa_data.check_replacement_needed(&config, &mut output);
+            let runtime = Builder::new_multi_thread()
+                .worker_threads(config.discord.num_threads.unwrap_or(1))
+                .enable_io()
+                .enable_time()
+                .build()
+                .unwrap();
+            runtime.block_on(discord::start_bot(config, dsa_data));
+        }
+
+        _ => {
+            let runtime = Builder::new_current_thread()
+                .enable_io()
+                .build()
+                .unwrap();
+            runtime.block_on(parse_local_command(matches, config, output));
+        }
+    };
+}
+
+/*
+This function parses and executes the local command defined by matches.
+Note that the 'discord' command is handled separately by other functions, 
+as it may require a different async runtime configuration
+*/
+async fn parse_local_command(matches: clap::ArgMatches, config: Config, mut output: impl OutputWrapper) {
     match matches.subcommand() {
         Some(("load", sub_m)) => {
             let character = match Character::load(sub_m.value_of("character_path").unwrap()).await {
@@ -58,18 +93,6 @@ async fn main() {
                 }
             },
         },
-
-        Some(("discord", _)) => {
-            let dsa_data = match DSAData::get_or_create(&mut output) {
-                Ok(d) => d,
-                Err(e) => {
-                    output.output_line(&format!("Unable to get dsa data: {}", e));
-                    return;
-                }
-            };
-            let dsa_data = dsa_data.check_replacement_needed(&config, &mut output);
-            discord::start_bot(config, dsa_data).await;
-        }
 
         Some(("check", sub_m)) => {
             if let Some((character, dsa_data)) =
