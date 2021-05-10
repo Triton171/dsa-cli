@@ -124,7 +124,7 @@ impl DiscordCommand for CommandUpload {
         message: &Message,
         handler: &Handler,
         output: &mut DiscordOutputWrapper,
-        context: &Context,
+        _: &Context,
         _: &ArgMatches,
     ) {
         match self.upload_character(message, &handler.config).await {
@@ -144,7 +144,6 @@ impl DiscordCommand for CommandUpload {
                 }
             },
         }
-        output.send(&context).await;
     }
 }
 
@@ -158,7 +157,7 @@ impl DiscordCommand for CommandCheck {
         message: &Message,
         handler: &Handler,
         output: &mut DiscordOutputWrapper,
-        context: &Context,
+        _: &Context,
         sub_m: &ArgMatches,
     ) {
         match try_get_character(&message.author.id) {
@@ -181,7 +180,6 @@ impl DiscordCommand for CommandCheck {
                 }
             },
         };
-        output.send(&context).await;
     }
 }
 
@@ -195,7 +193,7 @@ impl DiscordCommand for CommandAttack {
         message: &Message,
         handler: &Handler,
         output: &mut DiscordOutputWrapper,
-        context: &Context,
+        _: &Context,
         sub_m: &ArgMatches,
     ) {
         match try_get_character(&message.author.id) {
@@ -212,7 +210,6 @@ impl DiscordCommand for CommandAttack {
                 }
             },
         };
-        output.send(&context).await;
     }
 }
 
@@ -226,7 +223,7 @@ impl DiscordCommand for CommandSpell {
         message: &Message,
         handler: &Handler,
         output: &mut DiscordOutputWrapper,
-        context: &Context,
+        _: &Context,
         sub_m: &ArgMatches,
     ) {
         match try_get_character(&message.author.id) {
@@ -249,7 +246,6 @@ impl DiscordCommand for CommandSpell {
                 }
             },
         };
-        output.send(&context).await;
     }
 }
 
@@ -263,7 +259,7 @@ impl DiscordCommand for CommandDodge {
         message: &Message,
         _: &Handler,
         output: &mut DiscordOutputWrapper,
-        context: &Context,
+        _: &Context,
         sub_m: &ArgMatches,
     ) {
         match try_get_character(&message.author.id) {
@@ -280,7 +276,6 @@ impl DiscordCommand for CommandDodge {
                 }
             },
         };
-        output.send(&context).await;
     }
 }
 
@@ -294,7 +289,7 @@ impl DiscordCommand for CommandParry {
         message: &Message,
         handler: &Handler,
         output: &mut DiscordOutputWrapper,
-        context: &Context,
+        _: &Context,
         sub_m: &ArgMatches,
     ) {
         match try_get_character(&message.author.id) {
@@ -311,7 +306,6 @@ impl DiscordCommand for CommandParry {
                 }
             },
         };
-        output.send(&context).await;
     }
 }
 
@@ -325,11 +319,10 @@ impl DiscordCommand for CommandRoll {
         _: &Message,
         _: &Handler,
         output: &mut DiscordOutputWrapper,
-        context: &Context,
+        _: &Context,
         sub_m: &ArgMatches,
     ) {
         dsa::roll(sub_m, output);
-        output.send(&context).await;
     }
 }
 
@@ -609,6 +602,5 @@ impl DiscordCommand for CommandIni {
                 }
             },
         };
-        output.send(&context).await;
     }
 }

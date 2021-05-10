@@ -35,6 +35,11 @@ pub trait DiscordCommand: Send + Sync {
     fn create_interaction_options(&self) -> Vec<serenity::builder::CreateApplicationCommandOption> {
         vec![]
     }
+
+    fn handle_slash_command(&self, _cmd: &Interaction) -> &'static str {
+        "not implemented!"
+    }
+
     async fn execute(
         &self,
         message: &Message,
@@ -100,12 +105,31 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        println!("interaction create!");
+        let name = interaction.clone().data;
         let _ = interaction
             .create_interaction_response(&ctx.http, |response| {
                 response
                     .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|message| message.content("Received event!"))
+                    .interaction_response_data(|data| {
+                        data.embed(|f| {
+                            f.color(serenity::utils::Colour::BLITZ_BLUE).description(
+                                match self
+                                    .command_registry
+                                    .get_command(
+                                        match name {
+                                            Some(d) => d.name,
+                                            None => String::new(),
+                                        }
+                                        .as_str(),
+                                    )
+                                    .as_ref()
+                                {
+                                    None => "Command not found!", // this should never trigger
+                                    Some(cmd) => cmd.handle_slash_command(&interaction),
+                                },
+                            )
+                        })
+                    })
             })
             .await;
     }
@@ -143,6 +167,7 @@ impl EventHandler for Handler {
                             command
                                 .execute(&message, self, &mut output, &ctx, &subcmd.1)
                                 .await;
+                            output.send(&ctx).await;
                         }
                         _ => {} // unknown command
                     }
