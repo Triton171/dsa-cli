@@ -7,9 +7,15 @@ use tokio::fs;
 const LOADED_CHARACTER_FILE: &'static str = "loaded_character";
 
 mod default {
-    pub fn skills() -> Vec<super::CharacterSkill> { Vec::new() }
-    pub fn combattechniques() -> Vec<super::CharacterCombatTechnique> { Vec::new() }
-    pub fn spells() -> Vec<super::CharacterSpell> { Vec::new() }
+    pub fn skills() -> Vec<super::CharacterSkill> {
+        Vec::new()
+    }
+    pub fn combattechniques() -> Vec<super::CharacterCombatTechnique> {
+        Vec::new()
+    }
+    pub fn spells() -> Vec<super::CharacterSpell> {
+        Vec::new()
+    }
 }
 
 #[derive(Deserialize)]
