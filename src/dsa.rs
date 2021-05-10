@@ -70,8 +70,6 @@ pub fn talent_check(
     let crit_type = match config
         .dsa_rules
         .crit_rules
-        .as_ref()
-        .unwrap_or(&config::ConfigDSACritType::DefaultCrits)
     {
         config::ConfigDSACritType::NoCrits => CritType::NoCrits,
         config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
@@ -160,8 +158,6 @@ pub fn spell_check(
     let crit_type = match config
         .dsa_rules
         .crit_rules
-        .as_ref()
-        .unwrap_or(&config::ConfigDSACritType::DefaultCrits)
     {
         config::ConfigDSACritType::NoCrits => CritType::NoCrits,
         config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),

@@ -64,7 +64,7 @@ impl CommandUpload {
                 ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
             ));
         } else if message.attachments[0].size
-            > config.discord.max_attachement_size.unwrap_or(1000000)
+            > config.discord.max_attachement_size
         {
             return Err(Error::new(
                 format!(
@@ -94,12 +94,12 @@ impl CommandUpload {
         writer.flush().await?;
         match Character::from_file(&char_path).await {
             Ok(c) => {
-                if c.get_name().len() > config.discord.max_name_length.unwrap_or(32) {
+                if c.get_name().len() > config.discord.max_name_length {
                     fs::remove_file(&char_path).await?;
                     Err(Error::new(
                         format!(
                             "Character name exceeds {} characters",
-                            config.discord.max_name_length.unwrap_or(32)
+                            config.discord.max_name_length
                         ),
                         ErrorType::InvalidInput(InputErrorType::CharacterNameTooLong),
                     ))

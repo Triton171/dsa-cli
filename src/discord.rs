@@ -11,6 +11,7 @@ use serenity::{
         id::GuildId,
         interactions::{Interaction, InteractionResponseType},
     },
+    client::bridge::gateway::GatewayIntents,
     prelude::*,
 };
 use std::collections::HashMap;
@@ -88,8 +89,8 @@ impl EventHandler for Handler {
     }
 
     async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
-        if self.config.discord.use_slash_commands.unwrap_or(true) {
-            let test_server = GuildId(839621705701261332);
+        if self.config.discord.use_slash_commands {
+            let test_server = GuildId(830394313783246858);
 
             for name in self.command_registry._names.iter() {
                 let cmd = self.command_registry.get_command(name.as_str()).unwrap();
@@ -146,7 +147,7 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, message: Message) {
-        let mut output = if let Some(true) = self.config.discord.use_reply {
+        let mut output = if self.config.discord.use_reply {
             DiscordOutputWrapper::new_reply_to(&message)
         } else {
             DiscordOutputWrapper::new_simple_message(message.channel_id)
@@ -156,7 +157,7 @@ impl EventHandler for Handler {
             let matches = cli::get_discord_app().try_get_matches_from({
                 let command = &message.content[1..];
                 let args: Box<dyn Iterator<Item = &str>> =
-                    if let Some(true) = self.config.discord.require_complete_command {
+                    if self.config.discord.require_complete_command {
                         Box::new(command.split(' '))
                     } else {
                         Box::new(std::iter::once("dsa-cli").chain(command.split(' ')))
@@ -206,13 +207,12 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
     };
 
     let mut handler = Handler::new(config, dsa_data);
-
     register_commands(&mut handler.command_registry);
 
     let mut client = match Client::builder(&login_token)
         .event_handler(handler)
         .application_id(application_id)
-        .intents(serenity::client::bridge::gateway::GatewayIntents::all())
+        .intents(GatewayIntents::GUILD_MESSAGES | GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_MEMBERS | GatewayIntents::GUILDS | GatewayIntents::non_privileged())
         .await
     {
         Ok(client) => client,
@@ -221,7 +221,6 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
             return;
         }
     };
-
     if let Err(e) = client.start().await {
         println!("Error starting discord client: {}", e.to_string());
     }

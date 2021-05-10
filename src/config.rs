@@ -8,10 +8,45 @@ use std::path::{Path, PathBuf};
 
 const DSA_DATA_NEWEST_VERSION: u64 = 1;
 
+mod default {
+    pub fn auto_update_dsa_data() -> bool { true }
+    pub mod dsa_rules {
+        pub fn dsa_rules() -> super::super::ConfigDSARules {
+            super::super::ConfigDSARules {
+                crit_rules: crit_rules()
+            }
+        }
+        pub fn crit_rules() -> super::super::ConfigDSACritType { super::super::ConfigDSACritType::DefaultCrits }
+    }
+    pub mod discord {
+        pub fn discord() -> super::super::ConfigDiscord {
+            super::super::ConfigDiscord {
+                login_token: None,
+                application_id: None,
+                use_slash_commands: use_slash_commands(),
+                num_threads: num_threads(),
+                require_complete_command: require_complete_command(),
+                use_reply: use_reply(),
+                max_attachement_size: max_attachement_size(),
+                max_name_length: max_name_length()
+            }
+        }
+        pub fn use_slash_commands() -> bool { false }
+        pub fn num_threads() -> usize { 1 }
+        pub fn require_complete_command() -> bool { false }
+        pub fn use_reply() -> bool { true }
+        pub fn max_attachement_size() -> u64 { 1_000_000 }
+        pub fn max_name_length() -> usize { 32 }
+    }
+}
+
 #[derive(Deserialize)]
 pub struct Config {
-    pub auto_update_dsa_data: Option<bool>,
+    #[serde(default = "default::auto_update_dsa_data")]
+    pub auto_update_dsa_data: bool,
+    #[serde(default = "default::dsa_rules::dsa_rules")]
     pub dsa_rules: ConfigDSARules,
+    #[serde(default = "default::discord::discord")]
     pub discord: ConfigDiscord,
 }
 
@@ -19,16 +54,23 @@ pub struct Config {
 pub struct ConfigDiscord {
     pub login_token: Option<String>,
     pub application_id: Option<u64>,
-    pub use_slash_commands: Option<bool>,
-    pub num_threads: Option<usize>,
-    pub require_complete_command: Option<bool>,
-    pub use_reply: Option<bool>,
-    pub max_attachement_size: Option<u64>,
-    pub max_name_length: Option<usize>,
+    #[serde(default = "default::discord::use_slash_commands")]
+    pub use_slash_commands: bool,
+    #[serde(default = "default::discord::num_threads")]
+    pub num_threads: usize,
+    #[serde(default = "default::discord::require_complete_command")]
+    pub require_complete_command: bool,
+    #[serde(default = "default::discord::use_reply")]
+    pub use_reply: bool,
+    #[serde(default = "default::discord::max_attachement_size")]
+    pub max_attachement_size: u64,
+    #[serde(default = "default::discord::max_name_length")]
+    pub max_name_length: usize,
 }
 #[derive(Deserialize)]
 pub struct ConfigDSARules {
-    pub crit_rules: Option<ConfigDSACritType>,
+    #[serde(default = "default::dsa_rules::crit_rules")]
+    pub crit_rules: ConfigDSACritType,
 }
 
 #[derive(Deserialize)]
@@ -186,7 +228,7 @@ impl DSAData {
         config: &Config,
         output: &mut impl OutputWrapper,
     ) -> DSAData {
-        if config.auto_update_dsa_data.unwrap_or(true) && self.version < DSA_DATA_NEWEST_VERSION {
+        if config.auto_update_dsa_data && self.version < DSA_DATA_NEWEST_VERSION {
             match Self::create_default() {
                 Err(e) => {
                     output.output_line(&format!(
