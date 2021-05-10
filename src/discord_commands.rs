@@ -35,14 +35,14 @@ fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
     Character::from_file(&char_path)
 }
 
-pub struct CommandUpload {}
-pub struct CommandCheck {}
-pub struct CommandAttack {}
-pub struct CommandSpell {}
-pub struct CommandDodge {}
-pub struct CommandParry {}
-pub struct CommandRoll {}
-pub struct CommandIni {}
+pub struct CommandUpload;
+pub struct CommandCheck;
+pub struct CommandAttack;
+pub struct CommandSpell;
+pub struct CommandDodge;
+pub struct CommandParry;
+pub struct CommandRoll;
+pub struct CommandIni;
 
 impl CommandUpload {
     async fn upload_character(

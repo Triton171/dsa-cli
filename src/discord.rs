@@ -9,7 +9,7 @@ use serenity::{
         channel::Message,
         gateway::Ready,
         id::GuildId,
-        interactions::{ApplicationCommandOptionType, Interaction, InteractionResponseType},
+        interactions::{Interaction, InteractionResponseType},
     },
     prelude::*,
 };
@@ -24,10 +24,17 @@ pub struct Handler {
 
 pub struct DiscordCommandRegistry {
     _commands: HashMap<String, Box<dyn DiscordCommand>>,
+    _names: Vec<String>,
 }
 #[async_trait]
 pub trait DiscordCommand: Send + Sync {
     fn name(&self) -> &'static str;
+    fn description(&self) -> &'static str {
+        "none"
+    }
+    fn create_interaction_options(&self) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+        vec![]
+    }
     async fn execute(
         &self,
         message: &Message,
@@ -52,6 +59,7 @@ impl DiscordCommandRegistry {
     fn new() -> DiscordCommandRegistry {
         DiscordCommandRegistry {
             _commands: HashMap::new(),
+            _names: vec![],
         }
     }
 
@@ -60,7 +68,9 @@ impl DiscordCommandRegistry {
     }
 
     fn register_command(&mut self, command: Box<dyn DiscordCommand>) {
-        self._commands.insert(command.name().to_string(), command);
+        let name = command.name().to_string();
+        self._commands.insert(name.clone(), command);
+        self._names.push(name);
     }
 }
 
@@ -73,20 +83,13 @@ impl EventHandler for Handler {
     async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
         let test_server = GuildId(839621705701261332);
 
-        let a = test_server
-            .create_application_command(&ctx.http, |a| {
-                a.name("echo")
-                    .description("What is said is echoed")
-                    .create_option(|o| {
-                        o.name("to_say")
-                            .description("What will be echoed")
-                            .kind(ApplicationCommandOptionType::String)
-                            .required(true)
-                    })
-            })
-            .await;
-
-        println!("{:?}", a);
+        for name in self.command_registry._names.iter()
+        {
+            let cmd = self.command_registry.get_command(name.as_str()).unwrap();
+            let _ = test_server.create_application_command(&ctx, |fun| {
+                fun.name(name).description(cmd.description()).set_options(cmd.create_interaction_options())
+            }).await;
+        }
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
