@@ -68,7 +68,7 @@ Both files can be edited to customize the behavior and rules. Here is a list of 
         Otherwise, you can use `![SUB_COMMAND]`
     * `use_reply`\
         **Type:** Boolean\
-        **Default:** false
+        **Default:** true
 
         If true, the bot will send its response as a reply to the message that triggered it.
     * `max_attachement_size`\

@@ -41,7 +41,7 @@ fn main() {
             };
             let dsa_data = dsa_data.check_replacement_needed(&config, &mut output);
             let runtime = Builder::new_multi_thread()
-                .worker_threads(config.discord.num_threads.unwrap_or(1))
+                .worker_threads(config.discord.num_threads)
                 .enable_io()
                 .enable_time()
                 .build()
