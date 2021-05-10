@@ -6,13 +6,22 @@ use tokio::fs;
 
 const LOADED_CHARACTER_FILE: &'static str = "loaded_character";
 
+mod default {
+    pub fn skills() -> Vec<super::CharacterSkill> { Vec::new() }
+    pub fn combattechniques() -> Vec<super::CharacterCombatTechnique> { Vec::new() }
+    pub fn spells() -> Vec<super::CharacterSpell> { Vec::new() }
+}
+
 #[derive(Deserialize)]
 pub struct Character {
     name: String,
     attributes: Vec<CharacterAttribute>,
-    skills: Option<Vec<CharacterSkill>>,
-    combattechniques: Option<Vec<CharacterCombatTechnique>>,
-    spells: Option<Vec<CharacterSpell>>,
+    #[serde(default = "default::skills")]
+    skills: Vec<CharacterSkill>,
+    #[serde(default = "default::combattechniques")]
+    combattechniques: Vec<CharacterCombatTechnique>,
+    #[serde(default = "default::spells")]
+    spells: Vec<CharacterSpell>,
 }
 
 #[derive(Deserialize)]
@@ -87,13 +96,7 @@ impl Character {
     }
 
     pub fn get_skill_level(&self, skill_id: &str) -> i64 {
-        let skills = match &self.skills {
-            Some(skills) => skills,
-            None => {
-                return 0;
-            }
-        };
-        for skill in skills {
+        for skill in &self.skills {
             if skill.id.eq_ignore_ascii_case(skill_id) {
                 return skill.level;
             }
@@ -111,13 +114,7 @@ impl Character {
     }
 
     fn get_technique_level(&self, technique_id: &str) -> i64 {
-        let techniques = match &self.combattechniques {
-            Some(techniques) => techniques,
-            None => {
-                return 6;
-            }
-        };
-        for technique in techniques {
+        for technique in &self.combattechniques {
             if technique.id.eq_ignore_ascii_case(technique_id) {
                 return technique.level;
             }
@@ -131,13 +128,7 @@ impl Character {
     }
 
     pub fn get_spell_level(&self, spell_id: &str) -> i64 {
-        let spells = match &self.spells {
-            Some(spells) => spells,
-            None => {
-                return 0;
-            }
-        };
-        for spell in spells {
+        for spell in &self.spells {
             if spell.id.eq_ignore_ascii_case(spell_id) {
                 return spell.level.unwrap_or(0);
             }
