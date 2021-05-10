@@ -29,7 +29,7 @@ pub struct DiscordCommandRegistry {
 pub trait DiscordCommand: Send + Sync {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str {
-        "none"
+        ""
     }
     fn create_interaction_options(
         &self,
@@ -93,6 +93,9 @@ impl EventHandler for Handler {
 
             for name in self.command_registry._names.iter() {
                 let cmd = self.command_registry.get_command(name.as_str()).unwrap();
+                if cmd.description() == "" {
+                    continue;
+                }
                 let a = test_server
                     .create_application_command(&ctx, |fun| {
                         let mut c = fun.name(name).description(cmd.description());

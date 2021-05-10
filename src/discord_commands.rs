@@ -287,6 +287,30 @@ impl DiscordCommand for CommandAttack {
     fn description(&self) -> &'static str {
         "Performs an attack skillcheck for the given combat technique"
     }
+    fn create_interaction_options(
+        &self,
+        handler: &Handler,
+    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+        let mut talent_check = &mut CreateApplicationCommandOption::default();
+        talent_check = talent_check
+            .required(true)
+            .description("The combat technique to check for ")
+            .name("technique")
+            .kind(ApplicationCommandOptionType::String);
+
+        for combat in handler.dsa_data.combat_techniques.keys().into_iter().take(25) {
+            talent_check = talent_check.add_string_choice(combat, combat);
+        }
+
+        let mut num = &mut CreateApplicationCommandOption::default();
+        num = num
+            .description("Facilitation for the combat check")
+            .name("facilitation")
+            .default_option(false)
+            .kind(ApplicationCommandOptionType::Integer);
+
+        vec![talent_check.clone(), num.clone()]
+    }
     async fn execute(
         &self,
         message: &Message,
@@ -319,6 +343,30 @@ impl DiscordCommand for CommandSpell {
     }
     fn description(&self) -> &'static str {
         "Performs a spell skillcheck for the given spell"
+    }
+    fn create_interaction_options(
+        &self,
+        handler: &Handler,
+    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+        let mut talent_check = &mut CreateApplicationCommandOption::default();
+        talent_check = talent_check
+            .required(true)
+            .description("The spell to check for ")
+            .name("spell")
+            .kind(ApplicationCommandOptionType::String);
+
+        for combat in handler.dsa_data.combat_techniques.keys().into_iter().take(25) {
+            talent_check = talent_check.add_string_choice(combat, combat);
+        }
+
+        let mut num = &mut CreateApplicationCommandOption::default();
+        num = num
+            .description("Facilitation for the spell check")
+            .name("facilitation")
+            .default_option(false)
+            .kind(ApplicationCommandOptionType::Integer);
+
+        vec![talent_check.clone(), num.clone()]
     }
     async fn execute(
         &self,
@@ -359,6 +407,32 @@ impl DiscordCommand for CommandDodge {
     fn description(&self) -> &'static str {
         "Performs a dodge skillcheck"
     }
+
+    fn create_interaction_options(
+        &self,
+        handler: &Handler,
+    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+        let mut talent_check = &mut CreateApplicationCommandOption::default();
+        talent_check = talent_check
+            .required(true)
+            .description("The combat technique to check for ")
+            .name("technique")
+            .kind(ApplicationCommandOptionType::String);
+
+        for combat in handler.dsa_data.combat_techniques.keys().into_iter().take(25) {
+            talent_check = talent_check.add_string_choice(combat, combat);
+        }
+
+        let mut num = &mut CreateApplicationCommandOption::default();
+        num = num
+            .description("Facilitation for the combat check")
+            .name("facilitation")
+            .default_option(false)
+            .kind(ApplicationCommandOptionType::Integer);
+
+        vec![talent_check.clone(), num.clone()]
+    }
+
     async fn execute(
         &self,
         message: &Message,
@@ -392,6 +466,32 @@ impl DiscordCommand for CommandParry {
     fn description(&self) -> &'static str {
         "Performs a parry skillcheck for the given combat technique"
     }
+    
+    fn create_interaction_options(
+        &self,
+        handler: &Handler,
+    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+        let mut talent_check = &mut CreateApplicationCommandOption::default();
+        talent_check = talent_check
+            .required(true)
+            .description("The combat technique to check for ")
+            .name("technique")
+            .kind(ApplicationCommandOptionType::String);
+
+        for combat in handler.dsa_data.combat_techniques.keys().into_iter().take(25) {
+            talent_check = talent_check.add_string_choice(combat, combat);
+        }
+
+        let mut num = &mut CreateApplicationCommandOption::default();
+        num = num
+            .description("Facilitation for the combat check")
+            .name("facilitation")
+            .default_option(false)
+            .kind(ApplicationCommandOptionType::Integer);
+
+        vec![talent_check.clone(), num.clone()]
+    }
+
     async fn execute(
         &self,
         message: &Message,
