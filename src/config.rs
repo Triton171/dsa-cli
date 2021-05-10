@@ -18,6 +18,7 @@ pub struct Config {
 #[derive(Deserialize)]
 pub struct ConfigDiscord {
     pub login_token: Option<String>,
+    pub num_threads: Option<usize>,
     pub require_complete_command: Option<bool>,
     pub use_reply: Option<bool>,
     pub max_attachement_size: Option<u64>,

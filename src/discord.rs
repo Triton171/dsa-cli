@@ -3,10 +3,6 @@ use super::cli;
 use super::config::{self, Config, DSAData};
 use super::dsa;
 use super::util::*;
-use async_std::fs;
-use async_std::io;
-use async_std::prelude::*;
-use futures::stream::StreamExt;
 use serenity::{
     async_trait,
     model::{
@@ -19,7 +15,10 @@ use serenity::{
     prelude::*,
 };
 use std::path::PathBuf;
-use tokio::runtime::Builder;
+use tokio::{
+    fs,
+    io::{self, AsyncWriteExt},
+};
 
 struct Handler {
     config: Config,
@@ -82,7 +81,7 @@ impl EventHandler for Handler {
                 }
 
                 Some(("check", sub_m)) => {
-                    match try_get_character(&message.author.id) {
+                    match try_get_character(&message.author.id).await {
                         Ok(character) => {
                             dsa::talent_check(
                                 sub_m,
@@ -106,7 +105,7 @@ impl EventHandler for Handler {
                 }
 
                 Some(("attack", sub_m)) => {
-                    match try_get_character(&message.author.id) {
+                    match try_get_character(&message.author.id).await {
                         Ok(character) => {
                             dsa::attack_check(sub_m, &character, &self.dsa_data, &mut output);
                         }
@@ -124,7 +123,7 @@ impl EventHandler for Handler {
                 }
 
                 Some(("spell", sub_m)) => {
-                    match try_get_character(&message.author.id) {
+                    match try_get_character(&message.author.id).await {
                         Ok(character) => {
                             dsa::spell_check(
                                 sub_m,
@@ -148,7 +147,7 @@ impl EventHandler for Handler {
                 }
 
                 Some(("dodge", sub_m)) => {
-                    match try_get_character(&message.author.id) {
+                    match try_get_character(&message.author.id).await {
                         Ok(character) => {
                             dsa::dodge_check(sub_m, &character, &mut output);
                         }
@@ -166,7 +165,7 @@ impl EventHandler for Handler {
                 }
 
                 Some(("parry", sub_m)) => {
-                    match try_get_character(&message.author.id) {
+                    match try_get_character(&message.author.id).await {
                         Ok(character) => {
                             dsa::parry_check(sub_m, &character, &self.dsa_data, &mut output);
                         }
@@ -210,7 +209,7 @@ impl EventHandler for Handler {
     }
 }
 
-pub fn start_bot(config: Config, dsa_data: DSAData) {
+pub async fn start_bot(config: Config, dsa_data: DSAData) {
     let login_token = match &config.discord.login_token {
         Some(token) => token.clone(),
         None => {
@@ -220,28 +219,19 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
     };
 
     let handler = Handler { config, dsa_data };
-
-    let runtime = Builder::new_current_thread()
-        .enable_io()
-        .enable_time()
-        .build()
-        .unwrap();
-    runtime.block_on(async {
-        let mut client = match Client::builder(&login_token).event_handler(handler).await {
-            Ok(client) => client,
-            Err(e) => {
-                println!("Error creating discord client: {}", e.to_string());
-                return;
-            }
-        };
-
-        if let Err(e) = client.start().await {
-            println!("Error starting discord client: {}", e.to_string());
+    let mut client = match Client::builder(&login_token).event_handler(handler).await {
+        Ok(client) => client,
+        Err(e) => {
+            println!("Error creating discord client: {}", e.to_string());
+            return;
         }
-    });
+    };
+    if let Err(e) = client.start().await {
+        println!("Error starting discord client: {}", e.to_string());
+    }
 }
 
-fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
+async fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
     let mut char_path = config::get_config_dir()?;
     char_path.push("discord_characters");
     char_path.push(user_id.to_string());
@@ -251,7 +241,7 @@ fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
             ErrorType::InvalidInput(InputErrorType::MissingCharacter),
         ));
     }
-    Character::from_file(&char_path)
+    Character::from_file(&char_path).await
 }
 
 async fn upload_character(message: &Message, config: &Config) -> Result<Character, Error> {
@@ -291,7 +281,7 @@ async fn upload_character(message: &Message, config: &Config) -> Result<Characte
     let mut writer = io::BufWriter::new(file);
     writer.write(&data).await?;
     writer.flush().await?;
-    match Character::from_file(&char_path) {
+    match Character::from_file(&char_path).await {
         Ok(c) => {
             if c.get_name().len() > config.discord.max_name_length.unwrap_or(32) {
                 fs::remove_file(&char_path).await?;
@@ -352,21 +342,19 @@ async fn fetch_discord_members(ctx: &Context, message: &Message) -> Result<Vec<M
 
     let get_channel_perms = |member: &Member| guild.user_permissions_in(&channel, member); // life time hax
 
-    Ok(
-        futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
-            .filter_map(|member| async move {
-                if get_channel_perms(&member)
-                    .map(|p| p.contains(Permissions::READ_MESSAGES))
-                    .unwrap_or(false)
-                {
-                    Some(member)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<Member>>()
-            .await,
-    )
+    Ok(g_members
+        .iter()
+        .filter_map(|m| {
+            if get_channel_perms(&m)
+                .map(|p| p.contains(Permissions::READ_MESSAGES))
+                .unwrap_or(false)
+            {
+                Some(m.clone())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<Member>>())
 }
 
 async fn initiative(
@@ -445,7 +433,7 @@ async fn initiative(
             path.push("discord_characters");
             path.push(user_id);
             if std::path::Path::exists(&path) {
-                match Character::from_file(&path) {
+                match Character::from_file(&path).await {
                     Err(_) => {
                         return Err(Error::new(
                             format!("Unable to retrieve character for {}", member.display_name()),
@@ -468,7 +456,7 @@ async fn initiative(
         path.push("discord_characters");
         path.push(message.author.id.to_string());
         if std::path::Path::exists(&path) {
-            let character = Character::from_file(&path)?;
+            let character = Character::from_file(&path).await?;
             characters.push((
                 character.get_name().to_string(),
                 character.get_initiative_level(),

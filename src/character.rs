@@ -1,9 +1,8 @@
 use super::config;
 use super::util::{Error, ErrorType};
 use serde::Deserialize;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
+use tokio::fs;
 
 const LOADED_CHARACTER_FILE: &'static str = "loaded_character";
 
@@ -41,33 +40,32 @@ pub struct CharacterSpell {
 }
 
 impl Character {
-    pub fn loaded_character() -> Result<Option<Character>, Error> {
+    pub async fn loaded_character() -> Result<Option<Character>, Error> {
         let mut path = config::get_config_dir()?;
         path.push(LOADED_CHARACTER_FILE);
         if Path::exists(&path) {
             let char_path = std::fs::read_to_string(&path)?;
             let char_path = Path::new(&char_path);
-            let character = Self::from_file(&char_path)?;
+            let character = Self::from_file(&char_path).await?;
             Ok(Some(character))
         } else {
             Ok(None)
         }
     }
 
-    pub fn from_file(path: &Path) -> Result<Character, Error> {
-        let char_file = File::open(path)?;
-        let reader = BufReader::new(char_file);
-        let character = serde_json::from_reader(reader)?;
+    pub async fn from_file(path: &Path) -> Result<Character, Error> {
+        let json_data = fs::read_to_string(path).await?;
+        let character: Character = serde_json::from_str(&json_data)?;
         Ok(character)
     }
 
-    pub fn load(path: &str) -> Result<Character, Error> {
+    pub async fn load(path: &str) -> Result<Character, Error> {
         let character_path = Path::new(path);
-        let character_path = std::fs::canonicalize(character_path)?;
+        let character_path = fs::canonicalize(character_path).await?;
         let mut path = config::get_config_dir()?;
         path.push(LOADED_CHARACTER_FILE);
-        std::fs::write(&path, character_path.to_str().unwrap())?;
-        match Character::loaded_character() {
+        fs::write(&path, character_path.to_str().unwrap()).await?;
+        match Character::loaded_character().await {
             Ok(Some(c)) => Ok(c),
             Ok(None) => Err(Error::new(
                 "Character was not loaded correctly",
@@ -77,10 +75,10 @@ impl Character {
         }
     }
 
-    pub fn unload() -> Result<(), Error> {
+    pub async fn unload() -> Result<(), Error> {
         let mut path = config::get_config_dir()?;
         path.push(LOADED_CHARACTER_FILE);
-        std::fs::remove_file(&path)?;
+        fs::remove_file(&path).await?;
         Ok(())
     }
 
