@@ -7,7 +7,7 @@ use super::dsa;
 use super::util::*;
 use clap::ArgMatches;
 use futures::stream::StreamExt;
-use serde_json::Value;
+use serde_json::{Number, Value};
 use std::iter::Iterator;
 use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
@@ -63,9 +63,7 @@ impl CommandUpload {
                 ),
                 ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
             ));
-        } else if message.attachments[0].size
-            > config.discord.max_attachement_size
-        {
+        } else if message.attachments[0].size > config.discord.max_attachement_size {
             return Err(Error::new(
                 format!(
                     "Attachement too big ({} bytes)",
@@ -298,7 +296,13 @@ impl DiscordCommand for CommandAttack {
             .name("technique")
             .kind(ApplicationCommandOptionType::String);
 
-        for combat in handler.dsa_data.combat_techniques.keys().into_iter().take(25) {
+        for combat in handler
+            .dsa_data
+            .combat_techniques
+            .keys()
+            .into_iter()
+            .take(25)
+        {
             talent_check = talent_check.add_string_choice(combat, combat);
         }
 
@@ -311,6 +315,66 @@ impl DiscordCommand for CommandAttack {
 
         vec![talent_check.clone(), num.clone()]
     }
+
+    async fn handle_slash_command<'a>(
+        &self,
+        interaction: &'a Interaction,
+        handler: &'a Handler,
+    ) -> String {
+        let output = &mut DiscordOutputWrapper::new();
+        let user = interaction.member.clone().unwrap().user;
+
+        if interaction.data.is_none() {
+            output.output_line(&"Invalid argument!");
+            return output.get_content();
+        }
+
+        let data = interaction.data.clone().unwrap().options;
+
+        if !data.iter().any(|cmd| cmd.name == "technique") {
+            output.output_line(&"Invalid talent!");
+            return output.get_content();
+        }
+
+        let name = data
+            .iter()
+            .filter(|cmd| cmd.name == "technique" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap();
+        let facility = data
+            .iter()
+            .filter(|cmd| cmd.name == "facilitation" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap_or(Value::Number(Number::from(0)));
+
+        let sub_m = cli::get_app().get_matches_from(vec![
+            "",
+            "attack",
+            name.as_str().unwrap(),
+            &facility.to_string(),
+        ]);
+        let sub_m = sub_m.subcommand().unwrap().1;
+
+        match try_get_character(&user.id).await {
+            Ok(character) => {
+                dsa::attack_check(&sub_m, &character, &handler.dsa_data, output);
+            }
+            Err(e) => match e.err_type() {
+                ErrorType::InvalidInput(_) => {
+                    output.output_line(&e);
+                }
+                _ => {
+                    output.output_line(&"Internal server error while rolling attack");
+                    println!("Error rolling attack: {:?}", e);
+                }
+            },
+        };
+
+        output.get_content()
+    }
+
     async fn execute(
         &self,
         message: &Message,
@@ -355,8 +419,8 @@ impl DiscordCommand for CommandSpell {
             .name("spell")
             .kind(ApplicationCommandOptionType::String);
 
-        for combat in handler.dsa_data.combat_techniques.keys().into_iter().take(25) {
-            talent_check = talent_check.add_string_choice(combat, combat);
+        for spells in handler.dsa_data.spells.keys().into_iter().take(25) {
+            talent_check = talent_check.add_string_choice(spells, spells);
         }
 
         let mut num = &mut CreateApplicationCommandOption::default();
@@ -368,6 +432,72 @@ impl DiscordCommand for CommandSpell {
 
         vec![talent_check.clone(), num.clone()]
     }
+
+    async fn handle_slash_command<'a>(
+        &self,
+        interaction: &'a Interaction,
+        handler: &'a Handler,
+    ) -> String {
+        let output = &mut DiscordOutputWrapper::new();
+        let user = interaction.member.clone().unwrap().user;
+
+        if interaction.data.is_none() {
+            output.output_line(&"Invalid argument!");
+            return output.get_content();
+        }
+
+        let data = interaction.data.clone().unwrap().options;
+
+        if !data.iter().any(|cmd| cmd.name == "spell") {
+            output.output_line(&"Invalid spell!");
+            return output.get_content();
+        }
+
+        let name = data
+            .iter()
+            .filter(|cmd| cmd.name == "spell" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap();
+        let facility = data
+            .iter()
+            .filter(|cmd| cmd.name == "facilitation" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap_or(Value::Number(Number::from(0)));
+
+        let sub_m = cli::get_app().get_matches_from(vec![
+            "",
+            "spell",
+            name.as_str().unwrap(),
+            &facility.to_string(),
+        ]);
+        let sub_m = sub_m.subcommand().unwrap().1;
+
+        match try_get_character(&user.id).await {
+            Ok(character) => {
+                dsa::spell_check(
+                    &sub_m,
+                    &character,
+                    &handler.dsa_data,
+                    &handler.config,
+                    output,
+                );
+            }
+            Err(e) => match e.err_type() {
+                ErrorType::InvalidInput(_) => {
+                    output.output_line(&e);
+                }
+                _ => {
+                    output.output_line(&"Internal server error while rolling spell");
+                    println!("Error rolling spell: {:?}", e);
+                }
+            },
+        };
+
+        output.get_content()
+    }
+
     async fn execute(
         &self,
         message: &Message,
@@ -410,19 +540,8 @@ impl DiscordCommand for CommandDodge {
 
     fn create_interaction_options(
         &self,
-        handler: &Handler,
+        _: &Handler,
     ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
-        let mut talent_check = &mut CreateApplicationCommandOption::default();
-        talent_check = talent_check
-            .required(true)
-            .description("The combat technique to check for ")
-            .name("technique")
-            .kind(ApplicationCommandOptionType::String);
-
-        for combat in handler.dsa_data.combat_techniques.keys().into_iter().take(25) {
-            talent_check = talent_check.add_string_choice(combat, combat);
-        }
-
         let mut num = &mut CreateApplicationCommandOption::default();
         num = num
             .description("Facilitation for the combat check")
@@ -430,7 +549,49 @@ impl DiscordCommand for CommandDodge {
             .default_option(false)
             .kind(ApplicationCommandOptionType::Integer);
 
-        vec![talent_check.clone(), num.clone()]
+        vec![num.clone()]
+    }
+
+    async fn handle_slash_command<'a>(
+        &self,
+        interaction: &'a Interaction,
+        _: &'a Handler,
+    ) -> String {
+        let output = &mut DiscordOutputWrapper::new();
+        let user = interaction.member.clone().unwrap().user;
+
+        if interaction.data.is_none() {
+            output.output_line(&"Invalid argument!");
+            return output.get_content();
+        }
+
+        let data = interaction.data.clone().unwrap().options;
+        let facility = data
+            .iter()
+            .filter(|cmd| cmd.name == "facilitation" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap_or(Value::Number(Number::from(0)));
+
+        let sub_m = cli::get_app().get_matches_from(vec!["", "dodge", &facility.to_string()]);
+        let sub_m = sub_m.subcommand().unwrap().1;
+
+        match try_get_character(&user.id).await {
+            Ok(character) => {
+                dsa::dodge_check(&sub_m, &character, output);
+            }
+            Err(e) => match e.err_type() {
+                ErrorType::InvalidInput(_) => {
+                    output.output_line(&e);
+                }
+                _ => {
+                    output.output_line(&"Internal server error while rolling dodge");
+                    println!("Error rolling dodge: {:?}", e);
+                }
+            },
+        };
+
+        output.get_content()
     }
 
     async fn execute(
@@ -466,7 +627,7 @@ impl DiscordCommand for CommandParry {
     fn description(&self) -> &'static str {
         "Performs a parry skillcheck for the given combat technique"
     }
-    
+
     fn create_interaction_options(
         &self,
         handler: &Handler,
@@ -478,7 +639,13 @@ impl DiscordCommand for CommandParry {
             .name("technique")
             .kind(ApplicationCommandOptionType::String);
 
-        for combat in handler.dsa_data.combat_techniques.keys().into_iter().take(25) {
+        for combat in handler
+            .dsa_data
+            .combat_techniques
+            .keys()
+            .into_iter()
+            .take(25)
+        {
             talent_check = talent_check.add_string_choice(combat, combat);
         }
 
@@ -490,6 +657,65 @@ impl DiscordCommand for CommandParry {
             .kind(ApplicationCommandOptionType::Integer);
 
         vec![talent_check.clone(), num.clone()]
+    }
+
+    async fn handle_slash_command<'a>(
+        &self,
+        interaction: &'a Interaction,
+        handler: &'a Handler,
+    ) -> String {
+        let output = &mut DiscordOutputWrapper::new();
+        let user = interaction.member.clone().unwrap().user;
+
+        if interaction.data.is_none() {
+            output.output_line(&"Invalid argument!");
+            return output.get_content();
+        }
+
+        let data = interaction.data.clone().unwrap().options;
+
+        if !data.iter().any(|cmd| cmd.name == "technique") {
+            output.output_line(&"Invalid talent!");
+            return output.get_content();
+        }
+
+        let name = data
+            .iter()
+            .filter(|cmd| cmd.name == "technique" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap();
+        let facility = data
+            .iter()
+            .filter(|cmd| cmd.name == "facilitation" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap_or(Value::Number(Number::from(0)));
+
+        let sub_m = cli::get_app().get_matches_from(vec![
+            "",
+            "parry",
+            name.as_str().unwrap(),
+            &facility.to_string(),
+        ]);
+        let sub_m = sub_m.subcommand().unwrap().1;
+
+        match try_get_character(&user.id).await {
+            Ok(character) => {
+                dsa::parry_check(&sub_m, &character, &handler.dsa_data, output);
+            }
+            Err(e) => match e.err_type() {
+                ErrorType::InvalidInput(_) => {
+                    output.output_line(&e);
+                }
+                _ => {
+                    output.output_line(&"Internal server error while rolling parry");
+                    println!("Error rolling parry: {:?}", e);
+                }
+            },
+        };
+
+        output.get_content()
     }
 
     async fn execute(

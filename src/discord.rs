@@ -5,13 +5,13 @@ use super::util::*;
 use clap::ArgMatches;
 use serenity::{
     async_trait,
+    client::bridge::gateway::GatewayIntents,
     model::{
         channel::Message,
         gateway::Ready,
         id::GuildId,
         interactions::{Interaction, InteractionResponseType},
     },
-    client::bridge::gateway::GatewayIntents,
     prelude::*,
 };
 use std::{collections::HashMap, env};
@@ -90,9 +90,9 @@ impl EventHandler for Handler {
 
     async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
         if self.config.discord.use_slash_commands {
-            let test_server = GuildId(match env::var("DISCORD_TEST_SERVER"){
-                Ok(val) => val.parse().unwrap_or(830394313783246858),
-                _ => 830394313783246858
+            let test_server = GuildId(match env::var("DISCORD_TEST_SERVER") {
+                Ok(val) => val.parse().unwrap_or(839621705701261332),
+                _ => 839621705701261332,
             });
 
             for name in self.command_registry._names.iter() {
@@ -117,6 +117,7 @@ impl EventHandler for Handler {
         } else {
             //todo delete registered slash cmds
         }
+        println!("Registered all Slash Commands!");
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -215,7 +216,13 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
     let mut client = match Client::builder(&login_token)
         .event_handler(handler)
         .application_id(application_id)
-        .intents(GatewayIntents::GUILD_MESSAGES | GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_MEMBERS | GatewayIntents::GUILDS | GatewayIntents::non_privileged())
+        .intents(
+            GatewayIntents::GUILD_MESSAGES
+                | GatewayIntents::DIRECT_MESSAGES
+                | GatewayIntents::GUILD_MEMBERS
+                | GatewayIntents::GUILDS
+                | GatewayIntents::non_privileged(),
+        )
         .await
     {
         Ok(client) => client,
