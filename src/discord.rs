@@ -81,14 +81,21 @@ impl EventHandler for Handler {
     }
 
     async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
-        let test_server = GuildId(839621705701261332);
+        if self.config.discord.use_slash_commands.unwrap_or(true) {
+            let test_server = GuildId(839621705701261332);
 
-        for name in self.command_registry._names.iter()
-        {
-            let cmd = self.command_registry.get_command(name.as_str()).unwrap();
-            let _ = test_server.create_application_command(&ctx, |fun| {
-                fun.name(name).description(cmd.description()).set_options(cmd.create_interaction_options())
-            }).await;
+            for name in self.command_registry._names.iter() {
+                let cmd = self.command_registry.get_command(name.as_str()).unwrap();
+                let _ = test_server
+                    .create_application_command(&ctx, |fun| {
+                        fun.name(name)
+                            .description(cmd.description())
+                            .set_options(cmd.create_interaction_options())
+                    })
+                    .await;
+            }
+        } else {
+            //todo delete registered slash cmds
         }
     }
 

@@ -6,6 +6,7 @@
     "discord": {
         "login_token" : null,
         "application_id": null,
+        "use_slash_commands": true,
         "require_complete_command" : false,
         "use_reply" : true,
         "max_attachement_size" : 1000000,
