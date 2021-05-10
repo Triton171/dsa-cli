@@ -1,3 +1,5 @@
+use crate::cli;
+
 use super::character::Character;
 use super::config::*;
 use super::discord::*;
@@ -8,15 +10,18 @@ use async_std::io;
 use async_std::prelude::*;
 use clap::ArgMatches;
 use futures::stream::StreamExt;
+use serde_json::Value;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
 use serenity::{
     async_trait,
+    builder::CreateApplicationCommandOption,
     model::{
         channel::{ChannelType, Message},
         guild::Member,
         id::UserId,
+        interactions::{ApplicationCommandOptionType, Interaction},
         permissions::Permissions,
     },
     prelude::*,
@@ -118,6 +123,9 @@ impl DiscordCommand for CommandUpload {
     fn name(&self) -> &'static str {
         "upload"
     }
+    fn description(&self) -> &'static str {
+        "Uploads a character for your discord account. The .json file has to be attached to this message"
+    }
 
     async fn execute(
         &self,
@@ -152,6 +160,95 @@ impl DiscordCommand for CommandCheck {
     fn name(&self) -> &'static str {
         "check"
     }
+    fn description(&self) -> &'static str {
+        "Performs a skillcheck for the given talent"
+    }
+    fn create_interaction_options(
+        &self,
+        _: &Handler,
+    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+        let mut talent_check = &mut CreateApplicationCommandOption::default();
+        talent_check = talent_check
+            .required(true)
+            .description("The talent to check for ")
+            .name("talent")
+            .kind(ApplicationCommandOptionType::String);
+
+        let mut num = &mut CreateApplicationCommandOption::default();
+        num = num
+            .description("Facilitation for the talent check")
+            .name("facilitation")
+            .default_option(false)
+            .kind(ApplicationCommandOptionType::Integer);
+
+        vec![talent_check.clone(), num.clone()]
+    }
+
+    fn handle_slash_command<'a>(
+        &self,
+        interaction: &'a Interaction,
+        handler: &'a Handler,
+    ) -> String {
+        let output = &mut DiscordOutputWrapper::new();
+        let user = interaction.member.clone().unwrap().user;
+
+        if interaction.data.is_none() {
+            output.output_line(&"Invalid argument!");
+            return output.get_content();
+        }
+
+        let data = interaction.data.clone().unwrap().options;
+
+        if !data.iter().any(|cmd| cmd.name == "talent") {
+            output.output_line(&"Invalid talent!");
+            return output.get_content();
+        }
+
+        let name = data
+            .iter()
+            .filter(|cmd| cmd.name == "talent" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap();
+        let facility = data
+            .iter()
+            .filter(|cmd| cmd.name == "facility" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap_or(Value::String(String::from("0")));
+
+        let sub_m = cli::get_app().get_matches_from(vec![
+            "",
+            "check",
+            name.as_str().unwrap(),
+            facility.as_str().unwrap(),
+        ]);
+        let sub_m = sub_m.subcommand().unwrap().1;
+
+        match try_get_character(&user.id) {
+            Ok(character) => {
+                dsa::talent_check(
+                    &sub_m,
+                    &character,
+                    &handler.dsa_data,
+                    &handler.config,
+                    output,
+                );
+            }
+            Err(e) => match e.err_type() {
+                ErrorType::InvalidInput(_) => {
+                    output.output_line(&e);
+                }
+                _ => {
+                    output.output_line(&"Internal server error while rolling check");
+                    println!("Error rolling check: {:?}", e);
+                }
+            },
+        };
+
+        output.get_content()
+    }
+
     async fn execute(
         &self,
         message: &Message,
@@ -188,6 +285,9 @@ impl DiscordCommand for CommandAttack {
     fn name(&self) -> &'static str {
         "attack"
     }
+    fn description(&self) -> &'static str {
+        "Performs an attack skillcheck for the given combat technique"
+    }
     async fn execute(
         &self,
         message: &Message,
@@ -217,6 +317,9 @@ impl DiscordCommand for CommandAttack {
 impl DiscordCommand for CommandSpell {
     fn name(&self) -> &'static str {
         "spell"
+    }
+    fn description(&self) -> &'static str {
+        "Performs a spell skillcheck for the given spell"
     }
     async fn execute(
         &self,
@@ -254,6 +357,9 @@ impl DiscordCommand for CommandDodge {
     fn name(&self) -> &'static str {
         "dodge"
     }
+    fn description(&self) -> &'static str {
+        "Performs a dodge skillcheck"
+    }
     async fn execute(
         &self,
         message: &Message,
@@ -284,6 +390,9 @@ impl DiscordCommand for CommandParry {
     fn name(&self) -> &'static str {
         "parry"
     }
+    fn description(&self) -> &'static str {
+        "Performs a parry skillcheck for the given combat technique"
+    }
     async fn execute(
         &self,
         message: &Message,
@@ -313,6 +422,9 @@ impl DiscordCommand for CommandParry {
 impl DiscordCommand for CommandRoll {
     fn name(&self) -> &'static str {
         "roll"
+    }
+    fn description(&self) -> &'static str {
+        "Rolls some dice"
     }
     async fn execute(
         &self,
@@ -581,6 +693,9 @@ impl CommandIni {
 impl DiscordCommand for CommandIni {
     fn name(&self) -> &'static str {
         "ini"
+    }
+    fn description(&self) -> &'static str {
+        "Performs an initiative roll for the current character"
     }
     async fn execute(
         &self,

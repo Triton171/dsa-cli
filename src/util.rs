@@ -139,6 +139,7 @@ impl OutputWrapper for CLIOutputWrapper {
 pub enum DiscordOutputType<'a> {
     SimpleMessage(ChannelId),
     ReplyTo(&'a Message),
+    None,
 }
 
 //A lazy output wrapper for sending discord messages
@@ -165,6 +166,18 @@ impl<'a> DiscordOutputWrapper<'a> {
         }
     }
 
+    pub fn new() -> DiscordOutputWrapper<'a> {
+        DiscordOutputWrapper {
+            output_type: DiscordOutputType::None,
+            msg_buf: String::from(""),
+            msg_empty: true,
+        }
+    }
+
+    pub fn get_content(&self) -> String {
+        self.msg_buf.clone()
+    }
+
     pub async fn send(&mut self, ctx: &Context) {
         if self.msg_empty {
             return;
@@ -185,6 +198,7 @@ impl<'a> DiscordOutputWrapper<'a> {
                     println!("Error sending reply message: {}", e);
                 }
             },
+            _ => {}
         }
         self.msg_buf = String::from("```");
     }

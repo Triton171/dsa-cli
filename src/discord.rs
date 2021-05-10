@@ -32,12 +32,15 @@ pub trait DiscordCommand: Send + Sync {
     fn description(&self) -> &'static str {
         "none"
     }
-    fn create_interaction_options(&self) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+    fn create_interaction_options(
+        &self,
+        _: &Handler,
+    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
         vec![]
     }
 
-    fn handle_slash_command(&self, _cmd: &Interaction) -> &'static str {
-        "not implemented!"
+    fn handle_slash_command<'a>(&self, _: &'a Interaction, _: &'a Handler) -> String {
+        String::from("not implemented!")
     }
 
     async fn execute(
@@ -91,13 +94,19 @@ impl EventHandler for Handler {
 
             for name in self.command_registry._names.iter() {
                 let cmd = self.command_registry.get_command(name.as_str()).unwrap();
-                let _ = test_server
+                let a = test_server
                     .create_application_command(&ctx, |fun| {
-                        fun.name(name)
-                            .description(cmd.description())
-                            .set_options(cmd.create_interaction_options())
+                        let mut c = fun.name(name).description(cmd.description());
+                        let opts = cmd.create_interaction_options(&self);
+                        if !opts.is_empty() {
+                            c = c.set_options(opts);
+                        }
+                        c
                     })
                     .await;
+                if a.is_err() {
+                    println!("Registering '{}': {:?}", name, a);
+                }
             }
         } else {
             //todo delete registered slash cmds
@@ -124,8 +133,8 @@ impl EventHandler for Handler {
                                     )
                                     .as_ref()
                                 {
-                                    None => "Command not found!", // this should never trigger
-                                    Some(cmd) => cmd.handle_slash_command(&interaction),
+                                    None => String::from("Command not found!"), // this should never trigger
+                                    Some(cmd) => cmd.handle_slash_command(&interaction, &self),
                                 },
                             )
                         })
