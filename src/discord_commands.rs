@@ -751,6 +751,54 @@ impl DiscordCommand for CommandRoll {
     fn description(&self) -> &'static str {
         "Rolls some dice"
     }
+
+    fn create_interaction_options(
+        &self,
+        _: &Handler,
+    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+        let mut cmd = &mut CreateApplicationCommandOption::default();
+        cmd = cmd
+            .name("expression")
+            .description("[number_of_dice]d[dice_type] + [offset]")
+            .kind(ApplicationCommandOptionType::String)
+            .required(true);
+        vec![cmd.clone()]
+    }
+
+    async fn handle_slash_command<'a>(
+        &self,
+        interaction: &'a Interaction,
+        _: &'a Handler,
+    ) -> String {
+        let output = &mut DiscordOutputWrapper::new();
+
+        if interaction.data.is_none() {
+            output.output_line(&"Invalid argument!");
+            return output.get_content();
+        }
+
+        let data = interaction.data.clone().unwrap().options;
+
+        if !data.iter().any(|cmd| cmd.name == "expression") {
+            output.output_line(&"Invalid dice expression!");
+            return output.get_content();
+        }
+
+        let expression = data
+            .iter()
+            .filter(|cmd| cmd.name == "expression" && cmd.value.is_some())
+            .map(|cmd| cmd.value.clone().unwrap())
+            .next()
+            .unwrap();
+
+        let sub_m = cli::get_app().get_matches_from(vec!["", "roll", expression.as_str().unwrap()]);
+        let sub_m = sub_m.subcommand().unwrap().1;
+
+        dsa::roll(sub_m, output);
+
+        output.get_content()
+    }
+
     async fn execute(
         &self,
         _: &Message,
