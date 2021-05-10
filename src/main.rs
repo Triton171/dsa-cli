@@ -2,6 +2,7 @@ mod character;
 mod cli;
 mod config;
 mod discord;
+mod discord_commands;
 mod dsa;
 mod util;
 
