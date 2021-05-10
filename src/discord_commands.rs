@@ -1,18 +1,17 @@
-use crate::cli;
+use crate::{cli, config};
 
 use super::character::Character;
 use super::config::*;
 use super::discord::*;
 use super::dsa;
 use super::util::*;
-use async_std::fs;
-use async_std::io;
-use async_std::prelude::*;
 use clap::ArgMatches;
 use futures::stream::StreamExt;
 use serde_json::Value;
 use std::iter::Iterator;
 use std::path::PathBuf;
+use tokio::io::AsyncWriteExt;
+use tokio::{fs, io};
 
 use serenity::{
     async_trait,
@@ -27,8 +26,8 @@ use serenity::{
     prelude::*,
 };
 
-fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
-    let mut char_path = get_config_dir()?;
+async fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
+    let mut char_path = config::get_config_dir()?;
     char_path.push("discord_characters");
     char_path.push(user_id.to_string());
     if !std::path::Path::exists(&char_path) {
@@ -37,7 +36,7 @@ fn try_get_character(user_id: &UserId) -> Result<Character, Error> {
             ErrorType::InvalidInput(InputErrorType::MissingCharacter),
         ));
     }
-    Character::from_file(&char_path)
+    Character::from_file(&char_path).await
 }
 
 pub struct CommandUpload;
@@ -76,7 +75,7 @@ impl CommandUpload {
             ));
         }
         //Get character path
-        let mut char_path = get_config_dir()?;
+        let mut char_path = config::get_config_dir()?;
         char_path.push("discord_characters");
         fs::create_dir_all(&char_path).await?;
         char_path.push(message.author.id.to_string());
@@ -93,7 +92,7 @@ impl CommandUpload {
         let mut writer = io::BufWriter::new(file);
         writer.write(&data).await?;
         writer.flush().await?;
-        match Character::from_file(&char_path) {
+        match Character::from_file(&char_path).await {
             Ok(c) => {
                 if c.get_name().len() > config.discord.max_name_length.unwrap_or(32) {
                     fs::remove_file(&char_path).await?;
@@ -184,7 +183,7 @@ impl DiscordCommand for CommandCheck {
         vec![talent_check.clone(), num.clone()]
     }
 
-    fn handle_slash_command<'a>(
+    async fn handle_slash_command<'a>(
         &self,
         interaction: &'a Interaction,
         handler: &'a Handler,
@@ -225,7 +224,7 @@ impl DiscordCommand for CommandCheck {
         ]);
         let sub_m = sub_m.subcommand().unwrap().1;
 
-        match try_get_character(&user.id) {
+        match try_get_character(&user.id).await {
             Ok(character) => {
                 dsa::talent_check(
                     &sub_m,
@@ -257,7 +256,7 @@ impl DiscordCommand for CommandCheck {
         _: &Context,
         sub_m: &ArgMatches,
     ) {
-        match try_get_character(&message.author.id) {
+        match try_get_character(&message.author.id).await {
             Ok(character) => {
                 dsa::talent_check(
                     sub_m,
@@ -296,7 +295,7 @@ impl DiscordCommand for CommandAttack {
         _: &Context,
         sub_m: &ArgMatches,
     ) {
-        match try_get_character(&message.author.id) {
+        match try_get_character(&message.author.id).await {
             Ok(character) => {
                 dsa::attack_check(sub_m, &character, &handler.dsa_data, output);
             }
@@ -329,7 +328,7 @@ impl DiscordCommand for CommandSpell {
         _: &Context,
         sub_m: &ArgMatches,
     ) {
-        match try_get_character(&message.author.id) {
+        match try_get_character(&message.author.id).await {
             Ok(character) => {
                 dsa::spell_check(
                     sub_m,
@@ -368,7 +367,7 @@ impl DiscordCommand for CommandDodge {
         _: &Context,
         sub_m: &ArgMatches,
     ) {
-        match try_get_character(&message.author.id) {
+        match try_get_character(&message.author.id).await {
             Ok(character) => {
                 dsa::dodge_check(sub_m, &character, output);
             }
@@ -401,7 +400,7 @@ impl DiscordCommand for CommandParry {
         _: &Context,
         sub_m: &ArgMatches,
     ) {
-        match try_get_character(&message.author.id) {
+        match try_get_character(&message.author.id).await {
             Ok(character) => {
                 dsa::parry_check(sub_m, &character, &handler.dsa_data, output);
             }
@@ -573,7 +572,7 @@ impl CommandIni {
                 path.push("discord_characters");
                 path.push(user_id);
                 if std::path::Path::exists(&path) {
-                    match Character::from_file(&path) {
+                    match Character::from_file(&path).await {
                         Err(_) => {
                             return Err(Error::new(
                                 format!(
@@ -599,7 +598,7 @@ impl CommandIni {
             path.push("discord_characters");
             path.push(message.author.id.to_string());
             if std::path::Path::exists(&path) {
-                let character = Character::from_file(&path)?;
+                let character = Character::from_file(&path).await?;
                 characters.push((
                     character.get_name().to_string(),
                     character.get_initiative_level(),

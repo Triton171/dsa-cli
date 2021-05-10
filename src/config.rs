@@ -20,6 +20,7 @@ pub struct ConfigDiscord {
     pub login_token: Option<String>,
     pub application_id: Option<u64>,
     pub use_slash_commands: Option<bool>,
+    pub num_threads: Option<usize>,
     pub require_complete_command: Option<bool>,
     pub use_reply: Option<bool>,
     pub max_attachement_size: Option<u64>,

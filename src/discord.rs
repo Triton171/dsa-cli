@@ -14,7 +14,6 @@ use serenity::{
     prelude::*,
 };
 use std::collections::HashMap;
-use tokio::runtime::Builder;
 
 pub struct Handler {
     pub config: Config,
@@ -39,7 +38,7 @@ pub trait DiscordCommand: Send + Sync {
         vec![]
     }
 
-    fn handle_slash_command<'a>(&self, _: &'a Interaction, _: &'a Handler) -> String {
+    async fn handle_slash_command<'a>(&self, _: &'a Interaction, _: &'a Handler) -> String {
         String::from("not implemented!")
     }
 
@@ -115,28 +114,28 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         let name = interaction.clone().data;
+        let text = match self
+            .command_registry
+            .get_command(
+                match name {
+                    Some(d) => d.name,
+                    None => String::new(),
+                }
+                .as_str(),
+            )
+            .as_ref()
+        {
+            None => String::from("Command not found!"), // this should never trigger
+            Some(cmd) => cmd.handle_slash_command(&interaction, &self).await,
+        };
         let _ = interaction
             .create_interaction_response(&ctx.http, |response| {
                 response
                     .kind(InteractionResponseType::ChannelMessageWithSource)
                     .interaction_response_data(|data| {
                         data.embed(|f| {
-                            f.color(serenity::utils::Colour::BLITZ_BLUE).description(
-                                match self
-                                    .command_registry
-                                    .get_command(
-                                        match name {
-                                            Some(d) => d.name,
-                                            None => String::new(),
-                                        }
-                                        .as_str(),
-                                    )
-                                    .as_ref()
-                                {
-                                    None => String::from("Command not found!"), // this should never trigger
-                                    Some(cmd) => cmd.handle_slash_command(&interaction, &self),
-                                },
-                            )
+                            f.color(serenity::utils::Colour::BLITZ_BLUE)
+                                .description(text)
                         })
                     })
             })
@@ -187,7 +186,7 @@ impl EventHandler for Handler {
     }
 }
 
-pub fn start_bot(config: Config, dsa_data: DSAData) {
+pub async fn start_bot(config: Config, dsa_data: DSAData) {
     let login_token = match &config.discord.login_token {
         Some(token) => token.clone(),
         None => {
@@ -207,29 +206,22 @@ pub fn start_bot(config: Config, dsa_data: DSAData) {
 
     register_commands(&mut handler.command_registry);
 
-    let runtime = Builder::new_current_thread()
-        .enable_io()
-        .enable_time()
-        .build()
-        .unwrap();
-    runtime.block_on(async {
-        let mut client = match Client::builder(&login_token)
-            .event_handler(handler)
-            .application_id(application_id)
-            .intents(serenity::client::bridge::gateway::GatewayIntents::all())
-            .await
-        {
-            Ok(client) => client,
-            Err(e) => {
-                println!("Error creating discord client: {}", e.to_string());
-                return;
-            }
-        };
-
-        if let Err(e) = client.start().await {
-            println!("Error starting discord client: {}", e.to_string());
+    let mut client = match Client::builder(&login_token)
+        .event_handler(handler)
+        .application_id(application_id)
+        .intents(serenity::client::bridge::gateway::GatewayIntents::all())
+        .await
+    {
+        Ok(client) => client,
+        Err(e) => {
+            println!("Error creating discord client: {}", e.to_string());
+            return;
         }
-    });
+    };
+
+    if let Err(e) = client.start().await {
+        println!("Error starting discord client: {}", e.to_string());
+    }
 }
 
 fn register_commands(registry: &mut DiscordCommandRegistry) {
