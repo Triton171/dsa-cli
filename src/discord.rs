@@ -14,7 +14,7 @@ use serenity::{
     client::bridge::gateway::GatewayIntents,
     prelude::*,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, env};
 
 pub struct Handler {
     pub config: Config,
@@ -90,7 +90,10 @@ impl EventHandler for Handler {
 
     async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
         if self.config.discord.use_slash_commands {
-            let test_server = GuildId(830394313783246858);
+            let test_server = GuildId(match env::var("DISCORD_TEST_SERVER"){
+                Ok(val) => val.parse().unwrap_or(830394313783246858),
+                _ => 830394313783246858
+            });
 
             for name in self.command_registry._names.iter() {
                 let cmd = self.command_registry.get_command(name.as_str()).unwrap();
