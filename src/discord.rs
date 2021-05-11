@@ -143,12 +143,15 @@ impl EventHandler for Handler {
         };
         let _ = interaction
             .create_interaction_response(&ctx.http, |response| {
+                let mut str = String::from("```");
+                str.push_str(&text);
+                str.push_str("```");
                 response
                     .kind(InteractionResponseType::ChannelMessageWithSource)
                     .interaction_response_data(|data| {
                         data.embed(|f| {
                             f.color(serenity::utils::Colour::BLITZ_BLUE)
-                                .description(text)
+                                .description(str)
                         })
                     })
             })

@@ -216,7 +216,7 @@ impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
     fn output_table(&mut self, table: &Vec<Vec<String>>) {
         for row in table {
             for entry in row {
-                self.msg_buf.push_str(&format!("{:<22}", entry));
+                self.msg_buf.push_str(&format!("{:<15}", entry));
             }
             self.msg_buf.push('\n');
         }
