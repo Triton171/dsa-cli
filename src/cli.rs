@@ -33,10 +33,9 @@ pub fn get_discord_app() -> App<'static> {
         .about("Simple discord bot to simplify playing \"Das Schwarze Auge\"")
         .version(get_version())
         .subcommand(App::new("upload")
-            .about("Uploads and loads a character for your discord account. The .json file has to be attached to this message")
+            .about("Uploads a character for your discord account. The .json file has to be attached to this message")
         )
         .subcommand(cmd_skillcheck())
-        .subcommand(cmd_attack())
         .subcommand(cmd_attack())
         .subcommand(cmd_spell())
         .subcommand(cmd_dodge())
@@ -52,7 +51,7 @@ pub fn get_discord_app() -> App<'static> {
             )
             .arg(
                 Arg::new("new")
-                    .about("Adds one or more custom character(s) to the roll. For each character, name and initiative level have to be specified, everything separated by spaces")
+                    .about("Adds one or more custom character(s) to the roll")
                     .short('n')
                     .long("new")
                     .takes_value(true)
@@ -61,7 +60,7 @@ pub fn get_discord_app() -> App<'static> {
             )
             .arg(
                 Arg::new("rename")
-                    .about("Changes the discord nickname of each user to start with the initiative")
+                    .about("Adds the initiative to everyones discord nickname")
                     .long("rename")
                     .takes_value(false)
                     .requires("all")
@@ -93,7 +92,7 @@ fn cmd_skillcheck() -> App<'static> {
         )
         .arg(
             Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative). Seperate several values by commas to use different values for each roll")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
                 .takes_value(true)
                 .default_value("0"),
         )
@@ -127,7 +126,7 @@ fn cmd_spell() -> App<'static> {
         )
         .arg(
             Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative). Seperate several values by commas to use different values for each roll")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
                 .takes_value(true)
                 .default_value("0"),
         )

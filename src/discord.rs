@@ -1,32 +1,26 @@
 use super::cli;
 use super::config::{Config, DSAData};
-use super::discord_commands::*;
+use super::discord_commands;
 use super::util::*;
 use clap::ArgMatches;
 use serenity::{
     async_trait,
-    builder::CreateApplicationCommand,
     client::bridge::gateway::GatewayIntents,
     model::{
         channel::Message,
         gateway::Ready,
-        id::GuildId,
+        id::{GuildId, ChannelId},
         interactions::{ApplicationCommand, Interaction, InteractionResponseType},
     },
     prelude::*,
 };
-use std::collections::HashMap;
+use std::fmt::Write;
 
 pub struct Handler {
     pub config: Config,
     pub dsa_data: DSAData,
-    pub command_registry: DiscordCommandRegistry,
 }
 
-pub struct DiscordCommandRegistry {
-    _commands: HashMap<String, Box<dyn DiscordCommand>>,
-    _names: Vec<String>,
-}
 #[async_trait]
 pub trait DiscordCommand: Send + Sync {
     fn name(&self) -> &'static str;
@@ -64,29 +58,11 @@ impl Handler {
         Handler {
             config: config,
             dsa_data: dsa_data,
-            command_registry: DiscordCommandRegistry::new(),
         }
     }
 }
 
-impl DiscordCommandRegistry {
-    fn new() -> DiscordCommandRegistry {
-        DiscordCommandRegistry {
-            _commands: HashMap::new(),
-            _names: vec![],
-        }
-    }
 
-    fn get_command(&self, name: &str) -> Option<&Box<dyn DiscordCommand>> {
-        self._commands.get(name)
-    }
-
-    fn register_command(&mut self, command: Box<dyn DiscordCommand>) {
-        let name = command.name().to_string();
-        self._commands.insert(name.clone(), command);
-        self._names.push(name);
-    }
-}
 
 #[async_trait]
 impl EventHandler for Handler {
@@ -95,45 +71,23 @@ impl EventHandler for Handler {
     }
 
     async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
+        let cmds = ApplicationCommand::get_global_application_commands(&ctx).await;
 
-        let cmds = ApplicationCommand::get_global_application_commands(&ctx).await ;
-
-        if cmds.is_ok()
-        {
+        if cmds.is_ok() {
             let cmds = cmds.ok().unwrap_or(vec![]);
             for cmd in cmds {
                 let _ = ApplicationCommand::delete_global_application_command(&ctx, cmd.id);
             }
         }
-
         if self.config.discord.use_slash_commands {
-            let _ = ApplicationCommand::create_global_application_commands(&ctx, |create_cmds| {
-                for name in self.command_registry._names.iter() {
-                    let cmd = self.command_registry.get_command(name.as_str()).unwrap();
-                    if cmd.description() == "" {
-                        continue;
-                    }
-                    let mut c = CreateApplicationCommand::default();
-                    let mut c = &mut c;
-                    c.name(cmd.name());
-                    c.description(cmd.description());
-
-                    let opts = cmd.create_interaction_options(&self);
-                    if !opts.is_empty() {
-                        c = c.set_options(opts);
-                    }
-                    create_cmds.add_application_command(c.clone());
-                }
-                create_cmds
-            })
-            .await;
-            println!("Registered all Slash Commands!");
+            if let Err(e) = discord_commands::register_slash_commands(cli::get_discord_app(), &ctx).await {
+                println!("Error registering discord slash commands: {}", e);
+            }
         }
-        
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        let name = interaction.clone().data;
+        /*let name = interaction.clone().data;
         let text = match self
             .command_registry
             .get_command(
@@ -162,17 +116,30 @@ impl EventHandler for Handler {
                         })
                     })
             })
-            .await;
+            .await;*/
+        let mut output = DiscordOutputWrapper::new(DiscordOutputType::InteractionResponse(&interaction));
+        let matches = match discord_commands::parse_discord_interaction(&interaction, cli::get_discord_app()).await {
+            Ok(m) => m,
+            Err(e) => {
+                output.output_line(&"Error while parsing command");
+                output.send(&ctx).await;
+                println!("Error while parsing command: {:?}", e);
+                return;
+            }
+        };
+        let cmd_context = discord_commands::SlashCommandContext::new(&ctx, &interaction);
+        discord_commands::execute_command(&matches, &cmd_context, &self.config, &self.dsa_data, &mut output).await;
+        output.send(&ctx).await;
     }
 
     async fn message(&self, ctx: Context, message: Message) {
-        let mut output = if self.config.discord.use_reply {
-            DiscordOutputWrapper::new_reply_to(&message)
-        } else {
-            DiscordOutputWrapper::new_simple_message(message.channel_id)
-        };
-
         if message.content.starts_with('!') {
+            let mut output = if self.config.discord.use_reply {
+                DiscordOutputWrapper::new(DiscordOutputType::ReplyTo(&message))
+            } else {
+                DiscordOutputWrapper::new(DiscordOutputType::SimpleMessage(message.channel_id))
+            };
+
             let matches = cli::get_discord_app().try_get_matches_from({
                 let command = &message.content[1..];
                 let args: Box<dyn Iterator<Item = &str>> =
@@ -183,28 +150,9 @@ impl EventHandler for Handler {
                     };
                 args
             });
-            let matches = match matches {
-                Err(e) => {
-                    output.output_line(&format!("{}", e));
-                    output.send(&ctx).await;
-                    return;
-                }
-                Ok(m) => m,
-            };
-            match matches.subcommand() {
-                Some(subcmd) => {
-                    match self.command_registry.get_command(subcmd.0) {
-                        Some(command) => {
-                            command
-                                .execute(&message, self, &mut output, &ctx, &subcmd.1)
-                                .await;
-                            output.send(&ctx).await;
-                        }
-                        _ => {} // unknown command
-                    }
-                }
-                _ => {} // no command
-            };
+            let cmd_context = discord_commands::MessageContext::new(&ctx, &message);
+            discord_commands::execute_command(&matches, &cmd_context, &self.config, &self.dsa_data, &mut output).await;
+            output.send(&ctx).await;
         }
     }
 }
@@ -225,8 +173,7 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
         }
     };
 
-    let mut handler = Handler::new(config, dsa_data);
-    register_commands(&mut handler.command_registry);
+    let handler = Handler::new(config, dsa_data);
 
     let mut client = match Client::builder(&login_token)
         .event_handler(handler)
@@ -251,13 +198,91 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
     }
 }
 
-fn register_commands(registry: &mut DiscordCommandRegistry) {
-    registry.register_command(Box::new(CommandUpload {}));
-    registry.register_command(Box::new(CommandCheck {}));
-    registry.register_command(Box::new(CommandAttack {}));
-    registry.register_command(Box::new(CommandSpell {}));
-    registry.register_command(Box::new(CommandDodge {}));
-    registry.register_command(Box::new(CommandParry {}));
-    registry.register_command(Box::new(CommandRoll {}));
-    registry.register_command(Box::new(CommandIni {}));
+
+
+
+
+//A lazy output wrapper for sending discord messages
+pub struct DiscordOutputWrapper<'a> {
+    output_type: DiscordOutputType<'a>,
+    msg_buf: String,
+    msg_empty: bool,
+}
+
+pub enum DiscordOutputType<'a> {
+    SimpleMessage(ChannelId),
+    ReplyTo(&'a Message),
+    InteractionResponse(&'a Interaction),
+}
+
+impl<'a> DiscordOutputWrapper<'a> {
+    pub fn new(output_type: DiscordOutputType<'a>) -> DiscordOutputWrapper {
+        DiscordOutputWrapper {
+            output_type,
+            msg_buf: String::from("```"),
+            msg_empty: true,
+        }
+    }
+
+    pub async fn send(&mut self, ctx: &Context) {
+        if self.msg_empty {
+            return;
+        }
+        self.msg_buf.push_str("```");
+        match &self.output_type {
+            DiscordOutputType::SimpleMessage(channel_id) => {
+                match channel_id.say(ctx, &self.msg_buf).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Error sending simple message: {}", e);
+                    }
+                }
+            }
+            DiscordOutputType::ReplyTo(msg) => match msg.reply(&ctx.http, &self.msg_buf).await {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Error sending reply message: {}", e);
+                }
+            },
+            DiscordOutputType::InteractionResponse(interaction) => {
+                if let Err(e) = interaction.create_interaction_response(&ctx.http, |response| {
+                    response
+                        .kind(InteractionResponseType::ChannelMessageWithSource)
+                        .interaction_response_data(|data| {
+                            data.embed(|f| {
+                                f.color(serenity::utils::Colour::BLITZ_BLUE)
+                                    .description(&self.msg_buf)
+                            })
+                        })
+                }).await {
+                    println!("Error sending interaction response: {}", e);
+                }
+            }
+        }
+        self.msg_buf = String::from("```");
+        self.msg_empty = true;
+    }
+}
+
+impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
+    fn output(&mut self, msg: &impl std::fmt::Display) {
+        std::write!(self.msg_buf, "{}", msg).unwrap();
+        self.msg_empty = false;
+    }
+    fn output_line(&mut self, msg: &impl std::fmt::Display) {
+        std::write!(self.msg_buf, "{}\n", msg).unwrap();
+        self.msg_empty = false;
+    }
+    fn output_table(&mut self, table: &Vec<Vec<String>>) {
+        for row in table {
+            for entry in row {
+                self.msg_buf.push_str(&format!("{:<15}", entry));
+            }
+            self.msg_buf.push('\n');
+        }
+        self.msg_empty = false;
+    }
+    fn new_line(&mut self) {
+        self.msg_buf.push('\n');
+    }
 }
