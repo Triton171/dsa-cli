@@ -5,16 +5,17 @@ use super::util::*;
 use clap::ArgMatches;
 use serenity::{
     async_trait,
+    builder::CreateApplicationCommand,
     client::bridge::gateway::GatewayIntents,
     model::{
         channel::Message,
         gateway::Ready,
         id::GuildId,
-        interactions::{Interaction, InteractionResponseType},
+        interactions::{ApplicationCommand, Interaction, InteractionResponseType},
     },
     prelude::*,
 };
-use std::{collections::HashMap, env};
+use std::collections::HashMap;
 
 pub struct Handler {
     pub config: Config,
@@ -95,30 +96,26 @@ impl EventHandler for Handler {
 
     async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
         if self.config.discord.use_slash_commands {
-            let test_server = GuildId(match env::var("DISCORD_TEST_SERVER") {
-                Ok(val) => val.parse().unwrap_or(839621705701261332),
-                _ => 839621705701261332,
-            });
+            let _ = ApplicationCommand::create_global_application_commands(&ctx, |create_cmds| {
+                for name in self.command_registry._names.iter() {
+                    let cmd = self.command_registry.get_command(name.as_str()).unwrap();
+                    if cmd.description() == "" {
+                        continue;
+                    }
+                    let mut c = CreateApplicationCommand::default();
+                    let mut c = &mut c;
+                    c.name(cmd.name());
+                    c.description(cmd.description());
 
-            for name in self.command_registry._names.iter() {
-                let cmd = self.command_registry.get_command(name.as_str()).unwrap();
-                if cmd.description() == "" {
-                    continue;
+                    let opts = cmd.create_interaction_options(&self);
+                    if !opts.is_empty() {
+                        c = c.set_options(opts);
+                    }
+                    create_cmds.add_application_command(c.clone());
                 }
-                let a = test_server
-                    .create_application_command(&ctx, |fun| {
-                        let mut c = fun.name(name).description(cmd.description());
-                        let opts = cmd.create_interaction_options(&self);
-                        if !opts.is_empty() {
-                            c = c.set_options(opts);
-                        }
-                        c
-                    })
-                    .await;
-                if a.is_err() {
-                    println!("Registering '{}': {:?}", name, a);
-                }
-            }
+                create_cmds
+            })
+            .await;
         } else {
             //todo delete registered slash cmds
         }
