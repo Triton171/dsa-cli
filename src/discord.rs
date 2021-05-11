@@ -39,7 +39,12 @@ pub trait DiscordCommand: Send + Sync {
         vec![]
     }
 
-    async fn handle_slash_command<'a>(&self, _: &'a Interaction, _: &'a Handler) -> String {
+    async fn handle_slash_command<'a>(
+        &self,
+        _: &'a Interaction,
+        _: &'a Handler,
+        _: &'a Context,
+    ) -> String {
         String::from("not implemented!")
     }
 
@@ -134,7 +139,7 @@ impl EventHandler for Handler {
             .as_ref()
         {
             None => String::from("Command not found!"), // this should never trigger
-            Some(cmd) => cmd.handle_slash_command(&interaction, &self).await,
+            Some(cmd) => cmd.handle_slash_command(&interaction, &self, &ctx).await,
         };
         let _ = interaction
             .create_interaction_response(&ctx.http, |response| {

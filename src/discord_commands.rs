@@ -19,7 +19,7 @@ use serenity::{
     model::{
         channel::{ChannelType, Message},
         guild::Member,
-        id::UserId,
+        id::{ChannelId, UserId},
         interactions::{ApplicationCommandOptionType, Interaction},
         permissions::Permissions,
     },
@@ -185,6 +185,7 @@ impl DiscordCommand for CommandCheck {
         &self,
         interaction: &'a Interaction,
         handler: &'a Handler,
+        _: &'a Context,
     ) -> String {
         let output = &mut DiscordOutputWrapper::new();
         let user = interaction.member.clone().unwrap().user;
@@ -320,6 +321,7 @@ impl DiscordCommand for CommandAttack {
         &self,
         interaction: &'a Interaction,
         handler: &'a Handler,
+        _: &'a Context,
     ) -> String {
         let output = &mut DiscordOutputWrapper::new();
         let user = interaction.member.clone().unwrap().user;
@@ -437,6 +439,7 @@ impl DiscordCommand for CommandSpell {
         &self,
         interaction: &'a Interaction,
         handler: &'a Handler,
+        _: &'a Context,
     ) -> String {
         let output = &mut DiscordOutputWrapper::new();
         let user = interaction.member.clone().unwrap().user;
@@ -556,6 +559,7 @@ impl DiscordCommand for CommandDodge {
         &self,
         interaction: &'a Interaction,
         _: &'a Handler,
+        _: &'a Context,
     ) -> String {
         let output = &mut DiscordOutputWrapper::new();
         let user = interaction.member.clone().unwrap().user;
@@ -663,6 +667,7 @@ impl DiscordCommand for CommandParry {
         &self,
         interaction: &'a Interaction,
         handler: &'a Handler,
+        _: &'a Context,
     ) -> String {
         let output = &mut DiscordOutputWrapper::new();
         let user = interaction.member.clone().unwrap().user;
@@ -769,6 +774,7 @@ impl DiscordCommand for CommandRoll {
         &self,
         interaction: &'a Interaction,
         _: &'a Handler,
+        _: &'a Context,
     ) -> String {
         let output = &mut DiscordOutputWrapper::new();
 
@@ -815,23 +821,14 @@ impl CommandIni {
     async fn fetch_discord_members(
         &self,
         ctx: &Context,
-        message: &Message,
+        channel_id: &ChannelId,
     ) -> Result<Vec<Member>, Error> {
-        let only_on_server_err = Err(Error::new(
-            String::from("This option can only be used in a server"),
-            ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
-        ));
         let invalid_channel_err = Err(Error::new(
             String::from("Invalid channel targeted"),
             ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
         ));
 
-        let channel = match message.channel(&ctx.cache).await {
-            Some(c) => c,
-            None => {
-                return only_on_server_err;
-            }
-        };
+        let channel = channel_id.to_channel(&ctx.http).await?;
 
         let channel = match channel.guild() {
             Some(gc) => gc,
@@ -847,7 +844,7 @@ impl CommandIni {
             }
         }
 
-        let guild = message.guild(&ctx).await.unwrap();
+        let guild = channel.guild(&ctx).await.unwrap();
         let g_members = guild.members(&ctx, Some(1000), None).await?;
 
         let get_channel_perms = |member: &Member| guild.user_permissions_in(&channel, member); // life time hax
@@ -872,7 +869,8 @@ impl CommandIni {
     async fn initiative(
         &self,
         sub_m: &clap::ArgMatches,
-        message: &Message,
+        channel_id: &ChannelId,
+        user_id: &UserId,
         ctx: &Context,
         output: &mut impl OutputWrapper,
     ) -> Result<(), Error> {
@@ -880,7 +878,7 @@ impl CommandIni {
 
         //Reset trumps all other arguments
         if sub_m.is_present("reset") {
-            let members = match self.fetch_discord_members(ctx, message).await {
+            let members = match self.fetch_discord_members(ctx, channel_id).await {
                 Ok(m) => m,
                 Err(e) => {
                     return Err(e);
@@ -933,7 +931,7 @@ impl CommandIni {
         let mut characters_members: Vec<Option<Member>> = Vec::new();
 
         if sub_m.is_present("all") {
-            let members = match self.fetch_discord_members(ctx, message).await {
+            let members = match self.fetch_discord_members(ctx, channel_id).await {
                 Ok(m) => m,
                 Err(e) => {
                     return Err(e);
@@ -970,7 +968,7 @@ impl CommandIni {
             //Add the authors character to the list
             let mut path = PathBuf::from(&config_path);
             path.push("discord_characters");
-            path.push(message.author.id.to_string());
+            path.push(user_id.to_string());
             if std::path::Path::exists(&path) {
                 let character = Character::from_file(&path).await?;
                 characters.push((
@@ -1070,6 +1068,95 @@ impl DiscordCommand for CommandIni {
     fn description(&self) -> &'static str {
         "Performs an initiative roll for the current character"
     }
+
+    fn create_interaction_options(
+        &self,
+        _: &Handler,
+    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
+        let mut reset = &mut CreateApplicationCommandOption::default();
+        reset = reset
+            .name("reset")
+            .description("Reset all nicknames that have been changed by the 'rename' option")
+            .kind(ApplicationCommandOptionType::SubCommand);
+
+        let mut rename = &mut CreateApplicationCommandOption::default();
+        rename = rename
+            .name("rename")
+            .description("Change the discord nickname of each user to prefix with the initiative")
+            .kind(ApplicationCommandOptionType::SubCommand);
+
+        let mut all = &mut CreateApplicationCommandOption::default();
+        all = all
+            .name("all")
+            .description(
+                "Calculate the initiative for all characters of users in the current channel",
+            )
+            .kind(ApplicationCommandOptionType::SubCommand);
+
+        let mut me = &mut CreateApplicationCommandOption::default();
+        me = me
+            .name("me")
+            .description("Calculate the initiative for your character")
+            .kind(ApplicationCommandOptionType::SubCommand);
+
+        vec![me.clone(), all.clone(), reset.clone(), rename.clone()]
+    }
+
+    async fn handle_slash_command<'a>(
+        &self,
+        inter: &'a Interaction,
+        _: &'a Handler,
+        context: &'a Context,
+    ) -> String {
+        let output = &mut DiscordOutputWrapper::new();
+        let sub_cmd = inter.data.clone().unwrap().options[0].name.clone();
+        let channel = inter.channel_id.clone().unwrap();
+        let executer_id;
+
+        if inter.member.is_some() {
+            executer_id = inter.member.clone().unwrap().user.id;
+        } else {
+            executer_id = inter.user.clone().unwrap().id;
+        }
+
+        let mut cmd = vec![];
+        cmd.push("dsa-cli");
+        cmd.push("ini");
+        match sub_cmd.as_str() {
+            "me" => {}
+            "all" => {
+                cmd.push("--all");
+            }
+            "reset" => {
+                cmd.push("--reset");
+            }
+            "rename" => {
+                cmd.push("--all");
+                cmd.push("--rename")
+            }
+            _ => {}
+        }
+        let sub_m = cli::get_discord_app().get_matches_from(cmd);
+        let sub_m = sub_m.subcommand().unwrap().1;
+
+        match &self
+            .initiative(&sub_m, &channel, &executer_id, context, output)
+            .await
+        {
+            Ok(()) => {}
+            Err(e) => match e.err_type() {
+                ErrorType::InvalidInput(_) => {
+                    output.output_line(&e);
+                }
+                _ => {
+                    output.output_line(&"Internal server error while rolling initiative");
+                    println!("Error rolling initiative: {:?}", e);
+                }
+            },
+        };
+        output.get_content()
+    }
+
     async fn execute(
         &self,
         message: &Message,
@@ -1078,7 +1165,16 @@ impl DiscordCommand for CommandIni {
         context: &Context,
         sub_m: &ArgMatches,
     ) {
-        match &self.initiative(&sub_m, &message, &context, output).await {
+        match &self
+            .initiative(
+                &sub_m,
+                &message.channel_id,
+                &message.author.id,
+                &context,
+                output,
+            )
+            .await
+        {
             Ok(()) => {}
             Err(e) => match e.err_type() {
                 ErrorType::InvalidInput(_) => {
