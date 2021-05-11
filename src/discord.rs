@@ -95,6 +95,17 @@ impl EventHandler for Handler {
     }
 
     async fn cache_ready(&self, ctx: Context, _: Vec<GuildId>) {
+
+        let cmds = ApplicationCommand::get_global_application_commands(&ctx).await ;
+
+        if cmds.is_ok()
+        {
+            let cmds = cmds.ok().unwrap_or(vec![]);
+            for cmd in cmds {
+                let _ = ApplicationCommand::delete_global_application_command(&ctx, cmd.id);
+            }
+        }
+
         if self.config.discord.use_slash_commands {
             let _ = ApplicationCommand::create_global_application_commands(&ctx, |create_cmds| {
                 for name in self.command_registry._names.iter() {
@@ -116,10 +127,9 @@ impl EventHandler for Handler {
                 create_cmds
             })
             .await;
-        } else {
-            //todo delete registered slash cmds
+            println!("Registered all Slash Commands!");
         }
-        println!("Registered all Slash Commands!");
+        
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
