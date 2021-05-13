@@ -9,31 +9,50 @@ use std::path::{Path, PathBuf};
 const DSA_DATA_NEWEST_VERSION: u64 = 1;
 
 mod default {
-    pub fn auto_update_dsa_data() -> bool { true }
+    pub fn auto_update_dsa_data() -> bool {
+        true
+    }
     pub mod dsa_rules {
         pub fn dsa_rules() -> super::super::ConfigDSARules {
             super::super::ConfigDSARules {
-                crit_rules: crit_rules()
+                crit_rules: crit_rules(),
             }
         }
-        pub fn crit_rules() -> super::super::ConfigDSACritType { super::super::ConfigDSACritType::DefaultCrits }
+        pub fn crit_rules() -> super::super::ConfigDSACritType {
+            super::super::ConfigDSACritType::DefaultCrits
+        }
     }
     pub mod discord {
         pub fn discord() -> super::super::ConfigDiscord {
             super::super::ConfigDiscord {
                 login_token: None,
+                application_id: None,
+                use_slash_commands: use_slash_commands(),
                 num_threads: num_threads(),
                 require_complete_command: require_complete_command(),
                 use_reply: use_reply(),
                 max_attachement_size: max_attachement_size(),
-                max_name_length: max_name_length()
+                max_name_length: max_name_length(),
             }
         }
-        pub fn num_threads() -> usize { 1 }
-        pub fn require_complete_command() -> bool { false }
-        pub fn use_reply() -> bool { true }
-        pub fn max_attachement_size() -> u64 { 1_000_000 }
-        pub fn max_name_length() -> usize { 32 }
+        pub fn use_slash_commands() -> bool {
+            false
+        }
+        pub fn num_threads() -> usize {
+            1
+        }
+        pub fn require_complete_command() -> bool {
+            false
+        }
+        pub fn use_reply() -> bool {
+            true
+        }
+        pub fn max_attachement_size() -> u64 {
+            1_000_000
+        }
+        pub fn max_name_length() -> usize {
+            32
+        }
     }
 }
 
@@ -50,6 +69,9 @@ pub struct Config {
 #[derive(Deserialize)]
 pub struct ConfigDiscord {
     pub login_token: Option<String>,
+    pub application_id: Option<u64>,
+    #[serde(default = "default::discord::use_slash_commands")]
+    pub use_slash_commands: bool,
     #[serde(default = "default::discord::num_threads")]
     pub num_threads: usize,
     #[serde(default = "default::discord::require_complete_command")]

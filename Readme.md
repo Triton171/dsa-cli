@@ -8,20 +8,9 @@ You can load a character sheet created with "The Dark Aid" (the file should have
 The simplest way to use this, is to call it from the commandline.
 Run "dsa-cli help" for a list of available options.
 
-Additionally, you can create a discord bot by running "dsa-cli discord". This requires that you have created a discord bot account and added a login token to the config file ("discord -> login_token").
+Additionally, you can use it as a discord bot. For information on how to set up a discord bot account, see below. If someone already hosts the bot, just use the link they give you to add the bot to your server. If you want to use the automatic rename function, you should move the bot role to the top of the role hierarchy, this ensures that the bot can rename everyone (unfortunately, the server owner can never be renamed).
 
-To create a Bot visit [https://discord.com/developers](https://discord.com/developers), login and press `New Application`.  
-Enter a name and search for the tab `Bot`.  
-Here you need to press `Add Bot` and configure it as you wish.
-The checkbox `SERVER MEMBERS INTENT` needs to be checked.  
-
-Once your bot is up and running, you can invite it to your server using the URL [https://discord.com/oauth2/authorize?scope=bot&client_id=<application_id>](https://discord.com/oauth2/authorize?scope=bot&client_id=<application_id>) where `<application_id>` is replaced by the value found in `General Information`.  
-Instead of inviting it you can also message it directly.
-
-The bot will now try to interpret any message sent to him (in server channels or private messages) starting with `!` as a command. Write `!help` for a list of commands.
-
-The server permission `Manage Nicknames` and the channel permissions `View Channel`, `Send Messages` are required.  
-It is also favorable to have the Bot posses a role listed above all other roles with the `Manage Nicknames` permission. This ensures it being able to rename all users except the server owner.
+To use the bot, simply send a command (prefaced by `!`) either to the bot directly, or in a text channel that the bot can access. Send `!help` for a list of available commands.
 
 ## Configuration
 
@@ -83,8 +72,27 @@ Both files can be edited to customize the behavior and rules. Here is a list of 
         The maximum character name length. `.tdc` files that contain a longer name will be rejected.
   
 
+## Hosting a discord bot
+### Creating a bot account
+Visit [https://discord.com/developers](https://discord.com/developers) and press `New Application`.
+Enter a name and search for the tab `Bot`. Here you need to press `Add Bot` and configure it how you like. You will need to enable the `Server Members Intent` and, if you want other people to be able to use your bot, the `Public Bot` checkbox.
 
-## Docker
+You can already copy the `Token`, you will need to enter this in the `login_token` field of the `config.json`.
+
+Then, you have to go to the tab `OAuth2` and add the URL `http://localhost` under `Redirects`.
+Now you can select this URL directly below and finally select the required scopes and permissions:\
+Under `Scopes`, select:
+* `bot`
+* `applications.commands`
+
+When doing this, a new section `Bot Permissions` should appear below. Here you have to select:
+* `Manage Nicknames`
+* `Send Messages`
+
+Once you're done, you can copy the URL that discord generated for you. Anyone can use this to add your bot to their server.
+
+The last step is to copy the `Application ID` from the `General Information` tab and add it, as well as your bot token, to the `config.json`.
+### Using the docker container
 
 If you want to use the discord bot, you can also run it as a docker container.
 

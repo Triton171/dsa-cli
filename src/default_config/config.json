@@ -5,6 +5,8 @@
     },
     "discord": {
         "login_token" : null,
+        "application_id": null,
+        "use_slash_commands": true,
         "num_threads" : 1,
         "require_complete_command" : false,
         "use_reply" : true,
