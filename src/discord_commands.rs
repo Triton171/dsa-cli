@@ -18,7 +18,7 @@ use serenity::{
     model::{
         channel::{Attachment, ChannelType, Message},
         guild::Member,
-        id::{ChannelId, /*GuildId, */UserId},
+        id::{ChannelId, /*GuildId, */ UserId},
         interactions::ApplicationCommand,
         interactions::{ApplicationCommandOptionType, Interaction},
         permissions::Permissions,
@@ -165,40 +165,40 @@ pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), 
     /*let test_server = GuildId(830394313783246858);
     test_server
         .create_application_commands(ctx, |create_cmds| {*/
-            ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
-            for sub_app in app.get_subcommands() {
-                let mut slash_cmd = CreateApplicationCommand::default();
-                let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();
+    ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
+        for sub_app in app.get_subcommands() {
+            let mut slash_cmd = CreateApplicationCommand::default();
+            let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();
 
-                //Add all the required arguments
-                for arg in sub_app
-                    .get_arguments()
-                    .filter(|arg| arg.is_set(ArgSettings::Required))
-                {
-                    let mut option = clap_to_discord_arg(arg);
-                    option.required(true);
-                    slash_cmd_options.push(option);
-                }
-                //Add all the non-required arguments
-                for arg in sub_app
-                    .get_arguments()
-                    .filter(|arg| !arg.is_set(ArgSettings::Required))
-                {
-                    let mut option = clap_to_discord_arg(arg);
-                    option.required(false);
-                    slash_cmd_options.push(option);
-                }
-                if !slash_cmd_options.is_empty() {
-                    slash_cmd.set_options(slash_cmd_options);
-                }
-                slash_cmd
-                    .name(sub_app.get_name())
-                    .description(sub_app.get_about().unwrap_or("Missing description"));
-                create_cmds.add_application_command(slash_cmd);
+            //Add all the required arguments
+            for arg in sub_app
+                .get_arguments()
+                .filter(|arg| arg.is_set(ArgSettings::Required))
+            {
+                let mut option = clap_to_discord_arg(arg);
+                option.required(true);
+                slash_cmd_options.push(option);
             }
-            create_cmds
-        })
-        .await?;
+            //Add all the non-required arguments
+            for arg in sub_app
+                .get_arguments()
+                .filter(|arg| !arg.is_set(ArgSettings::Required))
+            {
+                let mut option = clap_to_discord_arg(arg);
+                option.required(false);
+                slash_cmd_options.push(option);
+            }
+            if !slash_cmd_options.is_empty() {
+                slash_cmd.set_options(slash_cmd_options);
+            }
+            slash_cmd
+                .name(sub_app.get_name())
+                .description(sub_app.get_about().unwrap_or("Missing description"));
+            create_cmds.add_application_command(slash_cmd);
+        }
+        create_cmds
+    })
+    .await?;
     Ok(())
 }
 
