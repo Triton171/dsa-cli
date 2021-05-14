@@ -1,6 +1,6 @@
 [package]
 name = "dsa-cli"
-version = "0.1.0"
+version = "1.2.1"
 authors = ["Daniel Ebert <daniel.ebert@protonmail.com>"]
 edition = "2018"
 

@@ -18,7 +18,7 @@ pub enum IOErrorType {
     MissingEnvironmentVariable,
     MissingFile,
     Discord,
-    UnknownInteractionType
+    UnknownInteractionType,
 }
 
 #[derive(Display)]
@@ -130,5 +130,3 @@ impl OutputWrapper for CLIOutputWrapper {
         }
     }
 }
-
-
