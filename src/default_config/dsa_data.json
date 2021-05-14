@@ -224,7 +224,7 @@
         "stangenwaffen" : {
             "attributes" : ["gewandtheit", "koerperkraft"]
         },
-        "zweihandhiebschwerter" : {
+        "zweihandhiebwaffen" : {
             "attributes" : ["koerperkraft"]
         },
         "zweihandschwerter" : {
@@ -270,6 +270,9 @@
         },
         "flimflam" : {
             "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "fulminictus": {
+            "attributes" : ["klugheit", "intuition", "konstitution"]
         }
     }
 }
