@@ -50,6 +50,14 @@ pub fn get_discord_app() -> App<'static> {
                     .takes_value(false)
             )
             .arg(
+                Arg::new("rename")
+                    .about("Adds the initiative to everyones discord nickname")
+                    .short('r')
+                    .long("rename")
+                    .takes_value(false)
+                    .requires("all")
+            )
+            .arg(
                 Arg::new("new")
                     .about("Adds one or more custom character(s) to the roll")
                     .short('n')
@@ -57,13 +65,6 @@ pub fn get_discord_app() -> App<'static> {
                     .takes_value(true)
                     .multiple(true)
                     .min_values(2)
-            )
-            .arg(
-                Arg::new("rename")
-                    .about("Adds the initiative to everyones discord nickname")
-                    .long("rename")
-                    .takes_value(false)
-                    .requires("all")
             )
             .arg(
                 Arg::new("reset")

@@ -4,20 +4,27 @@ use super::character::Character;
 use super::config::*;
 use super::dsa;
 use super::util::*;
-use clap::{App, ArgMatches, ArgSettings, Arg};
+use clap::{App, Arg, ArgMatches, ArgSettings};
 use futures::stream::StreamExt;
-use serde_json::{Value};
+use serde_json::Value;
 use std::iter::Iterator;
 use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 use tokio::{fs, io};
 
-use serenity::{async_trait, builder::{
-        CreateApplicationCommandOption,
-        CreateApplicationCommand
-    }, model::{channel::{Attachment, ChannelType, Message}, guild::Member, id::{ChannelId, UserId}, interactions::ApplicationCommand, interactions::{ApplicationCommandOptionType, Interaction}, permissions::Permissions}, prelude::*};
-
-
+use serenity::{
+    async_trait,
+    builder::{CreateApplicationCommand, CreateApplicationCommandOption},
+    model::{
+        channel::{Attachment, ChannelType, Message},
+        guild::Member,
+        id::{ChannelId, /*GuildId, */UserId},
+        interactions::ApplicationCommand,
+        interactions::{ApplicationCommandOptionType, Interaction},
+        permissions::Permissions,
+    },
+    prelude::*,
+};
 
 #[async_trait]
 pub trait CommandContext {
@@ -33,26 +40,26 @@ pub trait CommandContext {
 
         let channel_id = self.channel()?;
         let channel = channel_id.to_channel(self.context()).await?;
-    
+
         let channel = match channel.guild() {
             Some(gc) => gc,
             None => {
                 return invalid_channel_err;
             }
         };
-    
+
         match channel.kind {
             ChannelType::Text | ChannelType::Private => {}
             _ => {
                 return invalid_channel_err;
             }
         }
-    
+
         let guild = channel.guild(self.context()).await.unwrap();
         let g_members = guild.members(self.context(), Some(1000), None).await?;
-    
+
         let get_channel_perms = |member: &Member| guild.user_permissions_in(&channel, member); // life time hax
-    
+
         Ok(
             futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
                 .filter_map(|member| async move {
@@ -69,9 +76,11 @@ pub trait CommandContext {
                 .await,
         )
     }
-    
+
     async fn rename_member(&self, member: &Member, new_name: &str) -> Result<(), Error> {
-        member.edit(&self.context().http, |edit| edit.nickname(new_name)).await?;
+        member
+            .edit(&self.context().http, |edit| edit.nickname(new_name))
+            .await?;
         Ok(())
     }
 }
@@ -79,15 +88,12 @@ pub trait CommandContext {
 //The context for a command that was sent in a guild channel or as a direct message to the bot
 pub struct MessageContext<'b> {
     ctx: &'b Context,
-    message: &'b Message
+    message: &'b Message,
 }
 
 impl MessageContext<'_> {
     pub fn new<'a>(ctx: &'a Context, message: &'a Message) -> MessageContext<'a> {
-        MessageContext {
-            ctx,
-            message
-        }
+        MessageContext { ctx, message }
     }
 }
 
@@ -109,15 +115,12 @@ impl CommandContext for MessageContext<'_> {
 
 pub struct SlashCommandContext<'b> {
     ctx: &'b Context,
-    interaction: &'b Interaction
+    interaction: &'b Interaction,
 }
 
 impl SlashCommandContext<'_> {
     pub fn new<'a>(ctx: &'a Context, interaction: &'a Interaction) -> SlashCommandContext<'a> {
-        SlashCommandContext {
-            ctx,
-            interaction
-        }
+        SlashCommandContext { ctx, interaction }
     }
 }
 
@@ -132,70 +135,70 @@ impl CommandContext for SlashCommandContext<'_> {
         } else if let Some(user) = &self.interaction.user {
             Ok(user.id)
         } else {
-            Err(Error::new("Unable to find sender of slash command", ErrorType::IO(IOErrorType::Discord)))
+            Err(Error::new(
+                "Unable to find sender of slash command",
+                ErrorType::IO(IOErrorType::Discord),
+            ))
         }
     }
     fn channel(&self) -> Result<ChannelId, Error> {
         self.interaction.channel_id.map_or(
-            Err(Error::new("Error retrieving channel for slash command", ErrorType::IO(IOErrorType::Discord))), 
-            |c| Ok(c))
+            Err(Error::new(
+                "Error retrieving channel for slash command",
+                ErrorType::IO(IOErrorType::Discord),
+            )),
+            |c| Ok(c),
+        )
     }
     async fn attachments<'a>(&'a self) -> Result<&'a [Attachment], Error> {
-        Err(Error::new("Downloading attachments is not yet supported for slash commands", ErrorType::InvalidInput(InputErrorType::InvalidArgument)))
+        Err(Error::new(
+            "Downloading attachments is not yet supported for slash commands",
+            ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+        ))
     }
 }
-
-
-
-
-
 
 /*
 Translates the subcommands and arguments of the given app to discord slash commands and registers them
 */
 pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), Error> {
-    //TODO Replace with global cmds
     /*let test_server = GuildId(830394313783246858);
-    test_server.create_application_commands(ctx, |create_cmds| {*/
-    ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
-        for sub_app in app.get_subcommands() {
-            
-            let mut slash_cmd = CreateApplicationCommand::default();
-            let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();
+    test_server
+        .create_application_commands(ctx, |create_cmds| {*/
+            ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
+            for sub_app in app.get_subcommands() {
+                let mut slash_cmd = CreateApplicationCommand::default();
+                let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();
 
-            //Add all the required arguments
-            for (arg, is_first) in sub_app
-                .get_arguments()
-                .filter(|arg| arg.is_set(ArgSettings::Required))
-                .zip(std::iter::once(true).chain(std::iter::repeat(false)))
-            {
-                let mut option = clap_to_discord_arg(arg);
-                option.required(true);
-                if is_first {
-                    //option.default_option(true);
+                //Add all the required arguments
+                for arg in sub_app
+                    .get_arguments()
+                    .filter(|arg| arg.is_set(ArgSettings::Required))
+                {
+                    let mut option = clap_to_discord_arg(arg);
+                    option.required(true);
+                    slash_cmd_options.push(option);
                 }
-                slash_cmd_options.push(option);
+                //Add all the non-required arguments
+                for arg in sub_app
+                    .get_arguments()
+                    .filter(|arg| !arg.is_set(ArgSettings::Required))
+                {
+                    let mut option = clap_to_discord_arg(arg);
+                    option.required(false);
+                    slash_cmd_options.push(option);
+                }
+                if !slash_cmd_options.is_empty() {
+                    slash_cmd.set_options(slash_cmd_options);
+                }
+                slash_cmd
+                    .name(sub_app.get_name())
+                    .description(sub_app.get_about().unwrap_or("Missing description"));
+                create_cmds.add_application_command(slash_cmd);
             }
-            //Add all the non-required arguments
-            for arg in sub_app
-                .get_arguments()
-                .filter(|arg| !arg.is_set(ArgSettings::Required))
-            {
-                let mut option = clap_to_discord_arg(arg);
-                option.required(false);
-                slash_cmd_options.push(option);
-            }
-            if !slash_cmd_options.is_empty() {
-                slash_cmd.set_options(slash_cmd_options);
-            }
-            slash_cmd
-                .name(sub_app.get_name())
-                .description(sub_app.get_about().unwrap_or("Missing description"));
-            create_cmds.add_application_command(slash_cmd);
-        }
-        create_cmds
-    })
-    .await?;
+            create_cmds
+        })
+        .await?;
     Ok(())
 }
 
@@ -212,24 +215,31 @@ fn clap_to_discord_arg(arg: &Arg) -> CreateApplicationCommandOption {
     slash_cmd_option
 }
 
-
-
 /*
 Translates the given discord slash command to a clap::ArgMatches object.
 This should generally only be used with discord commands created with the 'register_slash_commands' function
 */
-pub async fn parse_discord_interaction(interaction: &Interaction, app: App<'_>) -> Result<clap::Result<ArgMatches>, Error> {
+pub async fn parse_discord_interaction(
+    interaction: &Interaction,
+    app: App<'_>,
+) -> Result<clap::Result<ArgMatches>, Error> {
     match interaction.kind {
         serenity::model::interactions::InteractionType::ApplicationCommand => {}
         _ => {
-            return Err(Error::new("Unknown interaction kind", ErrorType::IO(IOErrorType::UnknownInteractionType)));
+            return Err(Error::new(
+                "Unknown interaction kind",
+                ErrorType::IO(IOErrorType::UnknownInteractionType),
+            ));
         }
     };
     let data = interaction.data.as_ref().unwrap();
     let sub_cmd = match app.find_subcommand(&data.name) {
         Some(cmd) => cmd,
         None => {
-            return Err(Error::new("Did not find clap command for discord command", ErrorType::Unknown));
+            return Err(Error::new(
+                "Did not find clap command for discord command",
+                ErrorType::Unknown,
+            ));
         }
     };
 
@@ -237,17 +247,25 @@ pub async fn parse_discord_interaction(interaction: &Interaction, app: App<'_>) 
     let mut constructed_str = String::from("dsa-cli ") + sub_cmd.get_name();
     for arg in sub_cmd.get_arguments() {
         for option in &data.options {
-            if arg.get_name()==option.name {
+            if arg.get_name() == option.name {
                 let arg_val = if arg.is_set(ArgSettings::TakesValue) {
                     let val = match &option.value {
                         Some(v) => v,
                         None => {
-                            return Err(Error::new("Missing value in discord argument", ErrorType::Unknown));
+                            return Err(Error::new(
+                                "Missing value in discord argument",
+                                ErrorType::Unknown,
+                            ));
                         }
                     };
                     match val {
                         Value::String(s) => s,
-                        _ => { return Err(Error::new("Illegal value type in discord argument", ErrorType::Unknown)); }
+                        _ => {
+                            return Err(Error::new(
+                                "Illegal value type in discord argument",
+                                ErrorType::Unknown,
+                            ));
+                        }
                     }
                 } else {
                     ""
@@ -272,10 +290,15 @@ pub async fn parse_discord_interaction(interaction: &Interaction, app: App<'_>) 
     Ok(app.try_get_matches_from(constructed_str.split_ascii_whitespace()))
 }
 
-
-pub async fn execute_command<T>(matches: &clap::Result<ArgMatches>, cmd_ctx: &T,
-    config: &Config, dsa_data: &DSAData, output: &mut impl OutputWrapper) 
-    where T: CommandContext + Send + Sync {
+pub async fn execute_command<T>(
+    matches: &clap::Result<ArgMatches>,
+    cmd_ctx: &T,
+    config: &Config,
+    dsa_data: &DSAData,
+    output: &mut impl OutputWrapper,
+) where
+    T: CommandContext + Send + Sync,
+{
     let matches = match matches {
         Err(e) => {
             output.output_line(&format!("{}", e));
@@ -284,37 +307,28 @@ pub async fn execute_command<T>(matches: &clap::Result<ArgMatches>, cmd_ctx: &T,
         Ok(m) => m,
     };
     match matches.subcommand() {
-        Some(("upload", _)) => {
-            match upload_character(cmd_ctx, config).await {
-                Ok(character) => {
-                    output.output_line(&format!(
-                        "Successfully uploaded character \"{}\"",
-                        character.get_name()
-                    ));
-                }
-                Err(e) => match e.err_type() {
-                    ErrorType::InvalidInput(_) => {
-                        output.output_line(&format!("Error loading character: {}", e));
-                    }
-                    _ => {
-                        output
-                            .output_line(&"Internal server error while loading character");
-                        println!("Error loading character: {:?}", e);
-                    }
-                },
+        Some(("upload", _)) => match upload_character(cmd_ctx, config).await {
+            Ok(character) => {
+                output.output_line(&format!(
+                    "Successfully uploaded character \"{}\"",
+                    character.get_name()
+                ));
             }
-        }
+            Err(e) => match e.err_type() {
+                ErrorType::InvalidInput(_) => {
+                    output.output_line(&format!("Error loading character: {}", e));
+                }
+                _ => {
+                    output.output_line(&"Internal server error while loading character");
+                    println!("Error loading character: {:?}", e);
+                }
+            },
+        },
 
         Some(("check", sub_m)) => {
             match try_get_character(cmd_ctx).await {
                 Ok(character) => {
-                    dsa::talent_check(
-                        sub_m,
-                        &character,
-                        dsa_data,
-                        config,
-                        output,
-                    );
+                    dsa::talent_check(sub_m, &character, dsa_data, config, output);
                 }
                 Err(e) => match e.err_type() {
                     ErrorType::InvalidInput(_) => {
@@ -348,13 +362,7 @@ pub async fn execute_command<T>(matches: &clap::Result<ArgMatches>, cmd_ctx: &T,
         Some(("spell", sub_m)) => {
             match try_get_character(cmd_ctx).await {
                 Ok(character) => {
-                    dsa::spell_check(
-                        sub_m,
-                        &character,
-                        dsa_data,
-                        config,
-                        output,
-                    );
+                    dsa::spell_check(sub_m, &character, dsa_data, config, output);
                 }
                 Err(e) => match e.err_type() {
                     ErrorType::InvalidInput(_) => {
@@ -414,8 +422,7 @@ pub async fn execute_command<T>(matches: &clap::Result<ArgMatches>, cmd_ctx: &T,
                         output.output_line(&e);
                     }
                     _ => {
-                        output
-                            .output_line(&"Internal server error while rolling initiative");
+                        output.output_line(&"Internal server error while rolling initiative");
                         println!("Error rolling initiative: {:?}", e);
                     }
                 },
@@ -424,8 +431,6 @@ pub async fn execute_command<T>(matches: &clap::Result<ArgMatches>, cmd_ctx: &T,
         _ => {}
     };
 }
-
-
 
 async fn try_get_character(cmd_ctx: &impl CommandContext) -> Result<Character, Error> {
     let mut char_path = config::get_config_dir()?;
@@ -448,18 +453,12 @@ async fn upload_character(
     let attachments = cmd_ctx.attachments().await?;
     if attachments.len() != 1 {
         return Err(Error::new(
-            format!(
-                "Invalid number of attachements: {}",
-                attachments.len()
-            ),
+            format!("Invalid number of attachements: {}", attachments.len()),
             ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
         ));
     } else if attachments[0].size > config.discord.max_attachement_size {
         return Err(Error::new(
-            format!(
-                "Attachement too big ({} bytes)",
-                attachments[0].size
-            ),
+            format!("Attachement too big ({} bytes)", attachments[0].size),
             ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
         ));
     }
@@ -506,13 +505,14 @@ async fn upload_character(
     }
 }
 
-
 async fn initiative<T>(
     sub_m: &clap::ArgMatches,
     cmd_ctx: &T,
     output: &mut impl OutputWrapper,
-) -> Result<(), Error> 
-where T: CommandContext + Sync {
+) -> Result<(), Error>
+where
+    T: CommandContext + Sync,
+{
     let config_path = get_config_dir()?;
 
     //Reset trumps all other arguments
@@ -574,10 +574,7 @@ where T: CommandContext + Sync {
                 match Character::from_file(&path).await {
                     Err(_) => {
                         return Err(Error::new(
-                            format!(
-                                "Unable to retrieve character for {}",
-                                member.display_name()
-                            ),
+                            format!("Unable to retrieve character for {}", member.display_name()),
                             ErrorType::InvalidInput(InputErrorType::InvalidFormat),
                         ));
                     }

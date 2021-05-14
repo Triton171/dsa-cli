@@ -9,7 +9,7 @@ use serenity::{
     model::{
         channel::Message,
         gateway::Ready,
-        id::{GuildId, ChannelId},
+        id::{ChannelId, GuildId},
         interactions::{ApplicationCommand, Interaction, InteractionResponseType},
     },
     prelude::*,
@@ -62,8 +62,6 @@ impl Handler {
     }
 }
 
-
-
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, _: Context, ready: Ready) {
@@ -80,7 +78,9 @@ impl EventHandler for Handler {
             }
         }
         if self.config.discord.use_slash_commands {
-            if let Err(e) = discord_commands::register_slash_commands(cli::get_discord_app(), &ctx).await {
+            if let Err(e) =
+                discord_commands::register_slash_commands(cli::get_discord_app(), &ctx).await
+            {
                 println!("Error registering discord slash commands: {}", e);
             }
         }
@@ -117,18 +117,29 @@ impl EventHandler for Handler {
                     })
             })
             .await;*/
-        let mut output = DiscordOutputWrapper::new(DiscordOutputType::InteractionResponse(&interaction));
-        let matches = match discord_commands::parse_discord_interaction(&interaction, cli::get_discord_app()).await {
-            Ok(m) => m,
-            Err(e) => {
-                output.output_line(&"Error while parsing command");
-                output.send(&ctx).await;
-                println!("Error while parsing command: {:?}", e);
-                return;
-            }
-        };
+        let mut output =
+            DiscordOutputWrapper::new(DiscordOutputType::InteractionResponse(&interaction));
+        let matches =
+            match discord_commands::parse_discord_interaction(&interaction, cli::get_discord_app())
+                .await
+            {
+                Ok(m) => m,
+                Err(e) => {
+                    output.output_line(&"Error while parsing command");
+                    output.send(&ctx).await;
+                    println!("Error while parsing command: {:?}", e);
+                    return;
+                }
+            };
         let cmd_context = discord_commands::SlashCommandContext::new(&ctx, &interaction);
-        discord_commands::execute_command(&matches, &cmd_context, &self.config, &self.dsa_data, &mut output).await;
+        discord_commands::execute_command(
+            &matches,
+            &cmd_context,
+            &self.config,
+            &self.dsa_data,
+            &mut output,
+        )
+        .await;
         output.send(&ctx).await;
     }
 
@@ -151,7 +162,14 @@ impl EventHandler for Handler {
                 args
             });
             let cmd_context = discord_commands::MessageContext::new(&ctx, &message);
-            discord_commands::execute_command(&matches, &cmd_context, &self.config, &self.dsa_data, &mut output).await;
+            discord_commands::execute_command(
+                &matches,
+                &cmd_context,
+                &self.config,
+                &self.dsa_data,
+                &mut output,
+            )
+            .await;
             output.send(&ctx).await;
         }
     }
@@ -198,10 +216,6 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
     }
 }
 
-
-
-
-
 //A lazy output wrapper for sending discord messages
 pub struct DiscordOutputWrapper<'a> {
     output_type: DiscordOutputType<'a>,
@@ -245,16 +259,19 @@ impl<'a> DiscordOutputWrapper<'a> {
                 }
             },
             DiscordOutputType::InteractionResponse(interaction) => {
-                if let Err(e) = interaction.create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|data| {
-                            data.embed(|f| {
-                                f.color(serenity::utils::Colour::BLITZ_BLUE)
-                                    .description(&self.msg_buf)
+                if let Err(e) = interaction
+                    .create_interaction_response(&ctx.http, |response| {
+                        response
+                            .kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|data| {
+                                data.embed(|f| {
+                                    f.color(serenity::utils::Colour::BLITZ_BLUE)
+                                        .description(&self.msg_buf)
+                                })
                             })
-                        })
-                }).await {
+                    })
+                    .await
+                {
                     println!("Error sending interaction response: {}", e);
                 }
             }
