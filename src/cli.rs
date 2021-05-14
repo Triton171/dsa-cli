@@ -78,7 +78,7 @@ pub fn get_discord_app() -> App<'static> {
 }
 
 fn get_version() -> &'static str {
-    "1.2.1"
+    env!("CARGO_PKG_VERSION")
 }
 
 fn cmd_skillcheck() -> App<'static> {
