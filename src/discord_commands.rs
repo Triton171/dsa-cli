@@ -477,7 +477,8 @@ async fn upload_character(
         .open(&char_path)
         .await?;
     //Write
-    let mut writer = io::BufWriter::new(file);
+    let mut writer =
+        io::BufWriter::with_capacity(config.discord.max_attachement_size as usize, file);
     writer.write(&data).await?;
     writer.flush().await?;
     match Character::from_file(&char_path).await {
