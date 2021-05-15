@@ -161,13 +161,16 @@ fn cmd_parry() -> App<'static> {
         )
 }
 fn cmd_roll() -> App<'static> {
-    App::new("roll").about("Rolls some dice").arg(
-        Arg::new("dice_expression")
-            .about("The dice to roll. Syntax: [number_of_dice]d[dice_type] + [offset]")
-            .takes_value(true)
-            .multiple(true)
-            .required(true),
-    )
+    App::new("roll")
+        .about("Rolls some dice")
+        .setting(AppSettings::AllowLeadingHyphen)
+        .arg(
+            Arg::new("dice_expression")
+                .about("The dice to roll. Syntax: [number_of_dice]d[dice_type] + [offset]")
+                .takes_value(true)
+                .multiple(true)
+                .required(true),
+        )
 }
 fn cmd_ini() -> App<'static> {
     App::new("ini").about("Performs an initiative roll for the current character")

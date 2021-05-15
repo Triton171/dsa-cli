@@ -58,11 +58,11 @@ pub trait CommandContext {
         let guild = channel.guild(self.context()).await.unwrap();
         let g_members = guild.members(self.context(), Some(1000), None).await?;
 
-
         Ok(
             futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
                 .filter_map(|member| async {
-                    if guild.user_permissions_in(&channel, &member)
+                    if guild
+                        .user_permissions_in(&channel, &member)
                         .map(|p| p.contains(Permissions::READ_MESSAGES))
                         .unwrap_or(false)
                     {

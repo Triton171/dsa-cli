@@ -239,63 +239,108 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                 beg.push_str(" ");
                 beg
             });
-    let terms = expr.split('+').map(|term| term.trim());
+
     let mut res = 0;
     output.output(&"Rolls: ");
-    for term in terms {
-        //Dice
-        if term.contains('d') {
-            let split: Vec<&str> = term.split('d').filter(|s| !s.is_empty()).collect();
-            if split.len() == 0 {
-                output.new_line();
-                output.output_line(&format!("Die type missing in expression \"{}\"", term));
-                return;
-            } else if split.len() < 3 {
-                let num_dice = match split.len() {
-                    1 => 1,
-                    //2
-                    _ => match split[0].parse::<u32>() {
+
+    let mut parse_term = |term: &str| {
+        let (term_sign, term) = match term.chars().next() {
+            Some('+') => (1, &term[1..]),
+            Some('-') => (-1, &term[1..]),
+            _ => (1, term),
+        };
+        let mut term_val: i64 = 0;
+        if term.contains(|c| c == 'd' || c == 'w') {
+            let split: Vec<&str> = term
+                .split(|c| c == 'd' || c == 'w')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect();
+            let (num_dice, die_type) = match split.len() {
+                0 => {
+                    return Err(Error::new(
+                        format!("Die type missing in expression \"{}\"", term),
+                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                    ));
+                }
+                1 => (
+                    1,
+                    match split[0].parse::<u32>() {
                         Ok(num) => num,
                         Err(_) => {
-                            output.new_line();
-                            output.output_line(&format!(
-                                "Invalid die number in expression \"{}\"",
-                                term
+                            return Err(Error::new(
+                                format!("Unable to parse die type in expression \"{}\"", term),
+                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
                             ));
-                            return;
                         }
                     },
-                };
-                match split[split.len() - 1].parse::<u32>() {
-                    Ok(d_type) => {
-                        for _ in 0..num_dice {
-                            let roll = rng.gen_range(1..=d_type);
-                            output.output(&format!("{}/{} ", roll, d_type));
-                            res += roll;
+                ),
+                2 => (
+                    match split[0].parse::<u32>() {
+                        Ok(num) => num,
+                        Err(_) => {
+                            return Err(Error::new(
+                                format!("Invalid die number in expression \"{}\"", term),
+                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                            ));
                         }
-                    }
-                    Err(_) => {
-                        output.new_line();
-                        output.output_line(&format!("Invalid die type in expression \"{}\"", term));
-                        return;
-                    }
+                    },
+                    match split[1].parse::<u32>() {
+                        Ok(num) => num,
+                        Err(_) => {
+                            return Err(Error::new(
+                                format!("Unable to parse die type in expression \"{}\"", term),
+                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                            ));
+                        }
+                    },
+                ),
+                _ => {
+                    return Err(Error::new(
+                        format!("Too many \"d\"s and/or \"w\"s in expression \"{}\"", term),
+                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                    ));
                 }
-            } else {
-                output.new_line();
-                output.output_line(&format!("Too many \"d\"s in expression \"{}\"", term));
-                return;
+            };
+            for _ in 0..num_dice {
+                let roll: i64 = rng.gen_range(1..=(die_type as i64));
+                output.output(&format!("{}/{} ", roll, die_type));
+                term_val += roll;
             }
         } else {
-            match term.trim().parse::<u32>() {
+            match term.trim().parse::<i64>() {
                 Ok(num) => {
-                    res += num;
+                    term_val += num;
                 }
                 Err(_) => {
-                    output.new_line();
-                    output.output_line(&format!("Unable to parse number \"{}\"", term));
-                    return;
+                    return Err(Error::new(
+                        format!("Unable to parse number \"{}\"", term),
+                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                    ));
                 }
             }
+        }
+        term_val *= term_sign;
+        Ok(term_val)
+    };
+
+    let mut begin_idx: usize = 0;
+    loop {
+        let end_idx = match expr[begin_idx + 1..].find(|c| c == '+' || c == '-') {
+            Some(idx) => begin_idx + 1 + idx,
+            None => expr.len(),
+        };
+        res += match parse_term(&expr[begin_idx..end_idx]) {
+            Ok(term_val) => term_val,
+            Err(e) => {
+                output.new_line();
+                output.output_line(&e);
+                return;
+            }
+        };
+        begin_idx = end_idx;
+        if begin_idx >= expr.len() {
+            break;
         }
     }
 
