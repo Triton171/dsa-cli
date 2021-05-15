@@ -1,5 +1,5 @@
 {
-    "version" : 1,
+    "version" : 2,
     "talents" : {
         "fliegen" : {
             "attributes" : ["mut", "intuition", "gewandtheit"]
@@ -224,7 +224,7 @@
         "stangenwaffen" : {
             "attributes" : ["gewandtheit", "koerperkraft"]
         },
-        "zweihandhiebschwerter" : {
+        "zweihandhiebwaffen" : {
             "attributes" : ["koerperkraft"]
         },
         "zweihandschwerter" : {
@@ -270,6 +270,36 @@
         },
         "flimflam" : {
             "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "fulminictus": {
+            "attributes" : ["klugheit", "intuition", "konstitution"]
+        },
+        "hexengalle": {
+            "attributes" : ["klugheit", "intuition", "konstitution"]
+        },
+        "paralysis": {
+            "attributes": ["klugheit", "intuition", "konstitution"]
+        },
+        "blickindiegedanken": {
+            "attributes": ["mut", "klugheit", "intuition"]
+        },
+        "harmlosegestalt": {
+            "attributes": ["klugheit", "intuition", "charisma"]
+        },
+        "sanftmut": {
+            "attributes": ["mut", "intuition", "charisma"]
+        },
+        "zaubermelodie" : {
+            "attributes": ["mut", "intuition", "charisma"]
+        },
+        "armatrutz" : {
+            "attributes": ["klugheit", "intuition", "fingerfertigkeit"]
+        },
+        "gardianum": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
+        "penetrizzel": {
+            "attributes": ["mut", "klugheit", "intuition"]
         }
     }
 }
