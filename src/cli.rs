@@ -25,7 +25,7 @@ pub fn get_app() -> App<'static> {
         .subcommand(cmd_dodge())
         .subcommand(cmd_parry())
         .subcommand(cmd_roll())
-        .subcommand(cmd_ini())
+        .subcommand(App::new("ini").about("Performs an initiative roll for the current character"))
 }
 
 pub fn get_discord_app() -> App<'static> {
@@ -41,7 +41,7 @@ pub fn get_discord_app() -> App<'static> {
         .subcommand(cmd_dodge())
         .subcommand(cmd_parry())
         .subcommand(cmd_roll())
-        .subcommand(cmd_ini()
+        .subcommand(App::new("ini").about("Performs an initiative roll for the current character")
             .arg(
                 Arg::new("all")
                     .about("Adds the characters of all users in this server to the initiative roll")
@@ -174,7 +174,4 @@ fn cmd_roll() -> App<'static> {
                 .multiple(true)
                 .required(true),
         )
-}
-fn cmd_ini() -> App<'static> {
-    App::new("ini").about("Performs an initiative roll for the current character")
 }
