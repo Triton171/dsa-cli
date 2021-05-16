@@ -77,8 +77,12 @@ pub fn get_discord_app() -> App<'static> {
         .override_usage("![subcommand]")
 }
 
-fn get_version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
+pub fn get_version() -> &'static str {
+    match option_env!("FULL_VERSION")
+    {
+        Some(ver) => ver,
+        _ => env!("CARGO_PKG_VERSION")
+    }
 }
 
 fn cmd_skillcheck() -> App<'static> {

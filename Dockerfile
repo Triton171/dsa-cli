@@ -13,6 +13,8 @@ RUN cargo build-dependencies --release
 
 # Build application
 COPY ./src ./src
+COPY build.rs ./
+COPY ./.git/HEAD ./.git
 RUN cargo build --release
 
 #Final base

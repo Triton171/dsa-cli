@@ -30,6 +30,7 @@ fn main() {
 
     let app = cli::get_app();
     let matches = app.get_matches();
+    println!("Started dsa-cli {}", cli::get_version());
 
     match matches.subcommand() {
         Some(("discord", _)) => {
