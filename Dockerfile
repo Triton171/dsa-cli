@@ -15,7 +15,8 @@ RUN cargo build-dependencies --release
 COPY ./src ./src
 COPY build.rs ./
 COPY ./.git ./.git
-RUN echo $(git rev-parse --short HEAD) > HEAD && rm -r .git && mkdir .git && mv HEAD .git/HEAD
+# Extract git head if .git folder exists
+RUN $([ -d /.git ] && echo $(git rev-parse --short HEAD) > HEAD && rm -r .git && mkdir .git && mv HEAD .git/HEAD) || true
 
 RUN cargo build --release
 
