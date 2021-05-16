@@ -14,7 +14,9 @@ RUN cargo build-dependencies --release
 # Build application
 COPY ./src ./src
 COPY build.rs ./
-COPY ./.git/HEAD ./.git
+COPY ./.git ./.git
+RUN echo $(git rev-parse --short HEAD) > HEAD && rm -r .git && mkdir .git && mv HEAD .git/HEAD
+
 RUN cargo build --release
 
 #Final base

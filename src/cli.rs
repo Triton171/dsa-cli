@@ -78,10 +78,9 @@ pub fn get_discord_app() -> App<'static> {
 }
 
 pub fn get_version() -> &'static str {
-    match option_env!("FULL_VERSION")
-    {
+    match option_env!("FULL_VERSION") {
         Some(ver) => ver,
-        _ => env!("CARGO_PKG_VERSION")
+        _ => env!("CARGO_PKG_VERSION"),
     }
 }
 
