@@ -6,6 +6,11 @@ use rand::distributions::{Distribution, Uniform};
 use rand::Rng;
 use std::{cmp::Ordering, num::ParseIntError};
 
+//The maximum number of dice in a roll expression
+const MAX_NUM_DICE: u32 = 100;
+//The maximum number of expressions in a roll command
+const MAX_ROLL_EXPRESSIONS: u32 = 20;
+
 enum CheckType {
     //A simple check where you have to roll below your attributes (for example an attribute check)
     SimpleCheck,
@@ -302,6 +307,20 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                     ));
                 }
             };
+
+            if die_type<=0 {
+                return Err(Error::new(
+                    format!("Invalid die type: {}", die_type), 
+                    ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                ));
+            }
+            if num_dice >MAX_NUM_DICE {
+                return Err(Error::new(
+                    format!("Number of dice exceeds maximum of {}: {}", MAX_NUM_DICE, num_dice), 
+                    ErrorType::InvalidInput(InputErrorType::InvalidArgument)
+                ));
+            }
+
             for _ in 0..num_dice {
                 let roll: i64 = rng.gen_range(1..=(die_type as i64));
                 output.output(&format!("{}/{} ", roll, die_type));
@@ -325,7 +344,14 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
     };
 
     let mut begin_idx: usize = 0;
+    let mut expr_count: u32 = 0;
     loop {
+        expr_count += 1;
+        if expr_count>MAX_ROLL_EXPRESSIONS {
+            output.new_line();
+            output.output_line(&format!("Error: Number of roll expressions exceeds maximum of {}", MAX_ROLL_EXPRESSIONS));
+            return;
+        }
         let end_idx = match expr[begin_idx + 1..].find(|c| c == '+' || c == '-') {
             Some(idx) => begin_idx + 1 + idx,
             None => expr.len(),
