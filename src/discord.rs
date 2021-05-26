@@ -16,6 +16,8 @@ use serenity::{
 };
 use std::fmt::Write;
 
+const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
+
 pub struct Handler {
     pub config: Config,
     pub dsa_data: DSAData,
@@ -241,6 +243,8 @@ impl<'a> DiscordOutputWrapper<'a> {
     pub async fn send(&mut self, ctx: &Context) {
         if self.msg_empty {
             return;
+        } else if self.msg_buf.as_bytes().len()>DISCORD_MAX_MESSAGE_LENGTH {
+            self.msg_buf = format!("```Error: Reply length exceeds the maximum of {}", DISCORD_MAX_MESSAGE_LENGTH);
         }
         self.msg_buf.push_str("```");
         match &self.output_type {
