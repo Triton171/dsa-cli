@@ -12,7 +12,9 @@ extern crate enum_display_derive;
 use character::Character;
 use config::{AbstractConfig, Config, DSAData};
 use tokio::runtime::Builder;
-use util::OutputWrapper;
+use util::{Error, OutputWrapper};
+
+use crate::util::ErrorType;
 
 fn main() {
     let mut output = util::CLIOutputWrapper {};
@@ -34,14 +36,13 @@ fn main() {
 
     match matches.subcommand() {
         Some(("discord", _)) => {
-            let dsa_data = match DSAData::get_or_create(&mut output) {
-                Ok(d) => d,
+            let dsa_data = match get_dsa_data(&config, &mut output) {
+                Ok(data) => data,
                 Err(e) => {
-                    output.output_line(&format!("Unable to get dsa data: {}", e));
+                    output.output_line(&format!("Error retrieving dsa data: {}", e));
                     return;
                 }
             };
-            let dsa_data = dsa_data.check_replacement_needed(&config, &mut output);
             let runtime = Builder::new_multi_thread()
                 .worker_threads(config.discord.num_threads)
                 .enable_io()
@@ -186,6 +187,23 @@ async fn parse_local_command(
     };
 }
 
+fn get_dsa_data(config: &Config, output: &mut impl OutputWrapper) -> Result<DSAData, Error> {
+    let dsa_data = match DSAData::get_or_create(output) {
+        Ok(d) => d,
+        Err(e) => {
+            if config.auto_update_dsa_data && matches!(e.err_type(), ErrorType::InvalidInput(_)) {
+                output.output_line(&format!("Found invalid dsa data, replacing it with a newer version ({})", e));
+                DSAData::create_default()?;
+                return DSAData::read();
+            } else {
+                return Err(e);
+            }
+        }
+    };
+    let dsa_data = dsa_data.check_replacement_needed(&config, output);
+    Ok(dsa_data)
+}
+
 async fn try_get_character_and_dsa_data(
     config: &Config,
     output: &mut impl OutputWrapper,
@@ -204,13 +222,12 @@ async fn try_get_character_and_dsa_data(
             return None;
         }
     };
-    let dsa_data = match DSAData::get_or_create(output) {
-        Ok(d) => d,
+    let dsa_data = match get_dsa_data(&config, output) {
+        Ok(data) => data,
         Err(e) => {
-            output.output_line(&format!("Unable to read DSA data: {}", e));
+            output.output_line(&format!("Error retrieving dsa data: {}", e));
             return None;
         }
     };
-    let dsa_data = dsa_data.check_replacement_needed(&config, output);
     Some((character, dsa_data))
 }
