@@ -68,7 +68,12 @@ pub fn talent_check(
     };
     let attrs: Vec<(&str, i64)> = skill_attrs
         .iter()
-        .map(|attr| (dsa_data.get_attr_short_name(attr), character.get_attribute_level(attr)))
+        .map(|attr| {
+            (
+                dsa_data.get_attr_short_name(attr),
+                character.get_attribute_level(attr),
+            )
+        })
         .collect();
     let skill_level = character.get_skill_level(&talent_name);
 
@@ -153,7 +158,12 @@ pub fn spell_check(
 
     let attrs: Vec<(&str, i64)> = spell_attrs
         .iter()
-        .map(|attr| (dsa_data.get_attr_short_name(attr), character.get_attribute_level(attr)))
+        .map(|attr| {
+            (
+                dsa_data.get_attr_short_name(attr),
+                character.get_attribute_level(attr),
+            )
+        })
         .collect();
     let skill_level = character.get_spell_level(&spell_name);
 
@@ -308,16 +318,19 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                 }
             };
 
-            if die_type<=0 {
+            if die_type <= 0 {
                 return Err(Error::new(
-                    format!("Invalid die type: {}", die_type), 
+                    format!("Invalid die type: {}", die_type),
                     ErrorType::InvalidInput(InputErrorType::InvalidArgument),
                 ));
             }
-            if num_dice >MAX_NUM_DICE {
+            if num_dice > MAX_NUM_DICE {
                 return Err(Error::new(
-                    format!("Number of dice exceeds maximum of {}: {}", MAX_NUM_DICE, num_dice), 
-                    ErrorType::InvalidInput(InputErrorType::InvalidArgument)
+                    format!(
+                        "Number of dice exceeds maximum of {}: {}",
+                        MAX_NUM_DICE, num_dice
+                    ),
+                    ErrorType::InvalidInput(InputErrorType::InvalidArgument),
                 ));
             }
 
@@ -347,9 +360,12 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
     let mut expr_count: u32 = 0;
     loop {
         expr_count += 1;
-        if expr_count>MAX_ROLL_EXPRESSIONS {
+        if expr_count > MAX_ROLL_EXPRESSIONS {
             output.new_line();
-            output.output_line(&format!("Error: Number of roll expressions exceeds maximum of {}", MAX_ROLL_EXPRESSIONS));
+            output.output_line(&format!(
+                "Error: Number of roll expressions exceeds maximum of {}",
+                MAX_ROLL_EXPRESSIONS
+            ));
             return;
         }
         let end_idx = match expr[begin_idx + 1..].find(|c| c == '+' || c == '-') {

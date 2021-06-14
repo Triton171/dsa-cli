@@ -107,7 +107,7 @@ pub struct DSAData {
 
 #[derive(Deserialize)]
 pub struct AttributeConfig {
-    pub short_name: String
+    pub short_name: String,
 }
 #[derive(Deserialize)]
 pub struct TalentConfig {

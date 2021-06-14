@@ -214,8 +214,11 @@ impl<'a> DiscordOutputWrapper<'a> {
     pub async fn send(&mut self, ctx: &Context) {
         if self.msg_empty {
             return;
-        } else if self.msg_buf.as_bytes().len()>DISCORD_MAX_MESSAGE_LENGTH {
-            self.msg_buf = format!("```Error: Reply length exceeds the maximum of {}", DISCORD_MAX_MESSAGE_LENGTH);
+        } else if self.msg_buf.as_bytes().len() > DISCORD_MAX_MESSAGE_LENGTH {
+            self.msg_buf = format!(
+                "```Error: Reply length exceeds the maximum of {}",
+                DISCORD_MAX_MESSAGE_LENGTH
+            );
         }
         self.msg_buf.push_str("```");
         match &self.output_type {
@@ -270,7 +273,10 @@ impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
         for col in 0..table[0].len() {
             col_lengths.push(0);
             for row in 0..table.len() {
-                col_lengths[col] = std::cmp::max(col_lengths[col], table[row][col].len()+DISCORD_TABLE_COL_SEP);
+                col_lengths[col] = std::cmp::max(
+                    col_lengths[col],
+                    table[row][col].len() + DISCORD_TABLE_COL_SEP,
+                );
             }
         }
         *col_lengths.last_mut().unwrap() -= 2; //Don't add spacing after the last column
@@ -278,7 +284,8 @@ impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
         for row in table {
             for (col, entry) in row.iter().enumerate() {
                 self.msg_buf.push_str(entry);
-                self.msg_buf.extend(std::iter::repeat(' ').take(col_lengths[col]-entry.len()));
+                self.msg_buf
+                    .extend(std::iter::repeat(' ').take(col_lengths[col] - entry.len()));
             }
             self.msg_buf.push('\n');
         }

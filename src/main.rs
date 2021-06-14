@@ -192,7 +192,10 @@ fn get_dsa_data(config: &Config, output: &mut impl OutputWrapper) -> Result<DSAD
         Ok(d) => d,
         Err(e) => {
             if config.auto_update_dsa_data && matches!(e.err_type(), ErrorType::InvalidInput(_)) {
-                output.output_line(&format!("Found invalid dsa data, replacing it with a newer version ({})", e));
+                output.output_line(&format!(
+                    "Found invalid dsa data, replacing it with a newer version ({})",
+                    e
+                ));
                 DSAData::create_default()?;
                 return DSAData::read();
             } else {
