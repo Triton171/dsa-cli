@@ -68,7 +68,7 @@ pub fn talent_check(
     };
     let attrs: Vec<(&str, i64)> = skill_attrs
         .iter()
-        .map(|attr| (attr.as_str(), character.get_attribute_level(attr)))
+        .map(|attr| (dsa_data.get_attr_short_name(attr), character.get_attribute_level(attr)))
         .collect();
     let skill_level = character.get_skill_level(&talent_name);
 
@@ -153,7 +153,7 @@ pub fn spell_check(
 
     let attrs: Vec<(&str, i64)> = spell_attrs
         .iter()
-        .map(|attr| (attr.as_str(), character.get_attribute_level(attr)))
+        .map(|attr| (dsa_data.get_attr_short_name(attr), character.get_attribute_level(attr)))
         .collect();
     let skill_level = character.get_spell_level(&spell_name);
 

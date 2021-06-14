@@ -244,12 +244,15 @@ impl DSAData {
         }
     }
 
+    pub fn get_attr_short_name<'a>(&'a self, attribute: &str) -> &'a str {
+        self.attributes.get(attribute).unwrap().short_name.as_str()
+    }
+
     pub fn check_replacement_needed(
         self,
         config: &Config,
         output: &mut impl OutputWrapper,
     ) -> DSAData {
-        println!("{} {}", self.version, DSA_DATA_NEWEST_VERSION);
         if config.auto_update_dsa_data && self.version < DSA_DATA_NEWEST_VERSION {
             match Self::create_default() {
                 Err(e) => {
