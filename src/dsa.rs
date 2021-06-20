@@ -191,7 +191,10 @@ pub fn chant_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let (chant_name, chant_entry) = match DSAData::match_search(&dsa_data.chants, cmd_matches.value_of("chant_name").unwrap()) {
+    let (chant_name, chant_entry) = match DSAData::match_search(
+        &dsa_data.chants,
+        cmd_matches.value_of("chant_name").unwrap(),
+    ) {
         Ok(r) => r,
         Err(e) => {
             output.output_line(&e);

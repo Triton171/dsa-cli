@@ -124,7 +124,7 @@ pub struct SpellConfig {
 }
 #[derive(Deserialize)]
 pub struct ChantConfig {
-    pub attributes: Vec<String>
+    pub attributes: Vec<String>,
 }
 
 /*

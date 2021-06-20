@@ -62,7 +62,7 @@ pub struct CharacterSpell {
 #[derive(Deserialize)]
 pub struct CharacterChant {
     id: String,
-    level: Option<i64>
+    level: Option<i64>,
 }
 
 impl Character {

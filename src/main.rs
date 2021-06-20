@@ -129,7 +129,7 @@ async fn parse_local_command(
         }
 
         Some(("chant", sub_m)) => {
-            if let Some((character, dsa_data)) = 
+            if let Some((character, dsa_data)) =
                 try_get_character_and_dsa_data(&config, &mut output).await
             {
                 dsa::chant_check(sub_m, &character, &dsa_data, &config, &mut output);
