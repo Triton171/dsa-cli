@@ -22,6 +22,7 @@ pub fn get_app() -> App<'static> {
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
         .subcommand(cmd_spell())
+        .subcommand(cmd_chant())
         .subcommand(cmd_dodge())
         .subcommand(cmd_parry())
         .subcommand(cmd_roll())
@@ -38,6 +39,7 @@ pub fn get_discord_app() -> App<'static> {
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
         .subcommand(cmd_spell())
+        .subcommand(cmd_chant())
         .subcommand(cmd_dodge())
         .subcommand(cmd_parry())
         .subcommand(cmd_roll())
@@ -135,6 +137,25 @@ fn cmd_spell() -> App<'static> {
                 .default_value("0"),
         )
 }
+
+fn cmd_chant() -> App<'static> {
+    App::new("chant")
+        .about("Performs a skillcheck for the given chant")
+        .setting(AppSettings::AllowLeadingHyphen)
+        .arg(
+            Arg::new("chant_name")
+                .about("The (partial) name of the chant")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
+            Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
+        )
+}
+
 fn cmd_dodge() -> App<'static> {
     App::new("dodge")
         .about("Performs a dodge skillcheck")

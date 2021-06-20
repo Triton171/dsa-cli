@@ -16,6 +16,9 @@ mod default {
     pub fn spells() -> Vec<super::CharacterSpell> {
         Vec::new()
     }
+    pub fn chants() -> Vec<super::CharacterChant> {
+        Vec::new()
+    }
 }
 
 #[derive(Deserialize)]
@@ -28,6 +31,8 @@ pub struct Character {
     combattechniques: Vec<CharacterCombatTechnique>,
     #[serde(default = "default::spells")]
     spells: Vec<CharacterSpell>,
+    #[serde(default = "default::chants")]
+    chants: Vec<CharacterChant>,
 }
 
 #[derive(Deserialize)]
@@ -52,6 +57,12 @@ pub struct CharacterCombatTechnique {
 pub struct CharacterSpell {
     id: String,
     level: Option<i64>,
+}
+
+#[derive(Deserialize)]
+pub struct CharacterChant {
+    id: String,
+    level: Option<i64>
 }
 
 impl Character {
@@ -137,6 +148,15 @@ impl Character {
         for spell in &self.spells {
             if spell.id.eq_ignore_ascii_case(spell_id) {
                 return spell.level.unwrap_or(0);
+            }
+        }
+        0
+    }
+
+    pub fn get_chant_level(&self, chant_id: &str) -> i64 {
+        for chant in &self.chants {
+            if chant.id.eq_ignore_ascii_case(chant_id) {
+                return chant.level.unwrap_or(0);
             }
         }
         0

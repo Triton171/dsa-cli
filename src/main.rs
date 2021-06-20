@@ -128,6 +128,16 @@ async fn parse_local_command(
             }
         }
 
+        Some(("chant", sub_m)) => {
+            if let Some((character, dsa_data)) = 
+                try_get_character_and_dsa_data(&config, &mut output).await
+            {
+                dsa::chant_check(sub_m, &character, &dsa_data, &config, &mut output);
+            } else {
+                return;
+            }
+        }
+
         Some(("dodge", sub_m)) => {
             let character = match Character::loaded_character().await {
                 Ok(Some(c)) => c,

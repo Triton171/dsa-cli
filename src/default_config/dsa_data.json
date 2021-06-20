@@ -1,5 +1,5 @@
 {
-    "version" : 3,
+    "version" : 4,
     "attributes" : {
         "mut" : {
             "short_name" : "MU"
@@ -326,6 +326,32 @@
         },
         "penetrizzel": {
             "attributes": ["mut", "klugheit", "intuition"]
+        }
+    },
+    "chants" : {
+        "entzifferung" : {
+            "attributes" : ["klugheit", "klugheit", "intuition"]
+        },
+        "ermutigung" : {
+            "attributes" : ["mut", "intuition", "charisma"]
+        },
+        "friedvolleaura" : {
+            "attributes" : ["mut", "intuition", "charisma"]
+        },
+        "goettlicheszeichen" : {
+            "attributes" : ["intuition", "intuition", "charisma"]
+        },
+        "objektsegen" : {
+            "attributes" : ["mut", "intuition", "charisma"]
+        },
+        "schlangenstab" : {
+            "attributes" : ["mut", "klugheit", "intuition"]
+        },
+        "wahrheit" : {
+            "attributes" : ["mut", "klugheit", "intuition"]
+        },
+        "wundersameverstaendigung" : {
+            "attributes" : ["klugheit", "klugheit", "intuition"]
         }
     }
 }
