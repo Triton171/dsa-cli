@@ -6,7 +6,7 @@ use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-const DSA_DATA_NEWEST_VERSION: u64 = 2;
+const DSA_DATA_NEWEST_VERSION: u64 = 3;
 
 mod default {
     pub fn auto_update_dsa_data() -> bool {
@@ -99,11 +99,16 @@ pub enum ConfigDSACritType {
 #[derive(Deserialize)]
 pub struct DSAData {
     pub version: u64,
+    pub attributes: HashMap<String, AttributeConfig>,
     pub talents: HashMap<String, TalentConfig>,
     pub combat_techniques: HashMap<String, CombatTechniqueConfig>,
     pub spells: HashMap<String, SpellConfig>,
 }
 
+#[derive(Deserialize)]
+pub struct AttributeConfig {
+    pub short_name: String,
+}
 #[derive(Deserialize)]
 pub struct TalentConfig {
     pub attributes: Vec<String>,
@@ -237,6 +242,10 @@ impl DSAData {
                 ErrorType::InvalidInput(InputErrorType::InvalidArgument),
             ))
         }
+    }
+
+    pub fn get_attr_short_name<'a>(&'a self, attribute: &str) -> &'a str {
+        self.attributes.get(attribute).unwrap().short_name.as_str()
     }
 
     pub fn check_replacement_needed(

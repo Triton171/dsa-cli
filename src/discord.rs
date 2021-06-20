@@ -17,6 +17,7 @@ use serenity::{
 use std::fmt::Write;
 
 const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
+const DISCORD_TABLE_COL_SEP: usize = 4; //The number of whitespaces between 2 table columns
 
 pub struct Handler {
     pub config: Config,
@@ -89,36 +90,6 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        /*let name = interaction.clone().data;
-        let text = match self
-            .command_registry
-            .get_command(
-                match name {
-                    Some(d) => d.name,
-                    None => String::new(),
-                }
-                .as_str(),
-            )
-            .as_ref()
-        {
-            None => String::from("Command not found!"), // this should never trigger
-            Some(cmd) => cmd.handle_slash_command(&interaction, &self, &ctx).await,
-        };
-        let _ = interaction
-            .create_interaction_response(&ctx.http, |response| {
-                let mut str = String::from("```");
-                str.push_str(&text);
-                str.push_str("```");
-                response
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|data| {
-                        data.embed(|f| {
-                            f.color(serenity::utils::Colour::BLITZ_BLUE)
-                                .description(str)
-                        })
-                    })
-            })
-            .await;*/
         let mut output =
             DiscordOutputWrapper::new(DiscordOutputType::InteractionResponse(&interaction));
         let matches =
@@ -243,8 +214,11 @@ impl<'a> DiscordOutputWrapper<'a> {
     pub async fn send(&mut self, ctx: &Context) {
         if self.msg_empty {
             return;
-        } else if self.msg_buf.as_bytes().len()>DISCORD_MAX_MESSAGE_LENGTH {
-            self.msg_buf = format!("```Error: Reply length exceeds the maximum of {}", DISCORD_MAX_MESSAGE_LENGTH);
+        } else if self.msg_buf.as_bytes().len() > DISCORD_MAX_MESSAGE_LENGTH {
+            self.msg_buf = format!(
+                "```Error: Reply length exceeds the maximum of {}",
+                DISCORD_MAX_MESSAGE_LENGTH
+            );
         }
         self.msg_buf.push_str("```");
         match &self.output_type {
@@ -295,9 +269,23 @@ impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
         self.msg_empty = false;
     }
     fn output_table(&mut self, table: &Vec<Vec<String>>) {
+        let mut col_lengths: Vec<usize> = Vec::with_capacity(table[0].len());
+        for col in 0..table[0].len() {
+            col_lengths.push(0);
+            for row in 0..table.len() {
+                col_lengths[col] = std::cmp::max(
+                    col_lengths[col],
+                    table[row][col].len() + DISCORD_TABLE_COL_SEP,
+                );
+            }
+        }
+        *col_lengths.last_mut().unwrap() -= 2; //Don't add spacing after the last column
+
         for row in table {
-            for entry in row {
-                self.msg_buf.push_str(&format!("{:<15}", entry));
+            for (col, entry) in row.iter().enumerate() {
+                self.msg_buf.push_str(entry);
+                self.msg_buf
+                    .extend(std::iter::repeat(' ').take(col_lengths[col] - entry.len()));
             }
             self.msg_buf.push('\n');
         }
