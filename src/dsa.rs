@@ -184,6 +184,60 @@ pub fn spell_check(
     );
 }
 
+pub fn chant_check(
+    cmd_matches: &ArgMatches,
+    character: &Character,
+    dsa_data: &DSAData,
+    config: &Config,
+    output: &mut impl OutputWrapper,
+) {
+    let (chant_name, chant_entry) = match DSAData::match_search(
+        &dsa_data.chants,
+        cmd_matches.value_of("chant_name").unwrap(),
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            output.output_line(&e);
+            return;
+        }
+    };
+    let chant_attrs = &chant_entry.attributes;
+    let facilitation = match get_facilitation(cmd_matches, chant_attrs.len()) {
+        Ok(f) => f,
+        Err(e) => {
+            output.output_line(&e);
+            return;
+        }
+    };
+
+    let attrs: Vec<(&str, i64)> = chant_attrs
+        .iter()
+        .map(|attr| {
+            (
+                dsa_data.get_attr_short_name(attr),
+                character.get_attribute_level(attr),
+            )
+        })
+        .collect();
+    let skill_level = character.get_chant_level(&chant_name);
+
+    let crit_type = match config.dsa_rules.crit_rules {
+        config::ConfigDSACritType::NoCrits => CritType::NoCrits,
+        config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
+        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits,
+    };
+
+    roll_check(
+        &attrs,
+        &chant_name,
+        character.get_name(),
+        facilitation,
+        CheckType::PointsCheck(skill_level),
+        crit_type,
+        output,
+    );
+}
+
 pub fn dodge_check(
     cmd_matches: &ArgMatches,
     character: &Character,

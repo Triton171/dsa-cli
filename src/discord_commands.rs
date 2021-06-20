@@ -375,6 +375,23 @@ pub async fn execute_command<T>(
             };
         }
 
+        Some(("chant", sub_m)) => {
+            match try_get_character(cmd_ctx).await {
+                Ok(character) => {
+                    dsa::chant_check(sub_m, &character, dsa_data, config, output);
+                }
+                Err(e) => match e.err_type() {
+                    ErrorType::InvalidInput(_) => {
+                        output.output_line(&e);
+                    }
+                    _ => {
+                        output.output_line(&"Internal server error while rolling spell");
+                        println!("Error rolling spell: {:?}", e);
+                    }
+                },
+            };
+        }
+
         Some(("dodge", sub_m)) => {
             match try_get_character(cmd_ctx).await {
                 Ok(character) => {

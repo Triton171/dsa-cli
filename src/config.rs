@@ -6,7 +6,7 @@ use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-const DSA_DATA_NEWEST_VERSION: u64 = 3;
+const DSA_DATA_NEWEST_VERSION: u64 = 4;
 
 mod default {
     pub fn auto_update_dsa_data() -> bool {
@@ -103,6 +103,7 @@ pub struct DSAData {
     pub talents: HashMap<String, TalentConfig>,
     pub combat_techniques: HashMap<String, CombatTechniqueConfig>,
     pub spells: HashMap<String, SpellConfig>,
+    pub chants: HashMap<String, ChantConfig>,
 }
 
 #[derive(Deserialize)]
@@ -119,6 +120,10 @@ pub struct CombatTechniqueConfig {
 }
 #[derive(Deserialize)]
 pub struct SpellConfig {
+    pub attributes: Vec<String>,
+}
+#[derive(Deserialize)]
+pub struct ChantConfig {
     pub attributes: Vec<String>,
 }
 
