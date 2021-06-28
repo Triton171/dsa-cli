@@ -43,6 +43,14 @@ pub fn get_discord_app() -> App<'static> {
         .subcommand(cmd_dodge())
         .subcommand(cmd_parry())
         .subcommand(cmd_roll())
+        .subcommand(App::new("rename").about("Rename all players to their respective character name")
+            .arg(
+                Arg::new("reset")
+                .about("Reset player nicknames to their original names")
+                .short('r')
+                .long("reset")
+                .takes_value(false)
+            ))
         .subcommand(App::new("ini").about("Performs an initiative roll for the current character")
             .arg(
                 Arg::new("all")

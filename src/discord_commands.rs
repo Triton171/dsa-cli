@@ -82,6 +82,27 @@ pub trait CommandContext {
             .await?;
         Ok(())
     }
+
+    async fn get_guild_owner(&self) -> Result<Option<UserId>, Error> {
+        let channel_id = self.channel()?;
+        let channel = channel_id.to_channel(self.context()).await?;
+
+        let channel = match channel.guild() {
+            Some(gc) => gc,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        let guild = match channel.guild(self.context()).await {
+            Some(guild) => guild,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        Ok(Some(guild.owner_id))
+    }
 }
 
 //The context for a command that was sent in a guild channel or as a direct message to the bot
@@ -444,6 +465,21 @@ pub async fn execute_command<T>(
                 },
             };
         }
+
+        Some(("rename", sub_m)) => {
+            match rename(&sub_m, cmd_ctx, output).await {
+                Ok(()) => {}
+                Err(e) => match e.err_type() {
+                    ErrorType::InvalidInput(_) => {
+                        output.output_line(&e);
+                    }
+                    _ => {
+                        output.output_line(&"Internal server error while setting nicknames");
+                        println!("Error setting nicknames: {:?}", e);
+                    }
+                },
+            };
+        }
         _ => {}
     };
 }
@@ -689,5 +725,136 @@ where
 
         futures::future::join_all(rename_futs).await;
     }
+    Ok(())
+}
+
+async fn rename<T>(
+    sub_m: &clap::ArgMatches,
+    cmd_ctx: &T,
+    output: &mut impl OutputWrapper,
+) -> Result<(), Error>
+where
+    T: CommandContext + Sync,
+{
+    let config_path = get_config_dir()?;
+
+    if sub_m.is_present("reset") {
+        let members = cmd_ctx.members_in_channel().await?;
+        let mut rename_futs = Vec::new();
+        for member in members {
+            let user_id = member.user.id.to_string();
+            let mut path = PathBuf::from(&config_path);
+            path.push("discord_characters");
+            path.push(user_id);
+            /*
+            Reset the nickname if all of the following apply
+            1. The user has uploaded a character
+            2. The user has a discord nickname
+            3. The discord nickname is of the form ".* Ξ orig_name"
+            */
+            if std::path::Path::exists(&path) {
+                if let Some(nickname) = member.nick.clone() {
+                    if let Some(index) = nickname.find('Ξ') {
+                        let new_name = nickname[index + 2..].to_string();
+                        rename_futs.push(async {
+                            //Force moves
+                            let member = member;
+                            let new_name = new_name;
+                            if let Err(e) = cmd_ctx.rename_member(&member, &new_name).await {
+                                println!("Error changing user nickname: {:?}", e);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        futures::future::join_all(rename_futs).await;
+        output.output_line(&"Reset nicknames");
+        return Ok(());
+    }
+
+    let members = cmd_ctx.members_in_channel().await?;
+    let mut rename_futs = Vec::new();
+    for member in members {
+        let user_id = member.user.id.to_string();
+        let mut path = PathBuf::from(&config_path);
+        path.push("discord_characters");
+        path.push(user_id);
+
+        let mut nickname = member.user.name.clone();
+        if let Some(nick) = member.nick.clone() {
+            nickname = nick;
+        }
+
+        if nickname.clone().contains('Ξ') {
+            let out = format!(
+                "\"{}\"s nickname contains the symbol Ξ. This is not allowed...",
+                nickname
+            );
+            output.output_line(&out);
+            println!("{}", out);
+            return Ok(());
+        }
+        if std::path::Path::exists(&path) {
+            match Character::from_file(&path).await {
+                Err(_) => {
+                    return Err(Error::new(
+                        format!("Unable to retrieve character for {}", member.display_name()),
+                        ErrorType::InvalidInput(InputErrorType::InvalidFormat),
+                    ));
+                }
+                Ok(character) => {
+                    let new_name = format!("{} Ξ {}", character.get_name().to_string(), nickname);
+
+                    rename_futs.push(async {
+                        let member = member;
+                        let new_name = new_name;
+                        if let Err(e) = cmd_ctx.rename_member(&member, &new_name).await {
+                            if e.message() == "Missing Permissions" {
+                                match &cmd_ctx.get_guild_owner().await {
+                                    Ok(Some(owner)) => {
+                                        if owner == &member.user.id {
+                                            return Ok(Some(format!(
+                                                "Unable to change server owners nickname to {}",
+                                                new_name
+                                            )));
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+
+                            println!("Error changing user nickname: {:?}", e);
+                            return Err(Error::new(
+                                format!(
+                                    "Unable to change nickname for {}: {}",
+                                    member.display_name(),
+                                    e.message()
+                                ),
+                                ErrorType::IO(IOErrorType::Discord),
+                            ));
+                        }
+                        Ok(None)
+                    });
+                }
+            };
+        }
+    }
+    let res = futures::future::join_all(rename_futs).await;
+    let iter = res.iter();
+    let succ = iter.clone().all(|res| res.is_ok());
+
+    if !succ {
+        output.output_line(&"Error setting nicknames:");
+        iter.clone()
+            .filter(|e| !e.is_ok())
+            .for_each(|e| output.output_line(&e.as_ref().err().unwrap().message()));
+    } else {
+        output.output_line(&"Set nicknames");
+    }
+
+    iter.filter(|e| e.is_ok() && e.as_ref().ok().unwrap().is_some())
+        .for_each(|e| output.output_line(&e.as_ref().unwrap().clone().unwrap()));
+
     Ok(())
 }
