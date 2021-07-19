@@ -269,17 +269,20 @@ impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
         self.msg_empty = false;
     }
     fn output_table(&mut self, table: &Vec<Vec<String>>) {
-        let mut col_lengths: Vec<usize> = Vec::with_capacity(table[0].len());
-        for col in 0..table[0].len() {
+        let num_cols = table.iter().map(|row| row.len()).max().unwrap_or(0);
+        let mut col_lengths: Vec<usize> = Vec::with_capacity(num_cols);
+        for col in 0..num_cols {
             col_lengths.push(0);
-            for row in 0..table.len() {
+            for row in table {
                 col_lengths[col] = std::cmp::max(
                     col_lengths[col],
-                    table[row][col].len() + DISCORD_TABLE_COL_SEP,
+                    row.get(col).map_or(0, |s| s.len()) + DISCORD_TABLE_COL_SEP,
                 );
             }
         }
-        *col_lengths.last_mut().unwrap() -= 2; //Don't add spacing after the last column
+        if let Some(col_length) = col_lengths.last_mut() {
+            *col_length -= DISCORD_TABLE_COL_SEP; //Don't add spacing after the last column
+        }
 
         for row in table {
             for (col, entry) in row.iter().enumerate() {
