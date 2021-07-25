@@ -99,12 +99,14 @@ async fn parse_local_command(
         },
 
         Some(("attribute", sub_m)) => {
-            if let Some((character, dsa_data)) = try_get_character_and_dsa_data(&config, &mut output).await {
+            if let Some((character, dsa_data)) =
+                try_get_character_and_dsa_data(&config, &mut output).await
+            {
                 dsa::attribute_check(sub_m, &character, &dsa_data, &mut output);
             } else {
                 return;
             }
-        },
+        }
 
         Some(("check", sub_m)) => {
             if let Some((character, dsa_data)) =

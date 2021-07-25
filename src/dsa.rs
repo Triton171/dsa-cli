@@ -45,9 +45,12 @@ pub fn attribute_check(
     cmd_matches: &ArgMatches,
     character: &Character,
     dsa_data: &DSAData,
-    output: &mut impl OutputWrapper
+    output: &mut impl OutputWrapper,
 ) {
-    let (attr_name, attr_info) = match DSAData::match_search(&dsa_data.attributes, cmd_matches.value_of("attribute_name").unwrap()) {
+    let (attr_name, attr_info) = match DSAData::match_search(
+        &dsa_data.attributes,
+        cmd_matches.value_of("attribute_name").unwrap(),
+    ) {
         Ok(name) => name,
         Err(e) => {
             output.output_line(&e);
@@ -61,8 +64,19 @@ pub fn attribute_check(
             return;
         }
     };
-    let attr = vec![(attr_info.short_name.as_str(), character.get_attribute_level(attr_name))];
-    roll_check(&attr, attr_name, character.get_name(), facilitation, CheckType::SimpleCheck, CritType::ConfirmableCrits, output);
+    let attr = vec![(
+        attr_info.short_name.as_str(),
+        character.get_attribute_level(attr_name),
+    )];
+    roll_check(
+        &attr,
+        attr_name,
+        character.get_name(),
+        facilitation,
+        CheckType::SimpleCheck,
+        CritType::ConfirmableCrits,
+        output,
+    );
 }
 
 pub fn talent_check(

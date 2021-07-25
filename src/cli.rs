@@ -104,7 +104,7 @@ fn cmd_attribute_check() -> App<'static> {
             Arg::new("attribute_name")
                 .about("The (partial) name of the attribute")
                 .takes_value(true)
-                .required(true)
+                .required(true),
         )
         .arg(
             Arg::new("facilitation")
