@@ -19,6 +19,7 @@ pub fn get_app() -> App<'static> {
         )
         .subcommand(App::new("unload").about("Unloads the current character, if one is loaded"))
         .subcommand(App::new("discord").about("Starts the discord bot"))
+        .subcommand(cmd_attribute_check())
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
         .subcommand(cmd_spell())
@@ -36,6 +37,7 @@ pub fn get_discord_app() -> App<'static> {
         .subcommand(App::new("upload")
             .about("Uploads a character for your discord account. The .json file has to be attached to this message")
         )
+        .subcommand(cmd_attribute_check())
         .subcommand(cmd_skillcheck())
         .subcommand(cmd_attack())
         .subcommand(cmd_spell())
@@ -92,6 +94,24 @@ pub fn get_version() -> &'static str {
         Some(ver) => ver,
         _ => env!("CARGO_PKG_VERSION"),
     }
+}
+
+fn cmd_attribute_check() -> App<'static> {
+    App::new("attribute")
+        .about("Performs an attribute check for the given attribute")
+        .setting(AppSettings::AllowLeadingHyphen)
+        .arg(
+            Arg::new("attribute_name")
+                .about("The (partial) name of the attribute")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
+            Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
+        )
 }
 
 fn cmd_skillcheck() -> App<'static> {

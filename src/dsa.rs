@@ -41,6 +41,44 @@ impl Facilitation {
     }
 }
 
+pub fn attribute_check(
+    cmd_matches: &ArgMatches,
+    character: &Character,
+    dsa_data: &DSAData,
+    output: &mut impl OutputWrapper,
+) {
+    let (attr_name, attr_info) = match DSAData::match_search(
+        &dsa_data.attributes,
+        cmd_matches.value_of("attribute_name").unwrap(),
+    ) {
+        Ok(name) => name,
+        Err(e) => {
+            output.output_line(&e);
+            return;
+        }
+    };
+    let facilitation = match get_facilitation(cmd_matches, 1) {
+        Ok(f) => f,
+        Err(e) => {
+            output.output_line(&e);
+            return;
+        }
+    };
+    let attr = vec![(
+        attr_info.short_name.as_str(),
+        character.get_attribute_level(attr_name),
+    )];
+    roll_check(
+        &attr,
+        attr_name,
+        character.get_name(),
+        facilitation,
+        CheckType::SimpleCheck,
+        CritType::ConfirmableCrits,
+        output,
+    );
+}
+
 pub fn talent_check(
     cmd_matches: &ArgMatches,
     character: &Character,
@@ -654,7 +692,7 @@ fn roll_check(
     match check_type {
         CheckType::SimpleCheck => {
             output.output_line(&format!(
-                "{}, Check for \"{}\"",
+                "{}, Check for {}",
                 character_name,
                 uppercase_first(check_name)
             ));

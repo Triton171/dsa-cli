@@ -345,6 +345,21 @@ pub async fn execute_command<T>(
             },
         },
 
+        Some(("attribute", sub_m)) => match try_get_character(cmd_ctx).await {
+            Ok(character) => {
+                dsa::attribute_check(sub_m, &character, dsa_data, output);
+            }
+            Err(e) => match e.err_type() {
+                ErrorType::InvalidInput(_) => {
+                    output.output_line(&e);
+                }
+                _ => {
+                    output.output_line(&"Internal server error while rolling check");
+                    println!("Error rolling check: {:?}", e);
+                }
+            },
+        },
+
         Some(("check", sub_m)) => {
             match try_get_character(cmd_ctx).await {
                 Ok(character) => {
