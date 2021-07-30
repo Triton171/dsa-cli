@@ -25,7 +25,6 @@ pub enum IOErrorType {
 pub enum InputErrorType {
     InvalidFormat,
     InvalidArgument,
-    InvalidAttachements,
     InvalidDiscordContext,
     MissingCharacter,
     CharacterNameTooLong,

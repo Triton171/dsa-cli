@@ -1,3 +1,5 @@
+use crate::character_manager::CharacterManager;
+
 use super::cli;
 use super::config::{Config, DSAData};
 use super::discord_commands;
@@ -20,8 +22,9 @@ const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
 const DISCORD_TABLE_COL_SEP: usize = 4; //The number of whitespaces between 2 table columns
 
 pub struct Handler {
-    pub config: Config,
-    pub dsa_data: DSAData,
+    character_manager: RwLock<CharacterManager>,
+    config: Config,
+    dsa_data: DSAData,
 }
 
 #[async_trait]
@@ -57,11 +60,12 @@ pub trait DiscordCommand: Send + Sync {
 }
 
 impl Handler {
-    fn new(config: Config, dsa_data: DSAData) -> Handler {
-        Handler {
-            config: config,
-            dsa_data: dsa_data,
-        }
+    async fn new(config: Config, dsa_data: DSAData) -> Result<Handler, Error> {
+        Ok(Handler {
+            character_manager: RwLock::new(CharacterManager::init(&config).await?),
+            config,
+            dsa_data,
+        })
     }
 }
 
@@ -77,7 +81,11 @@ impl EventHandler for Handler {
         if cmds.is_ok() {
             let cmds = cmds.ok().unwrap_or(vec![]);
             for cmd in cmds {
-                let _ = ApplicationCommand::delete_global_application_command(&ctx, cmd.id);
+                if let Err(e) =
+                    ApplicationCommand::delete_global_application_command(&ctx, cmd.id).await
+                {
+                    println!("Error deleting global application command: {}", e);
+                }
             }
         }
         if self.config.discord.use_slash_commands {
@@ -107,6 +115,7 @@ impl EventHandler for Handler {
         let cmd_context = discord_commands::SlashCommandContext::new(&ctx, &interaction);
         discord_commands::execute_command(
             &matches,
+            &self.character_manager,
             &cmd_context,
             &self.config,
             &self.dsa_data,
@@ -137,6 +146,7 @@ impl EventHandler for Handler {
             let cmd_context = discord_commands::MessageContext::new(&ctx, &message);
             discord_commands::execute_command(
                 &matches,
+                &self.character_manager,
                 &cmd_context,
                 &self.config,
                 &self.dsa_data,
@@ -164,7 +174,13 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
         }
     };
 
-    let handler = Handler::new(config, dsa_data);
+    let handler = match Handler::new(config, dsa_data).await {
+        Ok(h) => h,
+        Err(e) => {
+            println!("Error initializing discord bot: {}", e);
+            return;
+        }
+    };
 
     let mut client = match Client::builder(&login_token)
         .event_handler(handler)
