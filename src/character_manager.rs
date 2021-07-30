@@ -146,7 +146,7 @@ impl CharacterManager {
                     return Ok((true, name));
                 }
             }
-            if user_characters.len()>=config.discord.max_num_characters {
+            if user_characters.len() >= config.discord.max_num_characters {
                 return Err(Error::new("Exceeded maximum number of characters, use the \"remove\" command to free up space.", ErrorType::InvalidInput(InputErrorType::TooManyCharacters)));
             }
             let info = CharacterInfo {
@@ -337,6 +337,56 @@ impl CharacterManager {
                     ))
                 }
             }
+        }
+    }
+
+    pub async fn find_character_for_user(
+        &self,
+        user_id: u64,
+        name: Option<impl Borrow<str>>,
+    ) -> Result<CharacterId, Error> {
+        if let Some(user_characters) = self.characters.characters.get(&user_id) {
+            match name {
+                None => {
+                    // Use the selected character for this discord account
+                    if let Some(character) = user_characters.iter().find(|c| c.selected) {
+                        Ok(character.character_id)
+                    } else {
+                        Err(Error::new(
+                            "Error getting character: No character is currently selected",
+                            ErrorType::InvalidInput(InputErrorType::MissingCharacter),
+                        ))
+                    }
+                }
+                Some(name) => {
+                    let name = name.borrow().trim().to_ascii_lowercase();
+                    // Look for a character matching the name in the specified discord account
+                    let mut matching_characters = user_characters
+                        .iter()
+                        .filter(|c| c.name.to_ascii_lowercase().contains(&name));
+                    if let Some(c) = matching_characters.next() {
+                        if let Some(c2) = matching_characters.next() {
+                            return Err(Error::new(
+                                format!(
+                                    "Ambiguous character name, matches \"{}\" and \"{}\"",
+                                    c.name, c2.name
+                                ),
+                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                            ));
+                        }
+                        return Ok(c.character_id);
+                    }
+                    Err(Error::new(
+                        "Error getting character: No matching character found",
+                        ErrorType::InvalidInput(InputErrorType::MissingCharacter),
+                    ))
+                }
+            }
+        } else {
+            Err(Error::new(
+                "Error getting character: No character found for this discord account",
+                ErrorType::InvalidInput(InputErrorType::MissingCharacter),
+            ))
         }
     }
 

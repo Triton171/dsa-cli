@@ -33,7 +33,7 @@ mod default {
                 use_reply: use_reply(),
                 max_attachement_size: max_attachement_size(),
                 max_name_length: max_name_length(),
-                max_num_characters: max_num_characters()
+                max_num_characters: max_num_characters(),
             }
         }
         pub fn use_slash_commands() -> bool {

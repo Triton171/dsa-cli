@@ -236,7 +236,11 @@ fn clap_to_discord_arg(arg: &Arg) -> CreateApplicationCommandOption {
         .name(arg.get_name())
         .description(arg.get_about().unwrap_or(""));
     if arg.is_set(ArgSettings::TakesValue) {
-        slash_cmd_option.kind(ApplicationCommandOptionType::String);
+        if arg.get_name().contains("user_id") {
+            slash_cmd_option.kind(ApplicationCommandOptionType::User);
+        } else {
+            slash_cmd_option.kind(ApplicationCommandOptionType::String);
+        }
     } else {
         slash_cmd_option.kind(ApplicationCommandOptionType::Boolean);
     }
@@ -627,10 +631,26 @@ async fn execute_character_command<O>(
     O: OutputWrapper,
 {
     let character_manager = character_manager.borrow();
-    let character_id = match character_manager
-        .find_character(ctx, matches.value_of("character_name"))
-        .await
-    {
+    let character_id = match matches.value_of("user_id") {
+        None => {
+            character_manager
+                .find_character(ctx, matches.value_of("character_name"))
+                .await
+        }
+        Some(id) => {
+            let id = match id.parse::<u64>() {
+                Ok(id) => id,
+                Err(_) => {
+                    output.output_line(&"Found invalid user id");
+                    return;
+                }
+            };
+            character_manager
+                .find_character_for_user(id, matches.value_of("character_name"))
+                .await
+        }
+    };
+    let character_id = match character_id {
         Ok(id) => id,
         Err(e) => match e.err_type() {
             ErrorType::InvalidInput(_) => {

@@ -28,7 +28,7 @@ pub enum InputErrorType {
     InvalidDiscordContext,
     MissingCharacter,
     CharacterNameTooLong,
-    TooManyCharacters
+    TooManyCharacters,
 }
 
 impl Error {

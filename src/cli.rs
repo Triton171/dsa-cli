@@ -144,6 +144,13 @@ fn generic_discord_check(
                 .takes_value(true)
                 .short('c')
                 .long("character"),
+        )
+        .arg(
+            Arg::new("user_id")
+                .about("A discord user for whom to roll the check")
+                .takes_value(true)
+                .short('u')
+                .long("user"),
         );
     app
 }
