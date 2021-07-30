@@ -33,6 +33,7 @@ mod default {
                 use_reply: use_reply(),
                 max_attachement_size: max_attachement_size(),
                 max_name_length: max_name_length(),
+                max_num_characters: max_num_characters()
             }
         }
         pub fn use_slash_commands() -> bool {
@@ -52,6 +53,9 @@ mod default {
         }
         pub fn max_name_length() -> usize {
             32
+        }
+        pub fn max_num_characters() -> usize {
+            5
         }
     }
 }
@@ -82,6 +86,8 @@ pub struct ConfigDiscord {
     pub max_attachement_size: u64,
     #[serde(default = "default::discord::max_name_length")]
     pub max_name_length: usize,
+    #[serde(default = "default::discord::max_num_characters")]
+    pub max_num_characters: usize,
 }
 #[derive(Deserialize)]
 pub struct ConfigDSARules {

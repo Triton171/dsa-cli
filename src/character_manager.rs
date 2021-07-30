@@ -146,6 +146,9 @@ impl CharacterManager {
                     return Ok((true, name));
                 }
             }
+            if user_characters.len()>=config.discord.max_num_characters {
+                return Err(Error::new("Exceeded maximum number of characters, use the \"remove\" command to free up space.", ErrorType::InvalidInput(InputErrorType::TooManyCharacters)));
+            }
             let info = CharacterInfo {
                 character_id: id,
                 name: name.clone(),
