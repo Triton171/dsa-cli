@@ -37,13 +37,32 @@ pub fn get_discord_app() -> App<'static> {
         .subcommand(App::new("upload")
             .about("Uploads a character for your discord account. The .json file has to be attached to this message")
         )
-        .subcommand(cmd_attribute_check())
-        .subcommand(cmd_skillcheck())
-        .subcommand(cmd_attack())
-        .subcommand(cmd_spell())
-        .subcommand(cmd_chant())
-        .subcommand(cmd_dodge())
-        .subcommand(cmd_parry())
+        .subcommand(App::new("list")
+            .about("Shows a list of the currently uploaded characters")
+        )
+        .subcommand(App::new("select")
+            .about("Selects the character containing the given (partial) name")
+            .arg(Arg::new("character_name")
+                .about("The name for which to search in the character list")
+                .takes_value(true)
+                .required(true)
+            )
+        )
+        .subcommand(App::new("remove")
+            .about("Removes all your characters containing the given (partial) name")
+            .arg(Arg::new("character_name")
+                .about("The name for which to search in the character list")
+                .takes_value(true)
+                .required(true)
+            )
+        )
+        .subcommand(generic_discord_check(&"attribute", "Performs an attribute check", Some((&"attribute_name", &"The (partial) name of the attribute"))))
+        .subcommand(generic_discord_check(&"check", "Performs a talent check", Some((&"skill_name", &"The (partial) name of the talent"))))
+        .subcommand(generic_discord_check(&"attack", "Performs an attack check", Some((&"technique_name", &"The (partial) name of the combat technique"))))
+        .subcommand(generic_discord_check(&"spell", "Performs a spell check", Some((&"spell_name", &"The (partial) name of the spell"))))
+        .subcommand(generic_discord_check(&"chant", "Performs a chant check", Some((&"chant_name", &"The (partial) name of the chant"))))
+        .subcommand(generic_discord_check(&"parry", "Performs a parry check", Some((&"technique_name", &"The (partial) name of the combat technique"))))
+        .subcommand(generic_discord_check("dodge", "Performs a dodge check", None))
         .subcommand(cmd_roll())
         .subcommand(App::new("rename").about("Rename all players to their respective character name")
             .arg(
@@ -94,6 +113,46 @@ pub fn get_version() -> &'static str {
         Some(ver) => ver,
         _ => env!("CARGO_PKG_VERSION"),
     }
+}
+
+fn generic_discord_check(
+    name: &'static str,
+    description: &'static str,
+    arg: Option<(&'static str, &'static str)>,
+) -> App<'static> {
+    let mut app = App::new(name)
+        .about(description)
+        .setting(AppSettings::AllowLeadingHyphen);
+    if let Some((arg_name, arg_description)) = arg {
+        app = app.arg(
+            Arg::new(arg_name)
+                .about(arg_description)
+                .takes_value(true)
+                .required(true),
+        )
+    }
+    app = app
+        .arg(
+            Arg::new("facilitation")
+                .about("The level of facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
+        )
+        .arg(
+            Arg::new("character_name")
+                .about("The name of the character to use")
+                .takes_value(true)
+                .short('c')
+                .long("character"),
+        )
+        .arg(
+            Arg::new("user_id")
+                .about("A discord user for whom to roll the check")
+                .takes_value(true)
+                .short('u')
+                .long("user"),
+        );
+    app
 }
 
 fn cmd_attribute_check() -> App<'static> {

@@ -1,4 +1,4 @@
-use crate::config;
+use crate::character_manager::CharacterManager;
 
 use super::character::Character;
 use super::config::*;
@@ -7,10 +7,10 @@ use super::util::*;
 use clap::{App, Arg, ArgMatches, ArgSettings};
 use futures::stream::StreamExt;
 use serde_json::Value;
+use std::borrow::Borrow;
 use std::iter::Iterator;
+use std::ops::Deref;
 use std::path::PathBuf;
-use tokio::io::AsyncWriteExt;
-use tokio::{fs, io};
 
 use serenity::{
     async_trait,
@@ -27,7 +27,7 @@ use serenity::{
 };
 
 #[async_trait]
-pub trait CommandContext {
+pub trait CommandContext: Sync {
     fn context<'a>(&'a self) -> &'a Context;
     fn sender(&self) -> Result<UserId, Error>;
     fn channel(&self) -> Result<ChannelId, Error>;
@@ -182,7 +182,15 @@ impl CommandContext for SlashCommandContext<'_> {
 Translates the subcommands and arguments of the given app to discord slash commands and registers them
 */
 pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), Error> {
-    /*let test_server = GuildId(830394313783246858);
+    //The code that's commented out can be used for testing, as guild commands refresh faster than global commands
+    /*let test_server = serenity::model::id::GuildId();
+    if let Ok(cmds) = test_server.get_application_commands(&ctx).await {
+        for c in cmds {
+            if let Err(e) = test_server.delete_application_command(&ctx, c.id).await {
+                println!("Error deleting guild application command: {}", e);
+            }
+        }
+    }
     test_server
         .create_application_commands(ctx, |create_cmds| {*/
     ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
@@ -228,7 +236,11 @@ fn clap_to_discord_arg(arg: &Arg) -> CreateApplicationCommandOption {
         .name(arg.get_name())
         .description(arg.get_about().unwrap_or(""));
     if arg.is_set(ArgSettings::TakesValue) {
-        slash_cmd_option.kind(ApplicationCommandOptionType::String);
+        if arg.get_name().contains("user_id") {
+            slash_cmd_option.kind(ApplicationCommandOptionType::User);
+        } else {
+            slash_cmd_option.kind(ApplicationCommandOptionType::String);
+        }
     } else {
         slash_cmd_option.kind(ApplicationCommandOptionType::Boolean);
     }
@@ -312,12 +324,13 @@ pub async fn parse_discord_interaction(
 
 pub async fn execute_command<T>(
     matches: &clap::Result<ArgMatches>,
+    character_manager: &RwLock<CharacterManager>,
     cmd_ctx: &T,
     config: &Config,
     dsa_data: &DSAData,
     output: &mut impl OutputWrapper,
 ) where
-    T: CommandContext + Send + Sync,
+    T: CommandContext,
 {
     let matches = match matches {
         Err(e) => {
@@ -327,141 +340,248 @@ pub async fn execute_command<T>(
         Ok(m) => m,
     };
     match matches.subcommand() {
-        Some(("upload", _)) => match upload_character(cmd_ctx, config).await {
-            Ok(character) => {
+        Some(("upload", _)) => {
+            //Attachement validation
+            let attachments = match cmd_ctx.attachments().await {
+                Ok(a) => a,
+                Err(e) => {
+                    output.output_line(&"Internal server error");
+                    println!("Error reading attachments: {}", e);
+                    return;
+                }
+            };
+            if attachments.len() != 1 {
                 output.output_line(&format!(
-                    "Successfully uploaded character \"{}\"",
-                    character.get_name()
+                    "Invalid number of attachments: {}",
+                    attachments.len()
                 ));
+                return;
+            } else if attachments[0].size > config.discord.max_attachement_size {
+                output.output_line(&format!(
+                    "Attachment too big ({} bytes)",
+                    attachments[0].size
+                ));
+                return;
             }
-            Err(e) => match e.err_type() {
-                ErrorType::InvalidInput(_) => {
-                    output.output_line(&format!("Error loading character: {}", e));
+            let data = match attachments[0].download().await {
+                Ok(d) => d,
+                Err(e) => {
+                    output.output_line(&"Internal server error");
+                    println!("Error downloading attachment: {}", e);
+                    return;
                 }
-                _ => {
-                    output.output_line(&"Internal server error while loading character");
-                    println!("Error loading character: {:?}", e);
+            };
+            let sender = match cmd_ctx.sender() {
+                Ok(s) => s,
+                Err(e) => {
+                    output.output_line(&"Internal server error");
+                    println!("Error getting sender user id: {}", e);
+                    return;
                 }
-            },
-        },
+            };
+            match character_manager
+                .write()
+                .await
+                .add_character(*sender.as_u64(), data, config)
+                .await
+            {
+                Ok((true, name)) => {
+                    output.output_line(&format!("Successfully replaced character \"{}\"", name));
+                }
+                Ok((false, name)) => {
+                    output.output_line(&format!("Successfully uploaded character \"{}\"", name));
+                }
+                Err(e) => match e.err_type() {
+                    ErrorType::InvalidInput(_) => {
+                        output.output_line(&e);
+                    }
+                    _ => {
+                        output.output_line(&"Internal server error");
+                        println!("Error adding character: {}", e);
+                    }
+                },
+            };
+        }
 
-        Some(("attribute", sub_m)) => match try_get_character(cmd_ctx).await {
-            Ok(character) => {
-                dsa::attribute_check(sub_m, &character, dsa_data, output);
+        Some(("list", _)) => {
+            let sender = match cmd_ctx.sender() {
+                Ok(s) => s,
+                Err(e) => {
+                    output.output_line(&"Internal serverv error");
+                    println!("Error getting sender: {}", e);
+                    return;
+                }
+            };
+            let (selected, non_selected) = character_manager
+                .read()
+                .await
+                .list_characters(*sender.as_u64());
+            if let Some(selected) = selected {
+                output.output_line(&"Selected character:");
+                output.output_line(&selected);
+                output.output_line(&"");
+            } else {
+                if non_selected.is_empty() {
+                    output.output_line(&"No character found for your discord account");
+                } else {
+                    output.output_line(&"No character currently selected");
+                    output.output_line(&"");
+                }
             }
-            Err(e) => match e.err_type() {
-                ErrorType::InvalidInput(_) => {
-                    output.output_line(&e);
+            if !non_selected.is_empty() {
+                output.output_line(&"Other characters:");
+                for name in non_selected {
+                    output.output_line(&name);
                 }
-                _ => {
-                    output.output_line(&"Internal server error while rolling check");
-                    println!("Error rolling check: {:?}", e);
-                }
-            },
-        },
+            }
+        }
 
+        Some(("select", sub_m)) => {
+            let sender = match cmd_ctx.sender() {
+                Ok(s) => s,
+                Err(e) => {
+                    output.output_line(&"Internal serverv error");
+                    println!("Error getting sender: {}", e);
+                    return;
+                }
+            };
+            match character_manager
+                .write()
+                .await
+                .select_character(*sender.as_u64(), sub_m.value_of("character_name").unwrap())
+                .await
+            {
+                Ok(name) => {
+                    output.output_line(&format!("Successfully selected character \"{}\"", name));
+                }
+                Err(e) => match e.err_type() {
+                    ErrorType::InvalidInput(_) => {
+                        output.output_line(&e);
+                    }
+                    _ => {
+                        output.output_line(&"Internal server error");
+                        println!("Error selecting character: {}", e);
+                    }
+                },
+            }
+        }
+
+        Some(("remove", sub_m)) => {
+            let sender = match cmd_ctx.sender() {
+                Ok(s) => s,
+                Err(e) => {
+                    output.output_line(&"Internal serverv error");
+                    println!("Error getting sender: {}", e);
+                    return;
+                }
+            };
+            match character_manager
+                .write()
+                .await
+                .delete_character(*sender.as_u64(), sub_m.value_of("character_name").unwrap())
+                .await
+            {
+                Ok(removed_characters) => {
+                    if removed_characters.is_empty() {
+                        output.output_line(&"No character matched the given name, use the \"characters\" command to see a list of uploaded characters");
+                    } else {
+                        output.output_line(&"Successfully removed characters:");
+                        for c in removed_characters {
+                            output.output_line(&c);
+                        }
+                    }
+                }
+                Err(e) => {
+                    output.output_line(&"Internal server error");
+                    println!("Error removing character: {}", e);
+                }
+            }
+        }
+
+        Some(("attribute", sub_m)) => {
+            execute_character_command(
+                &dsa::attribute_check,
+                sub_m,
+                character_manager.read().await,
+                dsa_data,
+                config,
+                cmd_ctx,
+                output,
+            )
+            .await;
+        }
         Some(("check", sub_m)) => {
-            match try_get_character(cmd_ctx).await {
-                Ok(character) => {
-                    dsa::talent_check(sub_m, &character, dsa_data, config, output);
-                }
-                Err(e) => match e.err_type() {
-                    ErrorType::InvalidInput(_) => {
-                        output.output_line(&e);
-                    }
-                    _ => {
-                        output.output_line(&"Internal server error while rolling check");
-                        println!("Error rolling check: {:?}", e);
-                    }
-                },
-            };
+            execute_character_command(
+                &dsa::talent_check,
+                sub_m,
+                character_manager.read().await,
+                dsa_data,
+                config,
+                cmd_ctx,
+                output,
+            )
+            .await;
         }
-
         Some(("attack", sub_m)) => {
-            match try_get_character(cmd_ctx).await {
-                Ok(character) => {
-                    dsa::attack_check(sub_m, &character, dsa_data, output);
-                }
-                Err(e) => match e.err_type() {
-                    ErrorType::InvalidInput(_) => {
-                        output.output_line(&e);
-                    }
-                    _ => {
-                        output.output_line(&"Internal server error while rolling attack");
-                        println!("Error rolling attack: {:?}", e);
-                    }
-                },
-            };
+            execute_character_command(
+                &dsa::attack_check,
+                sub_m,
+                character_manager.read().await,
+                dsa_data,
+                config,
+                cmd_ctx,
+                output,
+            )
+            .await;
         }
-
         Some(("spell", sub_m)) => {
-            match try_get_character(cmd_ctx).await {
-                Ok(character) => {
-                    dsa::spell_check(sub_m, &character, dsa_data, config, output);
-                }
-                Err(e) => match e.err_type() {
-                    ErrorType::InvalidInput(_) => {
-                        output.output_line(&e);
-                    }
-                    _ => {
-                        output.output_line(&"Internal server error while rolling spell");
-                        println!("Error rolling spell: {:?}", e);
-                    }
-                },
-            };
+            execute_character_command(
+                &dsa::spell_check,
+                sub_m,
+                character_manager.read().await,
+                dsa_data,
+                config,
+                cmd_ctx,
+                output,
+            )
+            .await;
         }
-
         Some(("chant", sub_m)) => {
-            match try_get_character(cmd_ctx).await {
-                Ok(character) => {
-                    dsa::chant_check(sub_m, &character, dsa_data, config, output);
-                }
-                Err(e) => match e.err_type() {
-                    ErrorType::InvalidInput(_) => {
-                        output.output_line(&e);
-                    }
-                    _ => {
-                        output.output_line(&"Internal server error while rolling spell");
-                        println!("Error rolling spell: {:?}", e);
-                    }
-                },
-            };
+            execute_character_command(
+                &dsa::chant_check,
+                sub_m,
+                character_manager.read().await,
+                dsa_data,
+                config,
+                cmd_ctx,
+                output,
+            )
+            .await;
         }
-
         Some(("dodge", sub_m)) => {
-            match try_get_character(cmd_ctx).await {
-                Ok(character) => {
-                    dsa::dodge_check(sub_m, &character, output);
-                }
-                Err(e) => match e.err_type() {
-                    ErrorType::InvalidInput(_) => {
-                        output.output_line(&e);
-                    }
-                    _ => {
-                        output.output_line(&"Internal server error while rolling dodge");
-                        println!("Error rolling dodge: {:?}", e);
-                    }
-                },
-            };
+            execute_character_command(
+                &dsa::dodge_check,
+                sub_m,
+                character_manager.read().await,
+                dsa_data,
+                config,
+                cmd_ctx,
+                output,
+            )
+            .await;
         }
-
         Some(("parry", sub_m)) => {
-            match try_get_character(cmd_ctx).await {
-                Ok(character) => {
-                    dsa::parry_check(sub_m, &character, dsa_data, output);
-                }
-                Err(e) => match e.err_type() {
-                    ErrorType::InvalidInput(_) => {
-                        output.output_line(&e);
-                    }
-                    _ => {
-                        output.output_line(&"Internal server error while rolling parry");
-                        println!("Error rolling parry: {:?}", e);
-                    }
-                },
-            };
+            execute_character_command(
+                &dsa::parry_check,
+                sub_m,
+                character_manager.read().await,
+                dsa_data,
+                config,
+                cmd_ctx,
+                output,
+            )
+            .await;
         }
-
         Some(("roll", sub_m)) => {
             dsa::roll(sub_m, output);
         }
@@ -499,78 +619,66 @@ pub async fn execute_command<T>(
     };
 }
 
-async fn try_get_character(cmd_ctx: &impl CommandContext) -> Result<Character, Error> {
-    let mut char_path = config::get_config_dir()?;
-    char_path.push("discord_characters");
-    char_path.push(cmd_ctx.sender()?.to_string());
-    if !std::path::Path::exists(&char_path) {
-        return Err(Error::new(
-            "Error loading character: No character found for your discord account",
-            ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-        ));
-    }
-    Character::from_file(&char_path).await
-}
-
-async fn upload_character(
-    cmd_ctx: &impl CommandContext,
+async fn execute_character_command<O>(
+    check_fn: impl Fn(&ArgMatches, &Character, &DSAData, &Config, &mut O),
+    matches: &ArgMatches,
+    character_manager: impl Deref<Target = CharacterManager>,
+    dsa_data: &DSAData,
     config: &Config,
-) -> Result<Character, Error> {
-    //Attachement validation
-    let attachments = cmd_ctx.attachments().await?;
-    if attachments.len() != 1 {
-        return Err(Error::new(
-            format!("Invalid number of attachements: {}", attachments.len()),
-            ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
-        ));
-    } else if attachments[0].size > config.discord.max_attachement_size {
-        return Err(Error::new(
-            format!("Attachement too big ({} bytes)", attachments[0].size),
-            ErrorType::InvalidInput(InputErrorType::InvalidAttachements),
-        ));
-    }
-    //Get character path
-    let mut char_path = config::get_config_dir()?;
-    char_path.push("discord_characters");
-    fs::create_dir_all(&char_path).await?;
-    char_path.push(cmd_ctx.sender()?.to_string());
-    //Download data
-    let data = attachments[0].download().await?;
-    //Open file
-    let file = fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&char_path)
-        .await?;
-    //Write
-    let mut writer =
-        io::BufWriter::with_capacity(config.discord.max_attachement_size as usize, file);
-    writer.write(&data).await?;
-    writer.flush().await?;
-    match Character::from_file(&char_path).await {
-        Ok(c) => {
-            if c.get_name().len() > config.discord.max_name_length {
-                fs::remove_file(&char_path).await?;
-                Err(Error::new(
-                    format!(
-                        "Character name exceeds {} characters",
-                        config.discord.max_name_length
-                    ),
-                    ErrorType::InvalidInput(InputErrorType::CharacterNameTooLong),
-                ))
-            } else {
-                Ok(c)
-            }
+    ctx: &impl CommandContext,
+    output: &mut O,
+) where
+    O: OutputWrapper,
+{
+    let character_manager = character_manager.borrow();
+    let character_id = match matches.value_of("user_id") {
+        None => {
+            character_manager
+                .find_character(ctx, matches.value_of("character_name"))
+                .await
         }
+        Some(id) => {
+            let id = match id.parse::<u64>() {
+                Ok(id) => id,
+                Err(_) => {
+                    output.output_line(&"Found invalid user id");
+                    return;
+                }
+            };
+            character_manager
+                .find_character_for_user(id, matches.value_of("character_name"))
+                .await
+        }
+    };
+    let character_id = match character_id {
+        Ok(id) => id,
         Err(e) => match e.err_type() {
             ErrorType::InvalidInput(_) => {
-                fs::remove_file(&char_path).await?;
-                Err(e)
+                output.output_line(&e);
+                return;
             }
-            _ => Err(e),
+            _ => {
+                output.output_line(&"Internal server error while matching character");
+                println!("Error matching character: {}", e);
+                return;
+            }
         },
-    }
+    };
+    let character = match character_manager.get_character(character_id).await {
+        Ok(c) => c,
+        Err(e) => match e.err_type() {
+            ErrorType::InvalidInput(_) => {
+                output.output_line(&e);
+                return;
+            }
+            _ => {
+                output.output_line(&"Internal server error while loading character");
+                println!("Error loading character: {}", e);
+                return;
+            }
+        },
+    };
+    check_fn(matches, &character, dsa_data, config, output);
 }
 
 async fn initiative<T>(
@@ -579,7 +687,7 @@ async fn initiative<T>(
     output: &mut impl OutputWrapper,
 ) -> Result<(), Error>
 where
-    T: CommandContext + Sync,
+    T: CommandContext,
 {
     let config_path = get_config_dir()?;
 

@@ -45,6 +45,7 @@ pub fn attribute_check(
     cmd_matches: &ArgMatches,
     character: &Character,
     dsa_data: &DSAData,
+    _: &Config,
     output: &mut impl OutputWrapper,
 ) {
     let (attr_name, attr_info) = match DSAData::match_search(
@@ -136,6 +137,7 @@ pub fn attack_check(
     cmd_matches: &ArgMatches,
     character: &Character,
     dsa_data: &DSAData,
+    _: &Config,
     output: &mut impl OutputWrapper,
 ) {
     let (technique_name, _) = match DSAData::match_search(
@@ -279,6 +281,8 @@ pub fn chant_check(
 pub fn dodge_check(
     cmd_matches: &ArgMatches,
     character: &Character,
+    _: &DSAData,
+    _: &Config,
     output: &mut impl OutputWrapper,
 ) {
     let facilitation = match get_facilitation(cmd_matches, 1) {
@@ -304,6 +308,7 @@ pub fn parry_check(
     cmd_matches: &ArgMatches,
     character: &Character,
     dsa_data: &DSAData,
+    _: &Config,
     output: &mut impl OutputWrapper,
 ) {
     let (technique_name, technique_entry) = match DSAData::match_search(
