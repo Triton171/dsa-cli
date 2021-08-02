@@ -681,7 +681,7 @@ async fn execute_character_command<O>(
 }
 
 async fn initiative<T>(
-    character_manager: impl Deref<Target=CharacterManager>,
+    character_manager: impl Deref<Target = CharacterManager>,
     sub_m: &clap::ArgMatches,
     cmd_ctx: &T,
     output: &mut impl OutputWrapper,
@@ -701,7 +701,10 @@ where
             2. The user has a discord nickname
             3. The discord nickname is of the form "[i64](,[i64]...,[i64]) orig_name"
             */
-            if let Ok(_) = character_manager.find_character_for_user(user_id, None::<String>).await {
+            if let Ok(_) = character_manager
+                .find_character_for_user(user_id, None::<String>)
+                .await
+            {
                 if let Some(nickname) = member.nick.clone() {
                     if let Some(index) = nickname.find(' ') {
                         if !nickname[..index]
@@ -738,7 +741,10 @@ where
 
         for member in members {
             let user_id = *member.user.id.as_u64();
-            if let Ok(character_id) = character_manager.find_character_for_user(user_id, None::<String>).await {
+            if let Ok(character_id) = character_manager
+                .find_character_for_user(user_id, None::<String>)
+                .await
+            {
                 match character_manager.get_character(character_id).await {
                     Err(_) => {
                         return Err(Error::new(
@@ -758,7 +764,10 @@ where
         }
     } else {
         //Add the authors character to the list
-        if let Ok(character_id) = character_manager.find_character(cmd_ctx, None::<String>).await {
+        if let Ok(character_id) = character_manager
+            .find_character(cmd_ctx, None::<String>)
+            .await
+        {
             let character = character_manager.get_character(character_id).await?;
             characters.push((
                 character.get_name().to_string(),
@@ -860,7 +869,10 @@ where
             2. The user has a discord nickname
             3. The discord nickname is of the form ".* Ξ orig_name"
             */
-            if let Ok(_) = character_manager.find_character_for_user(user_id, None::<String>).await {
+            if let Ok(_) = character_manager
+                .find_character_for_user(user_id, None::<String>)
+                .await
+            {
                 if let Some(nickname) = member.nick.clone() {
                     if let Some(index) = nickname.find('Ξ') {
                         let new_name = nickname[index + 2..].to_string();
@@ -900,7 +912,10 @@ where
             println!("{}", out);
             return Ok(());
         }
-        if let Ok(character_id) = character_manager.find_character_for_user(user_id, None::<String>).await {
+        if let Ok(character_id) = character_manager
+            .find_character_for_user(user_id, None::<String>)
+            .await
+        {
             match character_manager.get_character_name(user_id, character_id) {
                 Err(_) => {
                     return Err(Error::new(

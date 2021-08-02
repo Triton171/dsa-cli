@@ -395,19 +395,27 @@ impl CharacterManager {
         Ok(Character::from_file(&path).await?)
     }
 
-    pub fn get_character_name<'a>(&'a self, user_id: u64, character_id: CharacterId) -> Result<&'a str, Error> {
+    pub fn get_character_name<'a>(
+        &'a self,
+        user_id: u64,
+        character_id: CharacterId,
+    ) -> Result<&'a str, Error> {
         match self.characters.characters.get(&user_id) {
-            None => {
-                Err(Error::new("Error getting character name: No character found for this account", ErrorType::InvalidInput(InputErrorType::MissingCharacter)))
-            }
+            None => Err(Error::new(
+                "Error getting character name: No character found for this account",
+                ErrorType::InvalidInput(InputErrorType::MissingCharacter),
+            )),
             Some(user_characters) => {
-                match user_characters.iter().filter(|c| c.character_id==character_id).next() {
-                    None => {
-                        Err(Error::new("Error getting character name: No character found with the given id", ErrorType::InvalidInput(InputErrorType::MissingCharacter)))
-                    }
-                    Some(c) => {
-                        Ok(&c.name)
-                    }
+                match user_characters
+                    .iter()
+                    .filter(|c| c.character_id == character_id)
+                    .next()
+                {
+                    None => Err(Error::new(
+                        "Error getting character name: No character found with the given id",
+                        ErrorType::InvalidInput(InputErrorType::MissingCharacter),
+                    )),
+                    Some(c) => Ok(&c.name),
                 }
             }
         }
