@@ -90,9 +90,12 @@ impl Character {
     pub fn from_raw(raw: Vec<u8>) -> Result<Character, Error> {
         let json_data = match String::from_utf8(raw) {
             Err(_) => {
-                return Err(Error::new("Character data contains invalid UTF-8", ErrorType::InvalidInput(InputErrorType::InvalidFormat)));
+                return Err(Error::new(
+                    "Character data contains invalid UTF-8",
+                    ErrorType::InvalidInput(InputErrorType::InvalidFormat),
+                ));
             }
-            Ok(s) => s
+            Ok(s) => s,
         };
         let character: Character = serde_json::from_str(&json_data)?;
         Ok(character)
