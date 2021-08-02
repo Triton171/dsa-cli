@@ -10,7 +10,6 @@ use serde_json::Value;
 use std::borrow::Borrow;
 use std::iter::Iterator;
 use std::ops::Deref;
-use std::path::PathBuf;
 
 use serenity::{
     async_trait,
@@ -587,7 +586,7 @@ pub async fn execute_command<T>(
         }
 
         Some(("ini", sub_m)) => {
-            match initiative(&sub_m, cmd_ctx, output).await {
+            match initiative(character_manager.read().await, &sub_m, cmd_ctx, output).await {
                 Ok(()) => {}
                 Err(e) => match e.err_type() {
                     ErrorType::InvalidInput(_) => {
@@ -602,7 +601,7 @@ pub async fn execute_command<T>(
         }
 
         Some(("rename", sub_m)) => {
-            match rename(&sub_m, cmd_ctx, output).await {
+            match rename(character_manager.read().await, &sub_m, cmd_ctx, output).await {
                 Ok(()) => {}
                 Err(e) => match e.err_type() {
                     ErrorType::InvalidInput(_) => {
@@ -682,6 +681,7 @@ async fn execute_character_command<O>(
 }
 
 async fn initiative<T>(
+    character_manager: impl Deref<Target=CharacterManager>,
     sub_m: &clap::ArgMatches,
     cmd_ctx: &T,
     output: &mut impl OutputWrapper,
@@ -689,24 +689,19 @@ async fn initiative<T>(
 where
     T: CommandContext,
 {
-    let config_path = get_config_dir()?;
-
     //Reset trumps all other arguments
     if sub_m.is_present("reset") {
         let members = cmd_ctx.members_in_channel().await?;
         let mut rename_futs = Vec::new();
         for member in members {
-            let user_id = member.user.id.to_string();
-            let mut path = PathBuf::from(&config_path);
-            path.push("discord_characters");
-            path.push(user_id);
+            let user_id = *member.user.id.as_u64();
             /*
             Reset the nickname if all of the following apply
             1. The user has uploaded a character
             2. The user has a discord nickname
             3. The discord nickname is of the form "[i64](,[i64]...,[i64]) orig_name"
             */
-            if std::path::Path::exists(&path) {
+            if let Ok(_) = character_manager.find_character_for_user(user_id, None::<String>).await {
                 if let Some(nickname) = member.nick.clone() {
                     if let Some(index) = nickname.find(' ') {
                         if !nickname[..index]
@@ -742,12 +737,9 @@ where
         let members = cmd_ctx.members_in_channel().await?;
 
         for member in members {
-            let user_id = member.user.id.to_string();
-            let mut path = PathBuf::from(&config_path);
-            path.push("discord_characters");
-            path.push(user_id);
-            if std::path::Path::exists(&path) {
-                match Character::from_file(&path).await {
+            let user_id = *member.user.id.as_u64();
+            if let Ok(character_id) = character_manager.find_character_for_user(user_id, None::<String>).await {
+                match character_manager.get_character(character_id).await {
                     Err(_) => {
                         return Err(Error::new(
                             format!("Unable to retrieve character for {}", member.display_name()),
@@ -766,11 +758,8 @@ where
         }
     } else {
         //Add the authors character to the list
-        let mut path = PathBuf::from(&config_path);
-        path.push("discord_characters");
-        path.push(cmd_ctx.sender()?.to_string());
-        if std::path::Path::exists(&path) {
-            let character = Character::from_file(&path).await?;
+        if let Ok(character_id) = character_manager.find_character(cmd_ctx, None::<String>).await {
+            let character = character_manager.get_character(character_id).await?;
             characters.push((
                 character.get_name().to_string(),
                 character.get_initiative_level(),
@@ -852,6 +841,7 @@ where
 }
 
 async fn rename<T>(
+    character_manager: impl Deref<Target = CharacterManager>,
     sub_m: &clap::ArgMatches,
     cmd_ctx: &T,
     output: &mut impl OutputWrapper,
@@ -859,23 +849,18 @@ async fn rename<T>(
 where
     T: CommandContext + Sync,
 {
-    let config_path = get_config_dir()?;
-
     if sub_m.is_present("reset") {
         let members = cmd_ctx.members_in_channel().await?;
         let mut rename_futs = Vec::new();
         for member in members {
-            let user_id = member.user.id.to_string();
-            let mut path = PathBuf::from(&config_path);
-            path.push("discord_characters");
-            path.push(user_id);
+            let user_id = *member.user.id.as_u64();
             /*
             Reset the nickname if all of the following apply
             1. The user has uploaded a character
             2. The user has a discord nickname
             3. The discord nickname is of the form ".* Ξ orig_name"
             */
-            if std::path::Path::exists(&path) {
+            if let Ok(_) = character_manager.find_character_for_user(user_id, None::<String>).await {
                 if let Some(nickname) = member.nick.clone() {
                     if let Some(index) = nickname.find('Ξ') {
                         let new_name = nickname[index + 2..].to_string();
@@ -899,10 +884,7 @@ where
     let members = cmd_ctx.members_in_channel().await?;
     let mut rename_futs = Vec::new();
     for member in members {
-        let user_id = member.user.id.to_string();
-        let mut path = PathBuf::from(&config_path);
-        path.push("discord_characters");
-        path.push(user_id);
+        let user_id = *member.user.id.as_u64();
 
         let mut nickname = member.user.name.clone();
         if let Some(nick) = member.nick.clone() {
@@ -918,16 +900,16 @@ where
             println!("{}", out);
             return Ok(());
         }
-        if std::path::Path::exists(&path) {
-            match Character::from_file(&path).await {
+        if let Ok(character_id) = character_manager.find_character_for_user(user_id, None::<String>).await {
+            match character_manager.get_character_name(user_id, character_id) {
                 Err(_) => {
                     return Err(Error::new(
                         format!("Unable to retrieve character for {}", member.display_name()),
                         ErrorType::InvalidInput(InputErrorType::InvalidFormat),
                     ));
                 }
-                Ok(character) => {
-                    let new_name = format!("{} Ξ {}", character.get_name().to_string(), nickname);
+                Ok(character_name) => {
+                    let new_name = format!("{} Ξ {}", character_name, nickname);
 
                     rename_futs.push(async {
                         let member = member;
