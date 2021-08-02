@@ -1,3 +1,5 @@
+use crate::util::InputErrorType;
+
 use super::config;
 use super::util::{Error, ErrorType};
 use serde::Deserialize;
@@ -81,6 +83,17 @@ impl Character {
 
     pub async fn from_file(path: &Path) -> Result<Character, Error> {
         let json_data = fs::read_to_string(path).await?;
+        let character: Character = serde_json::from_str(&json_data)?;
+        Ok(character)
+    }
+
+    pub fn from_raw(raw: Vec<u8>) -> Result<Character, Error> {
+        let json_data = match String::from_utf8(raw) {
+            Err(_) => {
+                return Err(Error::new("Character data contains invalid UTF-8", ErrorType::InvalidInput(InputErrorType::InvalidFormat)));
+            }
+            Ok(s) => s
+        };
         let character: Character = serde_json::from_str(&json_data)?;
         Ok(character)
     }

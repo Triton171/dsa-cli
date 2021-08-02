@@ -123,10 +123,9 @@ impl CharacterManager {
             .truncate(true)
             .open(&path)
             .await?;
-        file.write(&raw_character).await?;
+        file.write_all(&raw_character).await?;
         file.flush().await?;
-        let name = Character::from_file(&path)
-            .await?
+        let name = Character::from_raw(raw_character)?
             .get_name()
             .trim()
             .to_string();
@@ -431,7 +430,7 @@ impl CharacterManager {
             .open(&path)
             .await?;
         let data = serde_json::to_string(&self.characters)?;
-        file.write(data.as_bytes()).await?;
+        file.write_all(data.as_bytes()).await?;
         file.flush().await?;
         Ok(())
     }
