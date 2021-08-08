@@ -1,12 +1,13 @@
+use std::process::Command;
+
 fn main() {
-    let mut git_hash = match std::fs::read_to_string(".git/HEAD") {
-        Ok(s) => s,
-        _ => String::from("unknown"),
-    };
-    if git_hash.chars().count() > 7 {
-        git_hash = String::from(&git_hash[..7]); // Short hash; "unknown" is conviniently 7 chars long
-    }
-    println!("cargo:rustc-rerun-if-changed=.git/HEAD");
+    
+
+    let output = Command::new("git")
+        .args(&["rev-parse", "HEAD"])
+        .output()
+        .unwrap();
+    let git_hash = String::from_utf8(output.stdout).unwrap();
 
     if git_hash.len() > 0 {
         println!("cargo:rustc-env=GIT_HASH={}", git_hash);
