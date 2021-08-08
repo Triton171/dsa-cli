@@ -715,7 +715,10 @@ where
                         match character_manager.get_character_name(user_id, character_id) {
                             Err(_) => {
                                 return Err(Error::new(
-                                    format!("Unable to retrieve character for {}", member.display_name()),
+                                    format!(
+                                        "Unable to retrieve character for {}",
+                                        member.display_name()
+                                    ),
                                     ErrorType::InvalidInput(InputErrorType::InvalidFormat),
                                 ));
                             }
@@ -852,9 +855,10 @@ where
                 );
                 let discord_name = displ_name.split(" Ξ ").last().unwrap();
                 let suffix = calculate_name(&character.0, &discord_name, 32 - ini_str.len())?;
-                let new_name = match displ_name.contains('Ξ') { // only use cool renameing if already used rename
+                let new_name = match displ_name.contains('Ξ') {
+                    // only use cool renameing if already used rename
                     true => format!("{} {}", ini_str, suffix),
-                    false => format!("{} {}", ini_str, displ_name)
+                    false => format!("{} {}", ini_str, displ_name),
                 };
                 rename_futs.push(async {
                     let roll = roll;
@@ -1003,14 +1007,13 @@ where
 }
 
 fn calculate_name(character_name: &str, org_name: &str, limit: usize) -> Result<String, Error> {
-
     let min_length = org_name.len() + 3; // new display_name must include orig_name + ` Ξ `
     if min_length > limit {
         return Err(Error::new(
             format!("{}: Display Name is too large!", org_name),
             ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
         ));
-    } 
+    }
 
     // name should be `fist_name [[...] last_name] Ξ discord_name`
     let mut character_split = character_name.split(" ");
