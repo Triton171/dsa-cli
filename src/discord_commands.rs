@@ -10,6 +10,7 @@ use serde_json::Value;
 use std::borrow::Borrow;
 use std::iter::Iterator;
 use std::ops::Deref;
+use substring::Substring;
 
 use serenity::{
     async_trait,
@@ -77,7 +78,9 @@ pub trait CommandContext: Sync {
 
     async fn rename_member(&self, member: &Member, new_name: &str) -> Result<(), Error> {
         member
-            .edit(&self.context().http, |edit| edit.nickname(new_name))
+            .edit(&self.context().http, |edit| {
+                edit.nickname((*new_name).substring(0, 32))
+            })
             .await?;
         Ok(())
     }
@@ -701,28 +704,44 @@ where
             2. The user has a discord nickname
             3. The discord nickname is of the form "[i64](,[i64]...,[i64]) orig_name"
             */
-            if let Ok(_) = character_manager
+            if let Ok(character_id) = character_manager
                 .find_character_for_user(user_id, None::<String>)
                 .await
             {
                 if let Some(nickname) = member.nick.clone() {
-                    if let Some(index) = nickname.find(' ') {
+                    let mut new_name = String::default();
+                    if nickname.contains('Ξ') {
+                        // cool name
+                        match character_manager.get_character_name(user_id, character_id) {
+                            Err(_) => {
+                                return Err(Error::new(
+                                    format!("Unable to retrieve character for {}", member.display_name()),
+                                    ErrorType::InvalidInput(InputErrorType::InvalidFormat),
+                                ));
+                            }
+                            Ok(character_name) => {
+                                let display_name = member.display_name();
+                                let display_name = display_name.split(" Ξ ").last().unwrap();
+                                new_name = calculate_name(&character_name, &display_name, 32)?;
+                            }
+                        };
+                    } else if let Some(index) = nickname.find(' ') {
                         if !nickname[..index]
                             .split(',')
                             .all(|ini_part| ini_part.parse::<i64>().is_ok())
                         {
                             continue;
                         }
-                        let new_name = nickname[index + 1..].to_string();
-                        rename_futs.push(async {
-                            //Force moves
-                            let member = member;
-                            let new_name = new_name;
-                            if let Err(e) = cmd_ctx.rename_member(&member, &new_name).await {
-                                println!("Error changing user nickname: {:?}", e);
-                            }
-                        });
+                        new_name = nickname[index + 1..].to_string();
                     }
+                    rename_futs.push(async {
+                        //Force moves
+                        let member = member;
+                        let new_name = new_name;
+                        if let Err(e) = cmd_ctx.rename_member(&member, &new_name).await {
+                            println!("Error changing user nickname: {:?}", e);
+                        }
+                    });
                 }
             }
         }
@@ -824,15 +843,19 @@ where
             let member = &characters_members[roll.0];
             if let Some(member) = member {
                 let displ_name = member.display_name();
-                let mut new_name = roll.1.iter().skip(1).fold(
+                let ini_str = roll.1.iter().skip(1).fold(
                     format!("{}", character.1 + roll.1[0]),
                     |mut s, roll| {
                         s.push_str(&format!(",{}", roll));
                         s
                     },
                 );
-                new_name.push(' ');
-                new_name.push_str(&displ_name);
+                let discord_name = displ_name.split(" Ξ ").last().unwrap();
+                let suffix = calculate_name(&character.0, &discord_name, 32 - ini_str.len())?;
+                let new_name = match displ_name.contains('Ξ') { // only use cool renameing if already used rename
+                    true => format!("{} {}", ini_str, suffix),
+                    false => format!("{} {}", ini_str, displ_name)
+                };
                 rename_futs.push(async {
                     let roll = roll;
                     let member = characters_members[roll.0].as_ref().unwrap();
@@ -924,7 +947,7 @@ where
                     ));
                 }
                 Ok(character_name) => {
-                    let new_name = format!("{} Ξ {}", character_name, nickname);
+                    let new_name = calculate_name(&character_name, &nickname, 32)?;
 
                     rename_futs.push(async {
                         let member = member;
@@ -977,4 +1000,64 @@ where
         .for_each(|e| output.output_line(&e.as_ref().unwrap().clone().unwrap()));
 
     Ok(())
+}
+
+fn calculate_name(character_name: &str, org_name: &str, limit: usize) -> Result<String, Error> {
+
+    let min_length = org_name.len() + 3; // new display_name must include orig_name + ` Ξ `
+    if min_length > limit {
+        return Err(Error::new(
+            format!("{}: Display Name is too large!", org_name),
+            ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
+        ));
+    } 
+
+    // name should be `fist_name [[...] last_name] Ξ discord_name`
+    let mut character_split = character_name.split(" ");
+    let mut allowed_character_len = limit - org_name.len() - 3; // we only want our character name to be limit - original name - 3 padding
+    let mut character_name = String::default();
+
+    let first_name = character_split.next();
+    let character_split_len = character_split.clone().count();
+
+    if first_name.is_none() {
+        //?????
+        return Err(Error::new(
+            format!("{}: Invalid first name!", org_name),
+            ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+        ));
+    }
+
+    let first_name = first_name.unwrap();
+
+    if first_name.len() > allowed_character_len {
+        // we don't fit our first name :(
+        character_name.push_str(&first_name[..allowed_character_len]);
+    } else {
+        character_name.push_str(&first_name);
+        allowed_character_len -= first_name.len();
+
+        let last_name = character_split.clone().last().unwrap_or("");
+
+        if allowed_character_len > last_name.len() + 1 {
+            // we fit our last name + 1 space padding
+            // only use lastname if not cut-off
+            allowed_character_len -= last_name.len() + 1;
+
+            for (index, mid_name) in character_split.enumerate() {
+                if index >= character_split_len - 1 || mid_name.len() + 1 > allowed_character_len {
+                    // break if  last name or if size does not fit with 1 space padding
+                    break;
+                }
+                allowed_character_len -= mid_name.len() + 1;
+                character_name.push_str(" ");
+                character_name.push_str(mid_name);
+            }
+
+            character_name.push_str(" ");
+            character_name.push_str(last_name);
+        }
+    }
+
+    Ok(format! {"{} Ξ {}", character_name, org_name})
 }
