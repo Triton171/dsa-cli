@@ -865,7 +865,12 @@ where
                     let member = characters_members[roll.0].as_ref().unwrap();
                     let new_name = new_name;
                     if let Err(e) = cmd_ctx.rename_member(&member, &new_name).await {
-                        println!("Error changing user nickname: {:?}", e);
+                        println!(
+                            "Error changing user nickname from {} to {}: {:?}",
+                            member.display_name(),
+                            new_name,
+                            e
+                        );
                     }
                 });
             }
@@ -971,7 +976,12 @@ where
                                 }
                             }
 
-                            println!("Error changing user nickname: {:?}", e);
+                            println!(
+                                "Error changing user nickname from {} to {}: {:?}",
+                                member.display_name(),
+                                new_name,
+                                e
+                            );
                             return Err(Error::new(
                                 format!(
                                     "Unable to change nickname for {}: {}",
