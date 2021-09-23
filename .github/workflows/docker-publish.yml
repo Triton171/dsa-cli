@@ -65,8 +65,7 @@ jobs:
     steps:
     - name: Webhook
 #      if: ${{ github.event_name == 'push' }}
-      uses: distributhor/workflow-webhook@v2
-      env:
-        webhook_url: "${{ secrets.WEBHOOK_URL }}?secret=${{ secrets.WEBHOOK_SECRET }}"
-        webhook_secret: "_placeholder_"
-        webhook_type: 'form-urlencoded'
+      uses: fjogeleit/http-request-action@master
+      with:
+        url: "${{ secrets.WEBHOOK_URL }}?secret=${{ secrets.WEBHOOK_SECRET }}"
+        method: 'GET'
