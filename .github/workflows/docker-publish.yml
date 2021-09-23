@@ -64,8 +64,9 @@ jobs:
     needs: docker
     steps:
     - name: Webhook
-      uses: distributhor/workflow-webhook
+      if: "${{ github.event_name == 'push' }}"
+      uses: fjogeleit/http-request-action@master
       with:
-        url: "{{ secrets.WEBHOOK_URL}}"
-        webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
-        webhook_type: 'form-urlencoded'
+        url: "${{ secrets.WEBHOOK_URL }}"
+        method: 'POST'
+        data: '{"secret":"${{ secrets.WEBHOOK_SECRET }}"}'
