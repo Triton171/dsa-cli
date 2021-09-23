@@ -61,10 +61,10 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
   deploy_webhook:
     runs-on: ubuntu-latest
-#    needs: docker
+    needs: docker
     steps:
     - name: Webhook
-#      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'push' }}
       uses: fjogeleit/http-request-action@master
       with:
         url: "${{ secrets.WEBHOOK_URL }}"
