@@ -140,13 +140,12 @@ pub fn attack_check(
     _: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    // TODO: Remove this ugly hack
     let (technique_name, _) = match DSAData::match_search(
         dsa_data
             .combat_techniques
             .iter()
-            .map(|(k, _)| (k, &()))
-            .chain(character.get_custom_techniques().map(|t| (t, &()))),
+            .map(|(k, _)| (k, ()))
+            .chain(character.get_custom_techniques().map(|t| (t, ()))),
         cmd_matches.value_of("technique_name").unwrap(),
     ) {
         Ok(t) => t,
