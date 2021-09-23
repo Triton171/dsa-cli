@@ -66,7 +66,7 @@ jobs:
     - name: Webhook
 #      if: ${{ github.event_name == 'push' }}
       uses: distributhor/workflow-webhook@v2
-      with:
-        webhook_url: "${{ secrets.WEBHOOK_URL}}"
+      env:
+        webhook_url: "${{ secrets.WEBHOOK_URL }}"
         webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
         webhook_type: 'form-urlencoded'
