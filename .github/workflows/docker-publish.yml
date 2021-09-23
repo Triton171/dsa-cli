@@ -67,5 +67,6 @@ jobs:
 #      if: ${{ github.event_name == 'push' }}
       uses: fjogeleit/http-request-action@master
       with:
-        url: "${{ secrets.WEBHOOK_URL }}?secret=${{ secrets.WEBHOOK_SECRET }}"
-        method: 'GET'
+        url: "${{ secrets.WEBHOOK_URL }}"
+        method: 'POST'
+        data: '{"secret":"${{ secrets.WEBHOOK_SECRET }}"}'
