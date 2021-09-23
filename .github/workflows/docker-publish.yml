@@ -64,7 +64,7 @@ jobs:
     needs: docker
     steps:
     - name: Webhook
-      uses: distributhor/workflow-webhook
+      uses: distributhor/workflow-webhook@v2
       with:
         url: "{{ secrets.WEBHOOK_URL}}"
         webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
