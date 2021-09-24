@@ -17,7 +17,7 @@ use tokio::runtime::Builder;
 use util::{Error, OutputWrapper};
 
 use crate::util::ErrorType;
-
+// Github Actions Test
 fn main() {
     let mut output = util::CLIOutputWrapper {};
 
