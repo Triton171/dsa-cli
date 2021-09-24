@@ -204,14 +204,14 @@ impl AbstractConfig for DSAData {
 
 impl DSAData {
     /*
-    Searches for a search term among the keys of the given hashmap
+    Searches for a search term among the (first) elements of the iterator
     '_' at the beginning or end of the search term marks the beginning/end of the name
     */
     pub fn match_search<'a, V>(
-        entries: &'a HashMap<String, V>,
+        entries: impl Iterator<Item = (&'a String, V)>,
         search: &str,
-    ) -> Result<(&'a str, &'a V), Error> {
-        let mut found_entry: Option<(&str, &V)> = None;
+    ) -> Result<(&'a str, V), Error> {
+        let mut found_entry: Option<(&str, V)> = None;
         let mut search_trimmed: &str = &search.to_lowercase();
         let search_at_beg = if search_trimmed.starts_with('_') {
             search_trimmed = &search_trimmed[1..];
@@ -226,12 +226,13 @@ impl DSAData {
             false
         };
         for (name, entry) in entries {
-            if name.contains(search_trimmed) {
+            let lower_name = name.to_lowercase();
+            if lower_name.contains(search_trimmed) {
                 let mut matches_search = true;
-                if search_at_beg && !name.starts_with(search_trimmed) {
+                if search_at_beg && !lower_name.starts_with(search_trimmed) {
                     matches_search = false;
                 }
-                if search_at_end && !name.ends_with(search_trimmed) {
+                if search_at_end && !lower_name.ends_with(search_trimmed) {
                     matches_search = false;
                 }
 

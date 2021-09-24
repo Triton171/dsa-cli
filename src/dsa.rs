@@ -49,7 +49,7 @@ pub fn attribute_check(
     output: &mut impl OutputWrapper,
 ) {
     let (attr_name, attr_info) = match DSAData::match_search(
-        &dsa_data.attributes,
+        dsa_data.attributes.iter(),
         cmd_matches.value_of("attribute_name").unwrap(),
     ) {
         Ok(name) => name,
@@ -88,7 +88,7 @@ pub fn talent_check(
     output: &mut impl OutputWrapper,
 ) {
     let (talent_name, talent_entry) = match DSAData::match_search(
-        &dsa_data.talents,
+        dsa_data.talents.iter(),
         cmd_matches.value_of("skill_name").unwrap(),
     ) {
         Ok(name) => name,
@@ -141,7 +141,11 @@ pub fn attack_check(
     output: &mut impl OutputWrapper,
 ) {
     let (technique_name, _) = match DSAData::match_search(
-        &dsa_data.combat_techniques,
+        dsa_data
+            .combat_techniques
+            .iter()
+            .map(|(k, _)| (k, ()))
+            .chain(character.get_custom_techniques().map(|t| (t, ()))),
         cmd_matches.value_of("technique_name").unwrap(),
     ) {
         Ok(t) => t,
@@ -177,8 +181,12 @@ pub fn spell_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let (spell_name, spell_entry) = match DSAData::match_search(
-        &dsa_data.spells,
+    let (spell_name, spell_attrs) = match DSAData::match_search(
+        dsa_data
+            .spells
+            .iter()
+            .map(|(k, v)| (k, &v.attributes))
+            .chain(character.get_custom_spells()),
         cmd_matches.value_of("spell_name").unwrap(),
     ) {
         Ok(s) => s,
@@ -187,7 +195,6 @@ pub fn spell_check(
             return;
         }
     };
-    let spell_attrs = &spell_entry.attributes;
     let facilitation = match get_facilitation(cmd_matches, spell_attrs.len()) {
         Ok(f) => f,
         Err(e) => {
@@ -231,8 +238,12 @@ pub fn chant_check(
     config: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let (chant_name, chant_entry) = match DSAData::match_search(
-        &dsa_data.chants,
+    let (chant_name, chant_attrs) = match DSAData::match_search(
+        dsa_data
+            .chants
+            .iter()
+            .map(|(k, v)| (k, &v.attributes))
+            .chain(character.get_custom_chants()),
         cmd_matches.value_of("chant_name").unwrap(),
     ) {
         Ok(r) => r,
@@ -241,7 +252,6 @@ pub fn chant_check(
             return;
         }
     };
-    let chant_attrs = &chant_entry.attributes;
     let facilitation = match get_facilitation(cmd_matches, chant_attrs.len()) {
         Ok(f) => f,
         Err(e) => {
@@ -312,7 +322,7 @@ pub fn parry_check(
     output: &mut impl OutputWrapper,
 ) {
     let (technique_name, technique_entry) = match DSAData::match_search(
-        &dsa_data.combat_techniques,
+        dsa_data.combat_techniques.iter(),
         cmd_matches.value_of("technique_name").unwrap(),
     ) {
         Err(e) => {

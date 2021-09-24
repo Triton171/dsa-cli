@@ -38,6 +38,47 @@ pub struct Character {
 }
 
 #[derive(Deserialize)]
+pub enum IdOrCustomInfo {
+    #[serde(rename = "id")]
+    Id(String),
+    #[serde(rename = "ruleelement")]
+    RuleElement {
+        name: String,
+        #[serde(rename = "check")]
+        attributes: Vec<String>,
+    },
+}
+
+impl IdOrCustomInfo {
+    fn matches_name(&self, input_name: &str) -> bool {
+        match self {
+            IdOrCustomInfo::Id(id) => id.eq_ignore_ascii_case(input_name),
+            IdOrCustomInfo::RuleElement {
+                name,
+                attributes: _,
+            } => name.eq_ignore_ascii_case(input_name),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub enum IdOrCustomId {
+    #[serde(rename = "id")]
+    Id(String),
+    #[serde(rename = "ruleelement")]
+    RuleElement { name: String },
+}
+
+impl IdOrCustomId {
+    fn matches_name(&self, input_name: &str) -> bool {
+        match self {
+            IdOrCustomId::Id(id) => id.eq_ignore_ascii_case(input_name),
+            IdOrCustomId::RuleElement { name } => name.eq_ignore_ascii_case(input_name),
+        }
+    }
+}
+
+#[derive(Deserialize)]
 pub struct CharacterSkill {
     id: String,
     level: i64,
@@ -51,19 +92,22 @@ pub struct CharacterAttribute {
 
 #[derive(Deserialize)]
 pub struct CharacterCombatTechnique {
-    id: String,
+    #[serde(flatten)]
+    id_or_custom_id: IdOrCustomId,
     level: i64,
 }
 
 #[derive(Deserialize)]
 pub struct CharacterSpell {
-    id: String,
+    #[serde(flatten)]
+    id_or_rule_element: IdOrCustomInfo,
     level: Option<i64>,
 }
 
 #[derive(Deserialize)]
 pub struct CharacterChant {
-    id: String,
+    #[serde(flatten)]
+    id_or_rule_element: IdOrCustomInfo,
     level: Option<i64>,
 }
 
@@ -148,7 +192,7 @@ impl Character {
 
     fn get_technique_level(&self, technique_id: &str) -> i64 {
         for technique in &self.combattechniques {
-            if technique.id.eq_ignore_ascii_case(technique_id) {
+            if technique.id_or_custom_id.matches_name(technique_id) {
                 return technique.level;
             }
         }
@@ -162,7 +206,7 @@ impl Character {
 
     pub fn get_spell_level(&self, spell_id: &str) -> i64 {
         for spell in &self.spells {
-            if spell.id.eq_ignore_ascii_case(spell_id) {
+            if spell.id_or_rule_element.matches_name(spell_id) {
                 return spell.level.unwrap_or(0);
             }
         }
@@ -171,7 +215,7 @@ impl Character {
 
     pub fn get_chant_level(&self, chant_id: &str) -> i64 {
         for chant in &self.chants {
-            if chant.id.eq_ignore_ascii_case(chant_id) {
+            if chant.id_or_rule_element.matches_name(chant_id) {
                 return chant.level.unwrap_or(0);
             }
         }
@@ -212,5 +256,32 @@ impl Character {
             }
         }
         technique_level / 2 + std::cmp::max(0, (max_attr - 8) / 3)
+    }
+
+    pub fn get_custom_techniques(&self) -> impl Iterator<Item = &String> {
+        self.combattechniques
+            .iter()
+            .filter_map(|t| match &t.id_or_custom_id {
+                IdOrCustomId::Id(_) => None,
+                IdOrCustomId::RuleElement { name } => Some(name),
+            })
+    }
+
+    pub fn get_custom_spells(&self) -> impl Iterator<Item = (&String, &Vec<String>)> {
+        self.spells
+            .iter()
+            .filter_map(|s| match &s.id_or_rule_element {
+                IdOrCustomInfo::Id(_) => None,
+                IdOrCustomInfo::RuleElement { name, attributes } => Some((name, attributes)),
+            })
+    }
+
+    pub fn get_custom_chants(&self) -> impl Iterator<Item = (&String, &Vec<String>)> {
+        self.chants
+            .iter()
+            .filter_map(|c| match &c.id_or_rule_element {
+                IdOrCustomInfo::Id(_) => None,
+                IdOrCustomInfo::RuleElement { name, attributes } => Some((name, attributes)),
+            })
     }
 }
