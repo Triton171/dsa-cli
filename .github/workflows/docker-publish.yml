@@ -25,7 +25,7 @@ jobs:
           image_name: discord
           image_tag: master
           username: ${{ secrets.DOCKERHUB_USERNAME}}
-          password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          password: "${{ secrets.DOCKERHUB_TOKEN }}"
           push_image_and_stages: on:push
   deploy_webhook:
     runs-on: ubuntu-latest
