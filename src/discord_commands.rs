@@ -185,7 +185,7 @@ Translates the subcommands and arguments of the given app to discord slash comma
 */
 pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), Error> {
     //The code that's commented out can be used for testing, as guild commands refresh faster than global commands
-    let test_server = serenity::model::id::GuildId(830394313783246858);
+    /*let test_server = serenity::model::id::GuildId(830394313783246858);
     if let Ok(cmds) = test_server.get_application_commands(&ctx).await {
         for c in cmds {
             if let Err(e) = test_server.delete_application_command(&ctx, c.id).await {
@@ -194,41 +194,41 @@ pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), 
         }
     }
     test_server
-        .create_application_commands(ctx, |create_cmds| {
-            // ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
-            for sub_app in app.get_subcommands() {
-                let mut slash_cmd = CreateApplicationCommand::default();
-                let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();
+        .create_application_commands(ctx, |create_cmds| {*/
+    ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
+        for sub_app in app.get_subcommands() {
+            let mut slash_cmd = CreateApplicationCommand::default();
+            let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();
 
-                //Add all the required arguments
-                for arg in sub_app
-                    .get_arguments()
-                    .filter(|arg| arg.is_set(ArgSettings::Required))
-                {
-                    let mut option = clap_to_discord_arg(arg);
-                    option.required(true);
-                    slash_cmd_options.push(option);
-                }
-                //Add all the non-required arguments
-                for arg in sub_app
-                    .get_arguments()
-                    .filter(|arg| !arg.is_set(ArgSettings::Required))
-                {
-                    let mut option = clap_to_discord_arg(arg);
-                    option.required(false);
-                    slash_cmd_options.push(option);
-                }
-                if !slash_cmd_options.is_empty() {
-                    slash_cmd.set_options(slash_cmd_options);
-                }
-                slash_cmd
-                    .name(sub_app.get_name())
-                    .description(sub_app.get_about().unwrap_or("Missing description"));
-                create_cmds.add_application_command(slash_cmd);
+            //Add all the required arguments
+            for arg in sub_app
+                .get_arguments()
+                .filter(|arg| arg.is_set(ArgSettings::Required))
+            {
+                let mut option = clap_to_discord_arg(arg);
+                option.required(true);
+                slash_cmd_options.push(option);
             }
-            create_cmds
-        })
-        .await?;
+            //Add all the non-required arguments
+            for arg in sub_app
+                .get_arguments()
+                .filter(|arg| !arg.is_set(ArgSettings::Required))
+            {
+                let mut option = clap_to_discord_arg(arg);
+                option.required(false);
+                slash_cmd_options.push(option);
+            }
+            if !slash_cmd_options.is_empty() {
+                slash_cmd.set_options(slash_cmd_options);
+            }
+            slash_cmd
+                .name(sub_app.get_name())
+                .description(sub_app.get_about().unwrap_or("Missing description"));
+            create_cmds.add_application_command(slash_cmd);
+        }
+        create_cmds
+    })
+    .await?;
     Ok(())
 }
 
@@ -830,9 +830,9 @@ where
         }
     }
 
-    let rolls = dsa::roll_ini(&characters, output);
+    let ini_results = dsa::roll_ini(&characters, output);
 
-    if rolls.is_empty() {
+    if ini_results.is_empty() {
         return Err(Error::new(
             String::from("No player in this channel has uploaded a character"),
             ErrorType::InvalidInput(InputErrorType::InvalidDiscordContext),
@@ -841,18 +841,15 @@ where
 
     if sub_m.is_present("rename") {
         let mut rename_futs = Vec::new();
-        for roll in rolls {
+        for roll in ini_results {
             let character = &characters[roll.0];
             let member = &characters_members[roll.0];
             if let Some(member) = member {
                 let displ_name = member.display_name();
-                let ini_str = roll.1.iter().skip(1).fold(
-                    format!("{}", character.1 + roll.1[0]),
-                    |mut s, roll| {
-                        s.push_str(&format!(",{}", roll));
-                        s
-                    },
-                );
+                let ini_str = roll.1.iter().fold(String::from(""), |mut s, roll| {
+                    s.push_str(&format!(",{}", roll));
+                    s
+                });
                 let discord_name = displ_name.split(" Ξ ").last().unwrap();
                 let suffix = calculate_name(&character.0, &discord_name, 32 - ini_str.len())?;
                 let new_name = match displ_name.contains('Ξ') {

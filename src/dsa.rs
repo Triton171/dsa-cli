@@ -5,7 +5,7 @@ use clap::ArgMatches;
 use itertools::Itertools;
 use rand::distributions::{Distribution, Uniform};
 use rand::Rng;
-use std::{cmp::Ordering, num::ParseIntError};
+use std::num::ParseIntError;
 
 //The maximum number of dice in a roll expression
 const MAX_NUM_DICE: u32 = 100;
