@@ -18,7 +18,7 @@ use serenity::{
     model::{
         channel::{Attachment, ChannelType, Message},
         guild::Member,
-        id::{ChannelId, /*GuildId, */ UserId},
+        id::{ChannelId, UserId},
         interactions::ApplicationCommand,
         interactions::{ApplicationCommandOptionType, Interaction},
         permissions::Permissions,
@@ -185,7 +185,7 @@ Translates the subcommands and arguments of the given app to discord slash comma
 */
 pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), Error> {
     //The code that's commented out can be used for testing, as guild commands refresh faster than global commands
-    /*let test_server = serenity::model::id::GuildId();
+    let test_server = serenity::model::id::GuildId(830394313783246858);
     if let Ok(cmds) = test_server.get_application_commands(&ctx).await {
         for c in cmds {
             if let Err(e) = test_server.delete_application_command(&ctx, c.id).await {
@@ -194,8 +194,8 @@ pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), 
         }
     }
     test_server
-        .create_application_commands(ctx, |create_cmds| {*/
-    ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
+        .create_application_commands(ctx, |create_cmds| {
+    // ApplicationCommand::create_global_application_commands(ctx, |create_cmds| {
         for sub_app in app.get_subcommands() {
             let mut slash_cmd = CreateApplicationCommand::default();
             let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();

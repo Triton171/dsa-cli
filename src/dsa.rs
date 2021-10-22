@@ -2,6 +2,7 @@ use super::character::Character;
 use super::config::{self, Config, DSAData};
 use super::util::*;
 use clap::ArgMatches;
+use itertools::Itertools;
 use rand::distributions::{Distribution, Uniform};
 use rand::Rng;
 use std::{cmp::Ordering, num::ParseIntError};
@@ -501,6 +502,7 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
 Accepts a slice of (name, iniative-level) tupels, rolls and prints their initiatives
 Returns a sorted vector of (index, rolls) tuples
 */
+
 pub fn roll_ini(
     characters: &[(String, i64)],
     output: &mut impl OutputWrapper,
@@ -509,82 +511,72 @@ pub fn roll_ini(
     let d6 = Uniform::new_inclusive(1, 6);
 
     //A vector saving (index, rolls) for each character
-    let mut inis: Vec<(usize, Vec<i64>)> = Vec::with_capacity(characters.len());
-    for (i, _) in characters.iter().enumerate() {
-        inis.push((i, vec![d6.sample(&mut rng)]));
+    let mut ini_information: Vec<(usize, Vec<i64>)> = Vec::with_capacity(characters.len());
+    for (i, c) in characters.iter().enumerate() {
+        ini_information.push((i, vec![c.1 + d6.sample(&mut rng)]));
     }
 
     //Roll additional dice for characters that have equal INI and rolls
-    for i in 0..inis.len() {
-        for j in i + 1..inis.len() {
-            if characters[inis[i].0].1 == characters[inis[j].0].1 {
-                while {
-                    let mut needs_additional_rolls = true;
-                    for k in 0..std::cmp::min(inis[i].1.len(), inis[j].1.len()) {
-                        if inis[i].1[k] != inis[j].1[k] {
-                            needs_additional_rolls = false;
-                            break;
-                        }
-                    }
-                    needs_additional_rolls
-                } {
-                    if inis[i].1.len() < inis[j].1.len() {
-                        inis[i].1.push(d6.sample(&mut rng));
-                    } else if inis[j].1.len() < inis[i].1.len() {
-                        inis[j].1.push(d6.sample(&mut rng));
-                    } else {
-                        inis[i].1.push(d6.sample(&mut rng));
-                        inis[j].1.push(d6.sample(&mut rng));
-                    }
-                }
+    fn compute_ini_order(
+        mut comp_characters: Vec<(usize, i64)>,
+        ini_information: &mut [(usize, Vec<i64>)],
+        characters: &[(String, i64)],
+        d6: &Uniform<i64>,
+    ) {
+        comp_characters.sort_by(|c1, c2| c1.1.cmp(&c2.1));
+        for (_, group) in &comp_characters.into_iter().group_by(|c| c.1) {
+            let mut idxs: Vec<(usize, i64)> = group.into_iter().collect();
+            if idxs.len() < 2 {
+                continue;
             }
+            for (idx, last) in idxs.iter_mut() {
+                let value = if ini_information[*idx].1.len() == 1 {
+                    characters[*idx].1
+                } else {
+                    d6.sample(&mut rand::thread_rng())
+                };
+                ini_information[*idx].1.push(value);
+                *last = value;
+            }
+            compute_ini_order(idxs, ini_information, characters, d6);
         }
     }
 
+    compute_ini_order(
+        ini_information
+            .iter()
+            .map(|(i, arr)| (*i, arr[0]))
+            .collect(),
+        &mut ini_information,
+        &characters,
+        &d6,
+    );
+
     //Reverse sort
-    inis.sort_by(|(index1, rolls1), (index2, rolls2)| {
-        if characters[*index1].1 + rolls1[0] < characters[*index2].1 + rolls2[0] {
-            Ordering::Greater
-        } else if characters[*index1].1 + rolls1[0] > characters[*index2].1 + rolls2[0] {
-            Ordering::Less
-        } else {
-            if characters[*index1].1 < characters[*index2].1 {
-                Ordering::Greater
-            } else if characters[*index1].1 > characters[*index2].1 {
-                Ordering::Less
-            } else {
-                for i in 1..rolls1.len() {
-                    if rolls1[i] < rolls2[i] {
-                        return Ordering::Greater;
-                    } else if rolls1[i] > rolls2[i] {
-                        return Ordering::Less;
-                    }
-                }
-                panic!("Unable to sort initiatives");
-            }
-        }
+    ini_information.sort_by(|(_, vals1), (_, vals2)| {
+        vals2.cmp(&vals1)
     });
 
     //Display
     output.output_line(&"Initiative:");
     output.new_line();
     let mut table: Vec<Vec<String>> = Vec::new();
-    for (rolls, name, ini_level) in inis
+    for (rolls, name, ini_level) in ini_information
         .iter()
         .map(|(index, rolls)| (rolls, &characters[*index].0, characters[*index].1))
     {
         let mut row: Vec<String> = vec![
             format!("{}:", name),
-            format!("{} ({} + {}/6)", ini_level + rolls[0], ini_level, rolls[0]),
+            format!("{} ({} + {}/6)", rolls[0], ini_level, rolls[0]-ini_level),
         ];
         for roll in rolls.iter().skip(1) {
-            row.push(format!("{}/6", roll));
+            row.push(format!("{}", roll));
         }
         table.push(row);
     }
 
     output.output_table(&table);
-    inis
+    ini_information
 }
 
 fn get_facilitation(matches: &ArgMatches, num_attributes: usize) -> Result<Facilitation, Error> {
