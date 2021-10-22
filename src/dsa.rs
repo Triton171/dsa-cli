@@ -553,9 +553,7 @@ pub fn roll_ini(
     );
 
     //Reverse sort
-    ini_information.sort_by(|(_, vals1), (_, vals2)| {
-        vals2.cmp(&vals1)
-    });
+    ini_information.sort_by(|(_, vals1), (_, vals2)| vals2.cmp(&vals1));
 
     //Display
     output.output_line(&"Initiative:");
@@ -567,7 +565,7 @@ pub fn roll_ini(
     {
         let mut row: Vec<String> = vec![
             format!("{}:", name),
-            format!("{} ({} + {}/6)", rolls[0], ini_level, rolls[0]-ini_level),
+            format!("{} ({} + {}/6)", rolls[0], ini_level, rolls[0] - ini_level),
         ];
         for roll in rolls.iter().skip(1) {
             row.push(format!("{}", roll));
