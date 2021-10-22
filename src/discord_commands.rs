@@ -846,10 +846,14 @@ where
             let member = &characters_members[roll.0];
             if let Some(member) = member {
                 let displ_name = member.display_name();
-                let ini_str = roll.1.iter().fold(String::from(""), |mut s, roll| {
-                    s.push_str(&format!(",{}", roll));
-                    s
-                });
+                let ini_str =
+                    roll.1
+                        .iter()
+                        .skip(1)
+                        .fold(format!("{}", roll.1[0]), |mut s, roll| {
+                            s.push_str(&format!(",{}", roll));
+                            s
+                        });
                 let discord_name = displ_name.split(" Ξ ").last().unwrap();
                 let suffix = calculate_name(&character.0, &discord_name, 32 - ini_str.len())?;
                 let new_name = match displ_name.contains('Ξ') {
