@@ -56,13 +56,13 @@ pub fn get_discord_app() -> App<'static> {
                 .required(true)
             )
         )
-        .subcommand(generic_discord_check(&"attribute", "Performs an attribute check", Some((&"attribute_name", &"The (partial) name of the attribute"))))
-        .subcommand(generic_discord_check(&"check", "Performs a talent check", Some((&"skill_name", &"The (partial) name of the talent"))))
-        .subcommand(generic_discord_check(&"attack", "Performs an attack check", Some((&"technique_name", &"The (partial) name of the combat technique"))))
-        .subcommand(generic_discord_check(&"spell", "Performs a spell check", Some((&"spell_name", &"The (partial) name of the spell"))))
-        .subcommand(generic_discord_check(&"chant", "Performs a chant check", Some((&"chant_name", &"The (partial) name of the chant"))))
-        .subcommand(generic_discord_check(&"parry", "Performs a parry check", Some((&"technique_name", &"The (partial) name of the combat technique"))))
-        .subcommand(generic_discord_check("dodge", "Performs a dodge check", None))
+        .subcommand(cmd_attribute_check().with_discord_character_selection())
+        .subcommand(cmd_skillcheck().with_discord_character_selection())
+        .subcommand(cmd_attack().with_discord_character_selection())
+        .subcommand(cmd_spell().with_discord_character_selection())
+        .subcommand(cmd_chant().with_discord_character_selection())
+        .subcommand(cmd_parry().with_discord_character_selection())
+        .subcommand(cmd_dodge().with_discord_character_selection())
         .subcommand(cmd_roll())
         .subcommand(App::new("rename").about("Rename all players to their respective character name")
             .arg(
@@ -108,37 +108,16 @@ pub fn get_discord_app() -> App<'static> {
         .override_usage("![subcommand]")
 }
 
-pub fn get_version() -> &'static str {
-    match option_env!("FULL_VERSION") {
-        Some(ver) => ver,
-        _ => env!("CARGO_PKG_VERSION"),
-    }
+trait DsaAppUtil {
+    fn with_discord_character_selection(self) -> Self;
+    fn with_simple_facilitation(self) -> Self;
+    fn with_attribute_facilitation(self) -> Self;
+    fn with_bonus_points(self) -> Self;
 }
 
-fn generic_discord_check(
-    name: &'static str,
-    description: &'static str,
-    arg: Option<(&'static str, &'static str)>,
-) -> App<'static> {
-    let mut app = App::new(name)
-        .about(description)
-        .setting(AppSettings::AllowLeadingHyphen);
-    if let Some((arg_name, arg_description)) = arg {
-        app = app.arg(
-            Arg::new(arg_name)
-                .about(arg_description)
-                .takes_value(true)
-                .required(true),
-        )
-    }
-    app = app
-        .arg(
-            Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0"),
-        )
-        .arg(
+impl<'a> DsaAppUtil for App<'a> {
+    fn with_discord_character_selection(self) -> Self {
+        self.arg(
             Arg::new("character_name")
                 .about("The name of the character to use")
                 .takes_value(true)
@@ -146,130 +125,132 @@ fn generic_discord_check(
                 .long("character"),
         )
         .arg(
-            Arg::new("user_id")
+            Arg::new("user_ide")
                 .about("A discord user for whom to roll the check")
                 .takes_value(true)
                 .short('u')
                 .long("user"),
-        );
-    app
+        )
+    }
+
+    fn with_simple_facilitation(self) -> Self {
+        self.setting(AppSettings::AllowLeadingHyphen).arg(
+            Arg::new("facilitation")
+                .about("The facilitation (if positive) or obstruction (if negative)")
+                .takes_value(true)
+                .default_value("0"),
+        )
+    }
+
+    fn with_attribute_facilitation(self) -> Self {
+        self.setting(AppSettings::AllowLeadingHyphen)
+            .arg(
+                Arg::new("facilitation")
+                    .about("The facilitation (if positive) or obstruction (if negative)")
+                    .takes_value(true)
+                    .default_value("0"),
+            )
+            .arg(
+                Arg::new("attribute_facilitation")
+                    .about("A list of pairs [ATTRIBUTE]:[FACILITATION] separated by commata")
+                    .takes_value(true)
+                    .long("attribute-facilitation"),
+            )
+    }
+
+    fn with_bonus_points(self) -> Self {
+        self.arg(
+            Arg::new("bonus_points")
+                .about("Bonus points that are added to the level of the skill")
+                .takes_value(true)
+                .long("bonus-points"),
+        )
+    }
+}
+
+pub fn get_version() -> &'static str {
+    match option_env!("FULL_VERSION") {
+        Some(ver) => ver,
+        _ => env!("CARGO_PKG_VERSION"),
+    }
 }
 
 fn cmd_attribute_check() -> App<'static> {
     App::new("attribute")
         .about("Performs an attribute check for the given attribute")
-        .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("attribute_name")
                 .about("The (partial) name of the attribute")
                 .takes_value(true)
                 .required(true),
         )
-        .arg(
-            Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0"),
-        )
+        .with_simple_facilitation()
 }
 
 fn cmd_skillcheck() -> App<'static> {
     App::new("check")
         .about("Performs a skillcheck for the given talent")
-        .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("skill_name")
                 .about("The (partial) name of the talent")
                 .takes_value(true)
                 .required(true),
         )
-        .arg(
-            Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0"),
-        )
+        .with_attribute_facilitation()
+        .with_bonus_points()
 }
 fn cmd_attack() -> App<'static> {
     App::new("attack")
         .about("Performs an attack skillcheck for the given combat technique")
-        .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("technique_name")
                 .about("The (partial) name of the combat technique")
                 .takes_value(true)
                 .required(true),
         )
-        .arg(
-            Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0"),
-        )
+        .with_simple_facilitation()
 }
 fn cmd_spell() -> App<'static> {
     App::new("spell")
         .about("Performs a spell skillcheck for the given spell")
-        .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("spell_name")
                 .about("The (partial) name of the spell")
                 .takes_value(true)
                 .required(true),
         )
-        .arg(
-            Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0"),
-        )
+        .with_attribute_facilitation()
+        .with_bonus_points()
 }
 
 fn cmd_chant() -> App<'static> {
     App::new("chant")
         .about("Performs a skillcheck for the given chant")
-        .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("chant_name")
                 .about("The (partial) name of the chant")
                 .takes_value(true)
                 .required(true),
         )
-        .arg(
-            Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0"),
-        )
+        .with_attribute_facilitation()
+        .with_bonus_points()
 }
 
 fn cmd_dodge() -> App<'static> {
     App::new("dodge")
         .about("Performs a dodge skillcheck")
-        .setting(AppSettings::AllowLeadingHyphen)
-        .arg(
-            Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0"),
-        )
+        .with_simple_facilitation()
 }
 fn cmd_parry() -> App<'static> {
     App::new("parry")
         .about("Performs a parry skillcheck for the given combat technique")
-        .setting(AppSettings::AllowLeadingHyphen)
         .arg(
             Arg::new("technique_name")
                 .about("The (partial) name of the combat technique")
                 .takes_value(true)
                 .required(true),
         )
-        .arg(
-            Arg::new("facilitation")
-                .about("The level of facilitation (if positive) or obstruction (if negative)")
-                .takes_value(true)
-                .default_value("0"),
-        )
+        .with_simple_facilitation()
 }
 fn cmd_roll() -> App<'static> {
     App::new("roll")

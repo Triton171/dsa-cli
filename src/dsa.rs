@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use super::character::Character;
 use super::config::{self, Config, DSAData};
 use super::util::*;
@@ -5,7 +7,6 @@ use clap::ArgMatches;
 use itertools::Itertools;
 use rand::distributions::{Distribution, Uniform};
 use rand::Rng;
-use std::num::ParseIntError;
 
 //The maximum number of dice in a roll expression
 const MAX_NUM_DICE: u32 = 100;
@@ -28,19 +29,17 @@ enum CritType {
     MultipleRequiredCrits(u32),
 }
 
-enum Facilitation {
-    SimpleFacilitation(i64),
-    IndividualFacilitation(Vec<i64>),
+// The facilitation for a skill check
+struct Facilitation {
+    // The facilitation for the individual attributes
+    individual_facilitation: Vec<i64>,
+    // The bonus to the available points/level, only applies for a PointsCheck
+    points_bonus: i64,
 }
-
-impl Facilitation {
-    fn iter<'a>(&'a self) -> Box<dyn std::iter::Iterator<Item = &i64> + 'a> {
-        match self {
-            Facilitation::SimpleFacilitation(fac) => Box::new(std::iter::repeat(fac)),
-            Facilitation::IndividualFacilitation(facs) => Box::new(facs.iter()),
-        }
-    }
-}
+// enum Facilitation {
+//     SimpleFacilitation(i64),
+//     IndividualFacilitation(Vec<i64>),
+// }
 
 pub fn attribute_check(
     cmd_matches: &ArgMatches,
@@ -59,7 +58,7 @@ pub fn attribute_check(
             return;
         }
     };
-    let facilitation = match get_facilitation(cmd_matches, 1) {
+    let facilitation = match get_facilitation(cmd_matches, &[attr_name]) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -99,7 +98,7 @@ pub fn talent_check(
         }
     };
     let skill_attrs = &talent_entry.attributes;
-    let facilitation = match get_facilitation(cmd_matches, skill_attrs.len()) {
+    let facilitation = match get_facilitation(cmd_matches, skill_attrs) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -155,7 +154,7 @@ pub fn attack_check(
             return;
         }
     };
-    let facilitation = match get_facilitation(cmd_matches, 1) {
+    let facilitation = match get_facilitation(cmd_matches, &["attack"]) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -196,7 +195,7 @@ pub fn spell_check(
             return;
         }
     };
-    let facilitation = match get_facilitation(cmd_matches, spell_attrs.len()) {
+    let facilitation = match get_facilitation(cmd_matches, spell_attrs) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -253,7 +252,7 @@ pub fn chant_check(
             return;
         }
     };
-    let facilitation = match get_facilitation(cmd_matches, chant_attrs.len()) {
+    let facilitation = match get_facilitation(cmd_matches, chant_attrs) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -296,7 +295,7 @@ pub fn dodge_check(
     _: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let facilitation = match get_facilitation(cmd_matches, 1) {
+    let facilitation = match get_facilitation(cmd_matches, &["dodge"]) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -305,8 +304,8 @@ pub fn dodge_check(
     };
     let dodge_level = character.get_dodge_level();
     roll_check(
-        &[("Ausweichen", dodge_level)],
-        "Ausweichen",
+        &[("Dodge", dodge_level)],
+        "Dodge",
         character.get_name(),
         facilitation,
         CheckType::SimpleCheck,
@@ -332,7 +331,7 @@ pub fn parry_check(
         }
         Ok(r) => r,
     };
-    let facilitation = match get_facilitation(cmd_matches, 1) {
+    let facilitation = match get_facilitation(cmd_matches, &["parry"]) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -341,8 +340,8 @@ pub fn parry_check(
     };
     let parry_level = character.get_parry_level(&technique_name, &technique_entry.attributes);
     roll_check(
-        &[("Parade", parry_level)],
-        technique_name,
+        &[("Parry", parry_level)],
+        &format!("Parry: {}", technique_name),
         character.get_name(),
         facilitation,
         CheckType::SimpleCheck,
@@ -577,41 +576,56 @@ pub fn roll_ini(
     ini_information
 }
 
-fn get_facilitation(matches: &ArgMatches, num_attributes: usize) -> Result<Facilitation, Error> {
-    let facilitation = matches.value_of("facilitation").unwrap();
-    if facilitation.contains(',') {
-        let facilitations: Result<Vec<i64>, ParseIntError> = facilitation
-            .split(',')
-            .map(|fac| fac.parse::<i64>())
-            .collect();
-        let facilitations = match facilitations {
-            Ok(vec) => vec,
-            Err(_) => {
-                return Err(Error::new(
-                    "Unable to parse facilitation",
-                    ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                ));
-            }
-        };
-        if facilitations.len() != num_attributes {
+fn get_facilitation<S>(matches: &ArgMatches, attributes: &[S]) -> Result<Facilitation, Error>
+where
+    S: AsRef<str>,
+{
+    let flat_facilitation: i64 = match matches.value_of("facilitation").unwrap().parse() {
+        Ok(f) => f,
+        Err(_) => {
             return Err(Error::new(
-                "Number of individual facilitations has to match number of check attributes",
+                "Unable to parse facilitation: Argument must be an integer",
                 ErrorType::InvalidInput(InputErrorType::InvalidArgument),
             ));
         }
-        Ok(Facilitation::IndividualFacilitation(facilitations))
-    } else {
-        let facilitation = match facilitation.parse::<i64>() {
-            Ok(num) => num,
-            Err(_) => {
-                return Err(Error::new(
-                    "Unable to parse facilitation",
-                    ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                ));
+    };
+    let mut individual_facilitation = vec![flat_facilitation; attributes.len()];
+    if let Some(m) = matches.value_of("attribute_facilitation") {
+        for modifier in m.split(',') {
+            let split: Vec<_> = modifier.split(':').collect();
+            if split.len() != 2 {
+                return Err(Error::new("Unable to parse facilitation: Attribute name and facilitation must be separated by a colon", ErrorType::InvalidInput(InputErrorType::InvalidArgument)));
             }
-        };
-        Ok(Facilitation::SimpleFacilitation(facilitation))
-    }
+            let amount: i64 = match split[1].parse() {
+                Ok(a) => a,
+                Err(_) => {
+                    return Err(Error::new(
+                        "Unable to parse facilitation: Invalid attribute facilitation amount",
+                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                    ));
+                }
+            };
+            for (i, attr) in attributes.iter().enumerate() {
+                if attr.as_ref().eq_ignore_ascii_case(split[0]) {
+                    individual_facilitation[i] += amount;
+                }
+            }
+        }
+    };
+    let points_bonus = match matches.value_of("bonus_points").map(|b| b.parse()) {
+        None => 0,
+        Some(Ok(p)) => p,
+        Some(Err(_)) => {
+            return Err(Error::new(
+                "Unable to parse facilitation: bonus-points must be an integer",
+                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+            ));
+        }
+    };
+    Ok(Facilitation {
+        individual_facilitation,
+        points_bonus,
+    })
 }
 
 fn roll_check(
@@ -630,9 +644,12 @@ fn roll_check(
     let mut rolls: Vec<i64> = Vec::with_capacity(attributes.len());
     let mut points = match check_type {
         CheckType::SimpleCheck => 0,
-        CheckType::PointsCheck(avail_points) => avail_points,
+        CheckType::PointsCheck(avail_points) => max(0, avail_points + facilitation.points_bonus),
     };
-    for ((_, level), facilitation) in attributes.iter().zip(facilitation.iter()) {
+    for ((_, level), facilitation) in attributes
+        .iter()
+        .zip(facilitation.individual_facilitation.iter())
+    {
         let roll = d20.sample(&mut rng);
         points = points - std::cmp::max(0, roll - (level + facilitation));
         rolls.push(roll);
@@ -703,11 +720,15 @@ fn roll_check(
             ));
         }
         CheckType::PointsCheck(avail_points) => {
+            let level = match facilitation.points_bonus {
+                0 => avail_points.to_string(),
+                bonus => format!("{} + {}", avail_points, bonus),
+            };
             output.output_line(&format!(
                 "{}, Check for {} (level {})",
                 character_name,
                 uppercase_first(check_name),
-                avail_points
+                level
             ));
         }
     };
@@ -722,17 +743,20 @@ fn roll_check(
 
     let mut char_row: Vec<String> = Vec::with_capacity(attributes.len() + 1);
     char_row.push(String::from("Character:"));
-    char_row.extend(attributes.iter().zip(facilitation.iter()).map(
-        |((_, level), facilitation)| {
-            if *facilitation == 0 {
-                level.to_string()
-            } else if *facilitation > 0 {
-                format!("{} + {}", level, facilitation)
-            } else {
-                format!("{} - {}", level, -facilitation)
-            }
-        },
-    ));
+    char_row.extend(
+        attributes
+            .iter()
+            .zip(facilitation.individual_facilitation.iter())
+            .map(|((_, level), facilitation)| {
+                if *facilitation == 0 {
+                    level.to_string()
+                } else if *facilitation > 0 {
+                    format!("{} + {}", level, facilitation)
+                } else {
+                    format!("{} - {}", level, -facilitation)
+                }
+            }),
+    );
     table.push(char_row);
 
     let mut rolls_row: Vec<String> = Vec::with_capacity(attributes.len() + 1);
