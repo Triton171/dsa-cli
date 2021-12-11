@@ -125,7 +125,7 @@ impl<'a> DsaAppUtil for App<'a> {
                 .long("character"),
         )
         .arg(
-            Arg::new("user_ide")
+            Arg::new("user_id")
                 .about("A discord user for whom to roll the check")
                 .takes_value(true)
                 .short('u')
