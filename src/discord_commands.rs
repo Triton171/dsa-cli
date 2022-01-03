@@ -617,6 +617,11 @@ pub async fn execute_command<T>(
                 },
             };
         }
+
+        Some(("hi", _)) => {
+            output.output_line(&crate::greet::random_greeting());
+        }
+
         _ => {}
     };
 }

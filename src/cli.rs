@@ -28,6 +28,7 @@ pub fn get_app() -> App<'static> {
         .subcommand(cmd_parry())
         .subcommand(cmd_roll())
         .subcommand(App::new("ini").about("Performs an initiative roll for the current character"))
+        .subcommand(cmd_hi())
 }
 
 pub fn get_discord_app() -> App<'static> {
@@ -105,6 +106,7 @@ pub fn get_discord_app() -> App<'static> {
                     .exclusive(true)
             )
         )
+        .subcommand(cmd_hi())
         .override_usage("![subcommand]")
 }
 
@@ -263,4 +265,7 @@ fn cmd_roll() -> App<'static> {
                 .multiple(true)
                 .required(true),
         )
+}
+fn cmd_hi() -> App<'static> {
+    App::new("hi")
 }

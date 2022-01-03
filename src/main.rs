@@ -5,6 +5,7 @@ mod config;
 mod discord;
 mod discord_commands;
 mod dsa;
+mod greet;
 mod util;
 
 #[macro_use]
@@ -154,6 +155,10 @@ async fn parse_local_command(
                 )],
                 &mut output,
             );
+        }
+
+        Some(("hi", _)) => {
+            output.output_line(&greet::random_greeting());
         }
 
         _ => {
