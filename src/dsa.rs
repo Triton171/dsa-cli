@@ -140,12 +140,14 @@ pub fn attack_check(
     _: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let (technique_name, _) = match DSAData::match_search(
+    let (technique_name, ranged) = match DSAData::match_search(
         dsa_data
             .combat_techniques
             .iter()
-            .map(|(k, _)| (k, ()))
-            .chain(character.get_custom_techniques().map(|t| (t, ()))),
+            .map(|(k, entry)| (k, entry.ranged))
+            // Improve: Whether a technique is ranged or not should be retrievable
+            // from the json file for custom techniques.
+            .chain(character.get_custom_techniques().map(|t| (t, false))),
         cmd_matches.value_of("technique_name").unwrap(),
     ) {
         Ok(t) => t,
@@ -162,7 +164,7 @@ pub fn attack_check(
         }
     };
 
-    let attack_level = character.get_attack_level(technique_name);
+    let attack_level = character.get_attack_level(technique_name, ranged);
     roll_check(
         &[(technique_name, attack_level)],
         &format!("Attack: {}", technique_name),
@@ -651,7 +653,9 @@ fn roll_check(
         .zip(facilitation.individual_facilitation.iter())
     {
         let roll = d20.sample(&mut rng);
-        points = points - std::cmp::max(0, roll - (level + facilitation));
+        if roll != 1 {
+            points = points - std::cmp::max(0, roll - (level + facilitation));
+        }
         rolls.push(roll);
     }
     //Check for crits

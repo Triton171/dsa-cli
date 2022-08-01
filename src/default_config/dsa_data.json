@@ -1,5 +1,5 @@
 {
-    "version" : 4,
+    "version" : 5,
     "attributes" : {
         "mut" : {
             "short_name" : "MU"
@@ -215,13 +215,16 @@
     },
     "combat_techniques" : {
         "armbrueste" : {
-            "attributes" : ["fingerfertigkeit"]
+            "attributes" : ["fingerfertigkeit"],
+            "ranged" : true
         },
         "boegen": {
-            "attributes" : ["fingerfertigkeit"]
+            "attributes" : ["fingerfertigkeit"],
+            "ranged" : true
         },
         "wurfwaffen" : {
-            "attributes" : ["fingerfertigkeit"]
+            "attributes" : ["fingerfertigkeit"],
+            "ranged" : true
         },
         "dolche" : {
             "attributes" : ["gewandtheit"]

@@ -199,8 +199,12 @@ impl Character {
         6
     }
 
-    pub fn get_attack_level(&self, technique_id: &str) -> i64 {
-        let mut_level = self.get_attribute_level("mut");
+    pub fn get_attack_level(&self, technique_id: &str, ranged: bool) -> i64 {
+        let mut_level = if ranged {
+            self.get_attribute_level("fingerfertigkeit")
+        } else {
+            self.get_attribute_level("mut")
+        };
         self.get_technique_level(technique_id) + std::cmp::max(0, (mut_level - 8) / 3)
     }
 
@@ -255,7 +259,8 @@ impl Character {
                 }
             }
         }
-        technique_level / 2 + std::cmp::max(0, (max_attr - 8) / 3)
+        // We add 1 to the technique_level since it has to be rounded up
+        (technique_level + 1) / 2 + std::cmp::max(0, (max_attr - 8) / 3)
     }
 
     pub fn get_custom_techniques(&self) -> impl Iterator<Item = &String> {

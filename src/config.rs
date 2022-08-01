@@ -58,6 +58,11 @@ mod default {
             5
         }
     }
+    pub mod dsa_data {
+        pub fn combat_technique_ranged() -> bool {
+            false
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -123,6 +128,8 @@ pub struct TalentConfig {
 #[derive(Deserialize)]
 pub struct CombatTechniqueConfig {
     pub attributes: Vec<String>,
+    #[serde(default = "default::dsa_data::combat_technique_ranged")]
+    pub ranged: bool,
 }
 #[derive(Deserialize)]
 pub struct SpellConfig {
