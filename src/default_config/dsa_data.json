@@ -1,5 +1,5 @@
 {
-    "version" : 5,
+    "version" : 6,
     "attributes" : {
         "mut" : {
             "short_name" : "MU"
@@ -258,6 +258,9 @@
         },
         "zweihandschwerter" : {
             "attributes" : ["koerperkraft"]
+        },
+        "schleudern": {
+            "attributes": ["fingerfertigkeit"]
         }
     },
     "spells" : {
@@ -355,6 +358,24 @@
         },
         "wundersameverstaendigung" : {
             "attributes" : ["klugheit", "klugheit", "intuition"]
+        },
+        "bannderdunkelheit": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
+        "blendstrahl": {
+            "attributes": ["mut", "klugheit", "intuition"]
+        },
+        "goettlicherfingerzeig": {
+            "attributes": ["klugheit", "intuition", "intuition"]
+        },
+        "heiligerbefehl": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
+        "magieschutz": {
+            "attributes": ["mut", "intuition", "charisma"]
+        },
+        "objektweihe": {
+            "attributes": ["klugheit", "intuition", "charisma"]
         }
     }
 }
