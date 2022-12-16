@@ -200,6 +200,11 @@ pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), 
             let mut slash_cmd = CreateApplicationCommand::default();
             let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();
 
+            if sub_app.get_name() == "upload" 
+            { // upload does not work with slash commands
+                continue;
+            }
+
             //Add all the required arguments
             for arg in sub_app
                 .get_arguments()
@@ -304,19 +309,20 @@ pub async fn parse_discord_interaction(
                 } else {
                     ""
                 };
+                let arg_val = String::from(arg_val).replace('ä', "ae").replace('ö', "oe").replace('ü', "ue");
                 if let Some(long) = arg.get_long() {
                     constructed_str.push_str(" --");
                     constructed_str.push_str(long);
                     constructed_str.push(' ');
-                    constructed_str.push_str(arg_val);
+                    constructed_str.push_str(&arg_val);
                 } else if let Some(short) = arg.get_short() {
                     constructed_str.push_str(" -");
                     constructed_str.push(short);
                     constructed_str.push(' ');
-                    constructed_str.push_str(arg_val);
+                    constructed_str.push_str(&arg_val);
                 } else {
                     constructed_str.push(' ');
-                    constructed_str.push_str(arg_val);
+                    constructed_str.push_str(&arg_val);
                 }
             }
         }

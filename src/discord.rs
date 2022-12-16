@@ -133,8 +133,10 @@ impl EventHandler for Handler {
                 DiscordOutputWrapper::new(DiscordOutputType::SimpleMessage(message.channel_id))
             };
 
+            let message_str = message.content.replace('ä', "ae").replace('ö', "oe").replace('ü', "ue");
+
             let matches = cli::get_discord_app().try_get_matches_from({
-                let command = &message.content[1..];
+                let command = &message_str[1..];
                 let args: Box<dyn Iterator<Item = &str>> =
                     if self.config.discord.require_complete_command {
                         Box::new(command.split(' '))
