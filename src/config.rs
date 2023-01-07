@@ -219,7 +219,11 @@ impl DSAData {
         search: &str,
     ) -> Result<(&'a str, V), Error> {
         let mut found_entry: Option<(&str, V)> = None;
-        let mut search_trimmed: &str = &search.to_lowercase();
+        let mut search_trimmed: &str = &search
+            .to_lowercase()
+            .replace('ä', "ae")
+            .replace('ö', "oe")
+            .replace('ü', "ue");
         let search_at_beg = if search_trimmed.starts_with('_') {
             search_trimmed = &search_trimmed[1..];
             true
