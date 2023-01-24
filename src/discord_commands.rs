@@ -200,6 +200,11 @@ pub async fn register_slash_commands(app: App<'_>, ctx: &Context) -> Result<(), 
             let mut slash_cmd = CreateApplicationCommand::default();
             let mut slash_cmd_options: Vec<CreateApplicationCommandOption> = Vec::new();
 
+            if sub_app.get_name() == "upload" {
+                // upload does not work with slash commands
+                continue;
+            }
+
             //Add all the required arguments
             for arg in sub_app
                 .get_arguments()
