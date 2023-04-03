@@ -332,6 +332,15 @@
         },
         "penetrizzel": {
             "attributes": ["mut", "klugheit", "intuition"]
+        },
+        "daemonenschild": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
+        "hexagramma": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
+        "heptagramma": {
+            "attributes": ["mut", "klugheit", "charisma"]
         }
     },
     "chants" : {
