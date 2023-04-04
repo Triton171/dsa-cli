@@ -1,5 +1,5 @@
 {
-    "version" : 7,
+    "version" : 8,
     "attributes" : {
         "mut" : {
             "short_name" : "MU"
@@ -347,6 +347,9 @@
         }
     },
     "chants" : {
+        "bannderdunkelheit" : {
+            "attributes" : ["mut", "klugheit", "charisma"]
+        },
         "entzifferung" : {
             "attributes" : ["klugheit", "klugheit", "intuition"]
         },
