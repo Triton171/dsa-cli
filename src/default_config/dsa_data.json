@@ -33,6 +33,9 @@
         "gaukeleien" : {
             "attributes" : ["mut", "charisma", "fingerfertigkeit"]
         },
+        "kaleidoskop": {
+            "attributes" : ["klugheit", "intuition", "intuition"]
+        }
         "klettern" : {
             "attributes" : ["mut", "gewandtheit", "koerperkraft"]
         },
