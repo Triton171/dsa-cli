@@ -1,5 +1,5 @@
 {
-    "version" : 8,
+    "version" : 9,
     "attributes" : {
         "mut" : {
             "short_name" : "MU"
@@ -279,7 +279,7 @@
         "pentagramma" : {
             "attributes" : ["mut", "klugheit", "charisma"]
         },
-        "analys" : {
+        "analysarkanstruktur" : {
             "attributes" : ["klugheit", "klugheit", "intuition"]
         },
         "motoricus" : {
