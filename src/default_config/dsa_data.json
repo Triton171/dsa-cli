@@ -35,7 +35,7 @@
         },
         "kaleidoskop": {
             "attributes" : ["klugheit", "intuition", "intuition"]
-        }
+        },
         "klettern" : {
             "attributes" : ["mut", "gewandtheit", "koerperkraft"]
         },
@@ -347,9 +347,6 @@
         }
     },
     "chants" : {
-        "bannderdunkelheit" : {
-            "attributes" : ["mut", "klugheit", "charisma"]
-        },
         "entzifferung" : {
             "attributes" : ["klugheit", "klugheit", "intuition"]
         },
