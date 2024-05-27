@@ -4,7 +4,6 @@ use super::cli;
 use super::config::{Config, DSAData};
 use super::discord_commands;
 use super::util::*;
-use clap::ArgMatches;
 use serenity::{
     async_trait,
     client::bridge::gateway::GatewayIntents,
@@ -25,38 +24,6 @@ pub struct Handler {
     character_manager: RwLock<CharacterManager>,
     config: Config,
     dsa_data: DSAData,
-}
-
-#[async_trait]
-pub trait DiscordCommand: Send + Sync {
-    fn name(&self) -> &'static str;
-    fn description(&self) -> &'static str {
-        ""
-    }
-    fn create_interaction_options(
-        &self,
-        _: &Handler,
-    ) -> Vec<serenity::builder::CreateApplicationCommandOption> {
-        vec![]
-    }
-
-    async fn handle_slash_command<'a>(
-        &self,
-        _: &'a Interaction,
-        _: &'a Handler,
-        _: &'a Context,
-    ) -> String {
-        String::from("not implemented!")
-    }
-
-    async fn execute(
-        &self,
-        message: &Message,
-        handler: &Handler,
-        output: &mut DiscordOutputWrapper,
-        context: &Context,
-        sub_m: &ArgMatches,
-    );
 }
 
 impl Handler {
