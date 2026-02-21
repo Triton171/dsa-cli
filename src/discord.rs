@@ -186,7 +186,7 @@ pub enum DiscordOutputType<'a> {
 }
 
 impl<'a> DiscordOutputWrapper<'a> {
-    pub fn new(output_type: DiscordOutputType<'a>) -> DiscordOutputWrapper {
+    pub fn new(output_type: DiscordOutputType) -> DiscordOutputWrapper {
         DiscordOutputWrapper {
             output_type,
             msg_buf: String::from("```"),
