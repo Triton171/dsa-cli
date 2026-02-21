@@ -6,7 +6,7 @@ use serde::Deserialize;
 use std::path::Path;
 use tokio::fs;
 
-const LOADED_CHARACTER_FILE: &'static str = "loaded_character";
+const LOADED_CHARACTER_FILE: &str = "loaded_character";
 
 mod default {
     pub fn skills() -> Vec<super::CharacterSkill> {
@@ -118,7 +118,7 @@ impl Character {
         if Path::exists(&path) {
             let char_path = std::fs::read_to_string(&path)?;
             let char_path = Path::new(&char_path);
-            let character = Self::from_file(&char_path).await?;
+            let character = Self::from_file(char_path).await?;
             Ok(Some(character))
         } else {
             Ok(None)

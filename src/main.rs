@@ -102,31 +102,31 @@ async fn parse_local_command(
         },
 
         Some(("attribute", sub_m)) => {
-            execute_character_command(&dsa::attribute_check, &sub_m, &config, &mut output).await;
+            execute_character_command(&dsa::attribute_check, sub_m, &config, &mut output).await;
         }
 
         Some(("check", sub_m)) => {
-            execute_character_command(&dsa::talent_check, &sub_m, &config, &mut output).await;
+            execute_character_command(&dsa::talent_check, sub_m, &config, &mut output).await;
         }
 
         Some(("attack", sub_m)) => {
-            execute_character_command(&dsa::attack_check, &sub_m, &config, &mut output).await;
+            execute_character_command(&dsa::attack_check, sub_m, &config, &mut output).await;
         }
 
         Some(("spell", sub_m)) => {
-            execute_character_command(&dsa::spell_check, &sub_m, &config, &mut output).await;
+            execute_character_command(&dsa::spell_check, sub_m, &config, &mut output).await;
         }
 
         Some(("chant", sub_m)) => {
-            execute_character_command(&dsa::chant_check, &sub_m, &config, &mut output).await;
+            execute_character_command(&dsa::chant_check, sub_m, &config, &mut output).await;
         }
 
         Some(("dodge", sub_m)) => {
-            execute_character_command(&dsa::dodge_check, &sub_m, &config, &mut output).await;
+            execute_character_command(&dsa::dodge_check, sub_m, &config, &mut output).await;
         }
 
         Some(("parry", sub_m)) => {
-            execute_character_command(&dsa::parry_check, &sub_m, &config, &mut output).await;
+            execute_character_command(&dsa::parry_check, sub_m, &config, &mut output).await;
         }
 
         Some(("roll", sub_m)) => {
@@ -183,7 +183,7 @@ fn get_dsa_data(config: &Config, output: &mut impl OutputWrapper) -> Result<DSAD
             }
         }
     };
-    let dsa_data = dsa_data.check_replacement_needed(&config, output);
+    let dsa_data = dsa_data.check_replacement_needed(config, output);
     Ok(dsa_data)
 }
 
@@ -197,8 +197,6 @@ async fn execute_character_command<O>(
 {
     if let Some((character, dsa_data)) = try_get_character_and_dsa_data(config, output).await {
         check_fn(matches, &character, &dsa_data, config, output);
-    } else {
-        return;
     }
 }
 
@@ -220,7 +218,7 @@ async fn try_get_character_and_dsa_data(
             return None;
         }
     };
-    let dsa_data = match get_dsa_data(&config, output) {
+    let dsa_data = match get_dsa_data(config, output) {
         Ok(data) => data,
         Err(e) => {
             output.output_line(&format!("Error retrieving dsa data: {}", e));

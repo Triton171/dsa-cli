@@ -19,7 +19,7 @@ mod default {
             }
         }
         pub fn crit_rules() -> super::super::ConfigDSACritType {
-            super::super::ConfigDSACritType::DefaultCrits
+            super::super::ConfigDSACritType::Default
         }
     }
     pub mod discord {
@@ -102,9 +102,9 @@ pub struct ConfigDSARules {
 
 #[derive(Deserialize)]
 pub enum ConfigDSACritType {
-    NoCrits,
-    DefaultCrits,
-    AlternativeCrits,
+    None,
+    Default,
+    Alternative,
 }
 
 #[derive(Deserialize)]

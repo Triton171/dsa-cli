@@ -1,6 +1,6 @@
 use rand::Rng;
 
-const GREETINGS: &'static [&'static str] = &[
+const GREETINGS: &[&str] = &[
     "Die Zwölfe mit Euch",
     "Praios zum Gruße!",
     "Rondra zum Gruße!",

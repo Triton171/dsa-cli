@@ -13,6 +13,8 @@ const MAX_NUM_DICE: u32 = 100;
 //The maximum number of expressions in a roll command
 const MAX_ROLL_EXPRESSIONS: u32 = 20;
 
+const DICE_CHARS: [char; 2] = ['d', 'w'];
+
 enum CheckType {
     //A simple check where you have to roll below your attributes (for example an attribute check)
     SimpleCheck,
@@ -22,11 +24,11 @@ enum CheckType {
 
 enum CritType {
     //A check without critical successes or failures
-    NoCrits,
+    None,
     //A check where crits have to be confirmed with a second roll
-    ConfirmableCrits,
+    Confirmable,
     //A check where some number of 1 (or 20) rolls are required to trigger a crit (this number can also be 1)
-    MultipleRequiredCrits(u32),
+    MultipleRequired(u32),
 }
 
 // The facilitation for a skill check
@@ -75,7 +77,7 @@ pub fn attribute_check(
         character.get_name(),
         facilitation,
         CheckType::SimpleCheck,
-        CritType::ConfirmableCrits,
+        CritType::Confirmable,
         output,
     );
 }
@@ -114,17 +116,17 @@ pub fn talent_check(
             )
         })
         .collect();
-    let skill_level = character.get_skill_level(&talent_name);
+    let skill_level = character.get_skill_level(talent_name);
 
     let crit_type = match config.dsa_rules.crit_rules {
-        config::ConfigDSACritType::NoCrits => CritType::NoCrits,
-        config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
-        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits,
+        config::ConfigDSACritType::None => CritType::None,
+        config::ConfigDSACritType::Default => CritType::MultipleRequired(2),
+        config::ConfigDSACritType::Alternative => CritType::Confirmable,
     };
 
     roll_check(
         &attrs,
-        &talent_name,
+        talent_name,
         character.get_name(),
         facilitation,
         CheckType::PointsCheck(skill_level),
@@ -171,7 +173,7 @@ pub fn attack_check(
         character.get_name(),
         facilitation,
         CheckType::SimpleCheck,
-        CritType::ConfirmableCrits,
+        CritType::Confirmable,
         output,
     );
 }
@@ -214,17 +216,17 @@ pub fn spell_check(
             )
         })
         .collect();
-    let skill_level = character.get_spell_level(&spell_name);
+    let skill_level = character.get_spell_level(spell_name);
 
     let crit_type = match config.dsa_rules.crit_rules {
-        config::ConfigDSACritType::NoCrits => CritType::NoCrits,
-        config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
-        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits,
+        config::ConfigDSACritType::None => CritType::None,
+        config::ConfigDSACritType::Default => CritType::MultipleRequired(2),
+        config::ConfigDSACritType::Alternative => CritType::Confirmable,
     };
 
     roll_check(
         &attrs,
-        &spell_name,
+        spell_name,
         character.get_name(),
         facilitation,
         CheckType::PointsCheck(skill_level),
@@ -271,17 +273,17 @@ pub fn chant_check(
             )
         })
         .collect();
-    let skill_level = character.get_chant_level(&chant_name);
+    let skill_level = character.get_chant_level(chant_name);
 
     let crit_type = match config.dsa_rules.crit_rules {
-        config::ConfigDSACritType::NoCrits => CritType::NoCrits,
-        config::ConfigDSACritType::DefaultCrits => CritType::MultipleRequiredCrits(2),
-        config::ConfigDSACritType::AlternativeCrits => CritType::ConfirmableCrits,
+        config::ConfigDSACritType::None => CritType::None,
+        config::ConfigDSACritType::Default => CritType::MultipleRequired(2),
+        config::ConfigDSACritType::Alternative => CritType::Confirmable,
     };
 
     roll_check(
         &attrs,
-        &chant_name,
+        chant_name,
         character.get_name(),
         facilitation,
         CheckType::PointsCheck(skill_level),
@@ -311,7 +313,7 @@ pub fn dodge_check(
         character.get_name(),
         facilitation,
         CheckType::SimpleCheck,
-        CritType::ConfirmableCrits,
+        CritType::Confirmable,
         output,
     );
 }
@@ -340,14 +342,14 @@ pub fn parry_check(
             return;
         }
     };
-    let parry_level = character.get_parry_level(&technique_name, &technique_entry.attributes);
+    let parry_level = character.get_parry_level(technique_name, &technique_entry.attributes);
     roll_check(
         &[("Parry", parry_level)],
         &format!("Parry: {}", technique_name),
         character.get_name(),
         facilitation,
         CheckType::SimpleCheck,
-        CritType::ConfirmableCrits,
+        CritType::Confirmable,
         output,
     )
 }
@@ -360,7 +362,7 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
             .unwrap()
             .fold(String::from(""), |mut beg, val| {
                 beg.push_str(val);
-                beg.push_str(" ");
+                beg.push(' ');
                 beg
             });
 
@@ -374,9 +376,9 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
             _ => (1, term),
         };
         let mut term_val: i64 = 0;
-        if term.contains(|c| c == 'd' || c == 'w') {
+        if term.contains(DICE_CHARS) {
             let split: Vec<&str> = term
-                .split(|c| c == 'd' || c == 'w')
+                .split(DICE_CHARS)
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .collect();
@@ -427,7 +429,7 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                 }
             };
 
-            if die_type <= 0 {
+            if die_type == 0 {
                 return Err(Error::new(
                     format!("Invalid die type: {}", die_type),
                     ErrorType::InvalidInput(InputErrorType::InvalidArgument),
@@ -477,7 +479,7 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
             ));
             return;
         }
-        let end_idx = match expr[begin_idx + 1..].find(|c| c == '+' || c == '-') {
+        let end_idx = match expr[begin_idx + 1..].find(['+', '-']) {
             Some(idx) => begin_idx + 1 + idx,
             None => expr.len(),
         };
@@ -549,12 +551,12 @@ pub fn roll_ini(
             .map(|(i, arr)| (*i, arr[0]))
             .collect(),
         &mut ini_information,
-        &characters,
+        characters,
         &d6,
     );
 
     //Reverse sort
-    ini_information.sort_by(|(_, vals1), (_, vals2)| vals2.cmp(&vals1));
+    ini_information.sort_by(|(_, vals1), (_, vals2)| vals2.cmp(vals1));
 
     //Display
     output.output_line(&"Initiative:");
@@ -654,14 +656,14 @@ fn roll_check(
     {
         let roll = d20.sample(&mut rng);
         if roll != 1 {
-            points = points - std::cmp::max(0, roll - (level + facilitation));
+            points -= max(0, roll - (level + facilitation));
         }
         rolls.push(roll);
     }
     //Check for crits
     let (crit_succ, crit_fail, crit_row) = match crit_type {
-        CritType::NoCrits => (false, false, None),
-        CritType::ConfirmableCrits => {
+        CritType::None => (false, false, None),
+        CritType::Confirmable => {
             let mut crit_row: Vec<String> = vec![String::from("Crit roll:")];
             let mut crit_succ = false;
             let mut crit_fail = false;
@@ -692,7 +694,7 @@ fn roll_check(
             };
             (crit_succ, crit_fail, crit_row)
         }
-        CritType::MultipleRequiredCrits(num_required) => {
+        CritType::MultipleRequired(num_required) => {
             let crit_succ = rolls.iter().filter(|&&r| r == 1).count() >= num_required as usize;
             let crit_fail = rolls.iter().filter(|&&r| r == 20).count() >= num_required as usize;
             (crit_succ, crit_fail, None)

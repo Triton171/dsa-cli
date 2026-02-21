@@ -134,7 +134,7 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
         }
     };
     let application_id = match &config.discord.application_id {
-        Some(app_id) => app_id.clone(),
+        Some(app_id) => *app_id,
         None => {
             println!("Unable to start bot: Missing discord application id");
             return;
@@ -163,12 +163,12 @@ pub async fn start_bot(config: Config, dsa_data: DSAData) {
     {
         Ok(client) => client,
         Err(e) => {
-            println!("Error creating discord client: {}", e.to_string());
+            println!("Error creating discord client: {}", e);
             return;
         }
     };
     if let Err(e) = client.start().await {
-        println!("Error starting discord client: {}", e.to_string());
+        println!("Error starting discord client: {}", e);
     }
 }
 
@@ -197,7 +197,7 @@ impl<'a> DiscordOutputWrapper<'a> {
     pub async fn send(&mut self, ctx: &Context) {
         if self.msg_empty {
             return;
-        } else if self.msg_buf.as_bytes().len() > DISCORD_MAX_MESSAGE_LENGTH {
+        } else if self.msg_buf.len() > DISCORD_MAX_MESSAGE_LENGTH {
             self.msg_buf = format!(
                 "```Error: Reply length exceeds the maximum of {}",
                 DISCORD_MAX_MESSAGE_LENGTH
@@ -248,10 +248,10 @@ impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
         self.msg_empty = false;
     }
     fn output_line(&mut self, msg: &impl std::fmt::Display) {
-        std::write!(self.msg_buf, "{}\n", msg).unwrap();
+        std::writeln!(self.msg_buf, "{}", msg).unwrap();
         self.msg_empty = false;
     }
-    fn output_table(&mut self, table: &Vec<Vec<String>>) {
+    fn output_table(&mut self, table: &[Vec<String>]) {
         let num_cols = table.iter().map(|row| row.len()).max().unwrap_or(0);
         let mut col_lengths: Vec<usize> = Vec::with_capacity(num_cols);
         for col in 0..num_cols {
@@ -271,7 +271,7 @@ impl<'a> OutputWrapper for DiscordOutputWrapper<'a> {
             for (col, entry) in row.iter().enumerate() {
                 self.msg_buf.push_str(entry);
                 self.msg_buf
-                    .extend(std::iter::repeat(' ').take(col_lengths[col] - entry.len()));
+                    .extend(std::iter::repeat_n(' ', col_lengths[col] - entry.len()));
             }
             self.msg_buf.push('\n');
         }

@@ -1,7 +1,7 @@
 {
     "auto_update_dsa_data" : true,
     "dsa_rules" : {
-        "crit_rules" : "AlternativeCrits"
+        "crit_rules" : "Default"
     },
     "discord": {
         "login_token" : null,

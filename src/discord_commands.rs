@@ -28,7 +28,7 @@ use serenity::{
 
 #[async_trait]
 pub trait CommandContext: Sync {
-    fn context<'a>(&'a self) -> &'a Context;
+    fn context(&self) -> &Context;
     fn sender(&self) -> Result<UserId, Error>;
     fn channel(&self) -> Result<ChannelId, Error>;
     async fn attachments<'a>(&'a self) -> Result<&'a [Attachment], Error>;
@@ -59,7 +59,7 @@ pub trait CommandContext: Sync {
         let g_members = guild.members(self.context(), Some(1000), None).await?;
 
         Ok(
-            futures::stream::iter(g_members.iter().map(|m| m.clone())) // fetch members in the channel message was sent in
+            futures::stream::iter(g_members.iter().cloned()) // fetch members in the channel message was sent in
                 .filter_map(|member| async {
                     if guild
                         .user_permissions_in(&channel, &member)
@@ -121,7 +121,7 @@ impl MessageContext<'_> {
 
 #[async_trait]
 impl CommandContext for MessageContext<'_> {
-    fn context<'a>(&'a self) -> &'a Context {
+    fn context(&self) -> &Context {
         self.ctx
     }
     fn sender(&self) -> Result<UserId, Error> {
@@ -148,7 +148,7 @@ impl SlashCommandContext<'_> {
 
 #[async_trait]
 impl CommandContext for SlashCommandContext<'_> {
-    fn context<'a>(&'a self) -> &'a Context {
+    fn context(&self) -> &Context {
         self.ctx
     }
     fn sender(&self) -> Result<UserId, Error> {
@@ -164,13 +164,10 @@ impl CommandContext for SlashCommandContext<'_> {
         }
     }
     fn channel(&self) -> Result<ChannelId, Error> {
-        self.interaction.channel_id.map_or(
-            Err(Error::new(
-                "Error retrieving channel for slash command",
-                ErrorType::IO(IOErrorType::Discord),
-            )),
-            |c| Ok(c),
-        )
+        self.interaction.channel_id.ok_or(Error::new(
+            "Error retrieving channel for slash command",
+            ErrorType::IO(IOErrorType::Discord),
+        ))
     }
     async fn attachments<'a>(&'a self) -> Result<&'a [Attachment], Error> {
         Err(Error::new(
@@ -427,14 +424,13 @@ pub async fn execute_command<T>(
                 output.output_line(&"Selected character:");
                 output.output_line(&selected);
                 output.output_line(&"");
+            } else if non_selected.is_empty() {
+                output.output_line(&"No character found for your discord account");
             } else {
-                if non_selected.is_empty() {
-                    output.output_line(&"No character found for your discord account");
-                } else {
-                    output.output_line(&"No character currently selected");
-                    output.output_line(&"");
-                }
+                output.output_line(&"No character currently selected");
+                output.output_line(&"");
             }
+
             if !non_selected.is_empty() {
                 output.output_line(&"Other characters:");
                 for name in non_selected {
@@ -594,7 +590,7 @@ pub async fn execute_command<T>(
         }
 
         Some(("ini", sub_m)) => {
-            match initiative(character_manager.read().await, &sub_m, cmd_ctx, output).await {
+            match initiative(character_manager.read().await, sub_m, cmd_ctx, output).await {
                 Ok(()) => {}
                 Err(e) => match e.err_type() {
                     ErrorType::InvalidInput(_) => {
@@ -609,7 +605,7 @@ pub async fn execute_command<T>(
         }
 
         Some(("rename", sub_m)) => {
-            match rename(character_manager.read().await, &sub_m, cmd_ctx, output).await {
+            match rename(character_manager.read().await, sub_m, cmd_ctx, output).await {
                 Ok(()) => {}
                 Err(e) => match e.err_type() {
                     ErrorType::InvalidInput(_) => {
@@ -735,7 +731,7 @@ where
                             Ok(character_name) => {
                                 let display_name = member.display_name();
                                 let display_name = display_name.split(" Ξ ").last().unwrap();
-                                new_name = calculate_name(&character_name, &display_name, 32)?;
+                                new_name = calculate_name(character_name, display_name, 32)?;
                             }
                         };
                     } else if let Some(index) = nickname.find(' ') {
@@ -816,7 +812,7 @@ where
 
     if sub_m.is_present("new") {
         let custom_args: Vec<&str> = sub_m.values_of("new").unwrap().collect();
-        if custom_args.len() % 2 != 0 {
+        if !custom_args.len().is_multiple_of(2) {
             return Err(Error::new(
             "The \"new\" argument expects an even number of values (name and level for each custom character)",
             ErrorType::InvalidInput(InputErrorType::InvalidArgument)
@@ -865,7 +861,7 @@ where
                             s
                         });
                 let discord_name = displ_name.split(" Ξ ").last().unwrap();
-                let suffix = calculate_name(&character.0, &discord_name, 32 - ini_str.len())?;
+                let suffix = calculate_name(&character.0, discord_name, 32 - ini_str.len())?;
                 let new_name = match displ_name.contains('Ξ') {
                     // only use cool renameing if already used rename
                     true => format!("{} {}", ini_str, suffix),
@@ -875,7 +871,7 @@ where
                     let roll = roll;
                     let member = characters_members[roll.0].as_ref().unwrap();
                     let new_name = new_name;
-                    if let Err(e) = cmd_ctx.rename_member(&member, &new_name).await {
+                    if let Err(e) = cmd_ctx.rename_member(member, &new_name).await {
                         println!(
                             "Error changing user nickname from {} to {}: {:?}",
                             member.display_name(),
@@ -912,9 +908,10 @@ where
             2. The user has a discord nickname
             3. The discord nickname is of the form ".* Ξ orig_name"
             */
-            if let Ok(_) = character_manager
+            if character_manager
                 .find_character_for_user(user_id, None::<String>)
                 .await
+                .is_ok()
             {
                 if let Some(nickname) = member.nick.clone() {
                     if let Some(index) = nickname.find('Ξ') {
@@ -967,23 +964,20 @@ where
                     ));
                 }
                 Ok(character_name) => {
-                    let new_name = calculate_name(&character_name, &nickname, 32)?;
+                    let new_name = calculate_name(character_name, &nickname, 32)?;
 
                     rename_futs.push(async {
                         let member = member;
                         let new_name = new_name;
                         if let Err(e) = cmd_ctx.rename_member(&member, &new_name).await {
                             if e.message() == "Missing Permissions" {
-                                match &cmd_ctx.get_guild_owner().await {
-                                    Ok(Some(owner)) => {
-                                        if owner == &member.user.id {
-                                            return Ok(Some(format!(
-                                                "Unable to change server owners nickname to {}",
-                                                new_name
-                                            )));
-                                        }
+                                if let Ok(Some(owner)) = &cmd_ctx.get_guild_owner().await {
+                                    if owner == &member.user.id {
+                                        return Ok(Some(format!(
+                                            "Unable to change server owners nickname to {}",
+                                            new_name
+                                        )));
                                     }
-                                    _ => {}
                                 }
                             }
 
@@ -1058,7 +1052,7 @@ fn calculate_name(character_name: &str, org_name: &str, limit: usize) -> Result<
         // we don't fit our first name :(
         character_name.push_str(&first_name[..allowed_character_len]);
     } else {
-        character_name.push_str(&first_name);
+        character_name.push_str(first_name);
         allowed_character_len -= first_name.len();
 
         let last_name = character_split.clone().last().unwrap_or("");
@@ -1074,11 +1068,11 @@ fn calculate_name(character_name: &str, org_name: &str, limit: usize) -> Result<
                     break;
                 }
                 allowed_character_len -= mid_name.len() + 1;
-                character_name.push_str(" ");
+                character_name.push(' ');
                 character_name.push_str(mid_name);
             }
 
-            character_name.push_str(" ");
+            character_name.push(' ');
             character_name.push_str(last_name);
         }
     }

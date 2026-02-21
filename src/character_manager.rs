@@ -391,14 +391,14 @@ impl CharacterManager {
 
     pub async fn get_character(&self, id: CharacterId) -> Result<Character, Error> {
         let path = get_character_path(id).await?;
-        Ok(Character::from_file(&path).await?)
+        Character::from_file(&path).await
     }
 
-    pub fn get_character_name<'a>(
-        &'a self,
+    pub fn get_character_name(
+        &self,
         user_id: u64,
         character_id: CharacterId,
-    ) -> Result<&'a str, Error> {
+    ) -> Result<&str, Error> {
         match self.characters.characters.get(&user_id) {
             None => Err(Error::new(
                 "Error getting character name: No character found for this account",
@@ -407,8 +407,7 @@ impl CharacterManager {
             Some(user_characters) => {
                 match user_characters
                     .iter()
-                    .filter(|c| c.character_id == character_id)
-                    .next()
+                    .find(|c| c.character_id == character_id)
                 {
                     None => Err(Error::new(
                         "Error getting character name: No character found with the given id",
@@ -440,6 +439,6 @@ async fn get_character_path(character_id: CharacterId) -> Result<PathBuf, Error>
     let mut path = config::get_config_dir()?;
     path.push("discord_characters");
     fs::create_dir_all(&path).await?;
-    path.push(&character_id.0.to_string());
+    path.push(character_id.0.to_string());
     Ok(path)
 }

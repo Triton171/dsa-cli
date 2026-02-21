@@ -39,7 +39,7 @@ impl Error {
         }
     }
 
-    pub fn message<'a>(&'a self) -> &'a str {
+    pub fn message(&self) -> &str {
         &self.message
     }
 
@@ -106,7 +106,7 @@ pub trait OutputWrapper {
     fn new_line(&mut self);
 
     //Prints  a formatted table given a vector of its rows (note that any headers must simply be passed as rows/columns)
-    fn output_table(&mut self, table: &Vec<Vec<String>>);
+    fn output_table(&mut self, table: &[Vec<String>]);
 }
 
 pub struct CLIOutputWrapper;
@@ -121,7 +121,7 @@ impl OutputWrapper for CLIOutputWrapper {
         println!();
     }
 
-    fn output_table(&mut self, table: &Vec<Vec<String>>) {
+    fn output_table(&mut self, table: &[Vec<String>]) {
         for row in table {
             for entry in row {
                 print!("{:<22}", entry);
