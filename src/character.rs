@@ -417,4 +417,15 @@ impl Character {
             }
         })
     }
+
+    pub fn get_skill_specialization_application(&self, skill_name: &str) -> Option<&str> {
+        self.specialabilities.iter().find_map(|s| {
+            if let SpecialAbility::SkillSpecialization(s) = s {
+                if s.skill == skill_name {
+                    return Some(s.application.as_str());
+                }
+            }
+            None
+        })
+    }
 }

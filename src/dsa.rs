@@ -140,6 +140,14 @@ pub fn talent_check(
         crit_type,
         output,
     );
+    if let Some(application) = character.get_skill_specialization_application(talent_name) {
+        output.output_line(&format!(
+            "{} has a specialization for the application \"{}\",",
+            character.get_name(),
+            application
+        ));
+        output.output_line(&"If this is relevant, 2 extra points can be added to the check.");
+    }
 }
 
 pub fn attack_check(
