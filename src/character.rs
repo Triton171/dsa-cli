@@ -2,7 +2,7 @@ use crate::util::InputErrorType;
 
 use super::config;
 use super::util::{Error, ErrorType};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::path::Path;
 use tokio::fs;
 
@@ -21,6 +21,9 @@ mod default {
     pub fn chants() -> Vec<super::CharacterChant> {
         Vec::new()
     }
+    pub fn specialabilities() -> Vec<super::SpecialAbility> {
+        Vec::new()
+    }
 }
 
 #[derive(Deserialize)]
@@ -35,6 +38,8 @@ pub struct Character {
     spells: Vec<CharacterSpell>,
     #[serde(default = "default::chants")]
     chants: Vec<CharacterChant>,
+    #[serde(default = "default::specialabilities")]
+    specialabilities: Vec<SpecialAbility>,
 }
 
 #[derive(Deserialize)]
@@ -109,6 +114,109 @@ pub struct CharacterChant {
     #[serde(flatten)]
     id_or_rule_element: IdOrCustomInfo,
     level: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum SpecialAbility {
+    SkillSpecialization(SkillSpecialization),
+    FavoriteSpell(FavoriteSpell),
+    FavoriteIncantation(FavoriteIncantation),
+    Generic {},
+}
+pub struct SkillSpecialization {
+    skill: String,
+    application: String,
+}
+pub struct FavoriteSpell {
+    spell: String,
+}
+pub struct FavoriteIncantation {
+    incantation: String,
+}
+impl<'de> Deserialize<'de> for SkillSpecialization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Input {
+            #[serde(rename = "id")]
+            _id: InputId,
+            variant: InputVariant,
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "lowercase")]
+        enum InputId {
+            FertigkeitsSpezialisierung,
+        }
+        #[derive(Deserialize)]
+        struct InputVariant {
+            skill: String,
+            application: String,
+        }
+
+        let input = Input::deserialize(deserializer)?;
+        Ok(SkillSpecialization {
+            skill: input.variant.skill,
+            application: input.variant.application,
+        })
+    }
+}
+
+fn deserialize_favorite_spell_or_incant<'de, D, InputId: Deserialize<'de>>(
+    deserializer: D,
+) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    struct Input<Id> {
+        #[serde(rename = "id")]
+        _id: Id,
+        variant: InputVariant,
+    }
+    #[derive(Deserialize)]
+    struct InputVariant {
+        ruleelement: InputRuleElement,
+    }
+    #[derive(Deserialize)]
+    struct InputRuleElement {
+        id: String,
+    }
+    let input = Input::<InputId>::deserialize(deserializer)?;
+    Ok(input.variant.ruleelement.id)
+}
+
+impl<'de> Deserialize<'de> for FavoriteSpell {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "lowercase")]
+        enum InputId {
+            LieblingsZauber,
+        }
+        let spell = deserialize_favorite_spell_or_incant::<D, InputId>(deserializer)?;
+        Ok(FavoriteSpell { spell: spell })
+    }
+}
+impl<'de> Deserialize<'de> for FavoriteIncantation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "lowercase")]
+        enum InputId {
+            LieblingsLiturgie,
+        }
+        let incant = deserialize_favorite_spell_or_incant::<D, InputId>(deserializer)?;
+        Ok(FavoriteIncantation {
+            incantation: incant,
+        })
+    }
 }
 
 impl Character {
@@ -288,5 +396,25 @@ impl Character {
                 IdOrCustomInfo::Id(_) => None,
                 IdOrCustomInfo::RuleElement { name, attributes } => Some((name, attributes)),
             })
+    }
+
+    pub fn is_favorite_spell(&self, spell_name: &str) -> bool {
+        self.specialabilities.iter().any(|s| {
+            if let SpecialAbility::FavoriteSpell(FavoriteSpell { spell }) = s {
+                *spell == *spell_name
+            } else {
+                false
+            }
+        })
+    }
+
+    pub fn is_favorite_incantation(&self, incantation_name: &str) -> bool {
+        self.specialabilities.iter().any(|s| {
+            if let SpecialAbility::FavoriteIncantation(FavoriteIncantation { incantation }) = s {
+                *incantation == *incantation_name
+            } else {
+                false
+            }
+        })
     }
 }

@@ -37,6 +37,13 @@ struct Facilitation {
     individual_facilitation: Vec<i64>,
     // The bonus to the available points/level, only applies for a PointsCheck
     points_bonus: i64,
+    // Like points_bonus, but is only applied if the check was already a success before.
+    // The second entry gives a reason for this bonus
+    successful_points_bonus: Option<SuccessfulPointsBonus>,
+}
+struct SuccessfulPointsBonus {
+    bonus: i64,
+    reason: &'static str,
 }
 // enum Facilitation {
 //     SimpleFacilitation(i64),
@@ -60,7 +67,7 @@ pub fn attribute_check(
             return;
         }
     };
-    let facilitation = match get_facilitation(cmd_matches, &[attr_name]) {
+    let facilitation = match get_facilitation(cmd_matches, &[attr_name], None) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -100,7 +107,7 @@ pub fn talent_check(
         }
     };
     let skill_attrs = &talent_entry.attributes;
-    let facilitation = match get_facilitation(cmd_matches, skill_attrs) {
+    let facilitation = match get_facilitation(cmd_matches, skill_attrs, None) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -158,7 +165,7 @@ pub fn attack_check(
             return;
         }
     };
-    let facilitation = match get_facilitation(cmd_matches, &["attack"]) {
+    let facilitation = match get_facilitation(cmd_matches, &["attack"], None) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -199,7 +206,15 @@ pub fn spell_check(
             return;
         }
     };
-    let facilitation = match get_facilitation(cmd_matches, spell_attrs) {
+    let successful_points_bonus = if character.is_favorite_spell(spell_name) {
+        Some(SuccessfulPointsBonus {
+            bonus: 2,
+            reason: "favorite spell",
+        })
+    } else {
+        None
+    };
+    let facilitation = match get_facilitation(cmd_matches, spell_attrs, successful_points_bonus) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -256,7 +271,15 @@ pub fn chant_check(
             return;
         }
     };
-    let facilitation = match get_facilitation(cmd_matches, chant_attrs) {
+    let successful_points_bonus = if character.is_favorite_incantation(chant_name) {
+        Some(SuccessfulPointsBonus {
+            bonus: 2,
+            reason: "favorite incantation",
+        })
+    } else {
+        None
+    };
+    let facilitation = match get_facilitation(cmd_matches, chant_attrs, successful_points_bonus) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -299,7 +322,7 @@ pub fn dodge_check(
     _: &Config,
     output: &mut impl OutputWrapper,
 ) {
-    let facilitation = match get_facilitation(cmd_matches, &["dodge"]) {
+    let facilitation = match get_facilitation(cmd_matches, &["dodge"], None) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -335,7 +358,7 @@ pub fn parry_check(
         }
         Ok(r) => r,
     };
-    let facilitation = match get_facilitation(cmd_matches, &["parry"]) {
+    let facilitation = match get_facilitation(cmd_matches, &["parry"], None) {
         Ok(f) => f,
         Err(e) => {
             output.output_line(&e);
@@ -580,7 +603,11 @@ pub fn roll_ini(
     ini_information
 }
 
-fn get_facilitation<S>(matches: &ArgMatches, attributes: &[S]) -> Result<Facilitation, Error>
+fn get_facilitation<S>(
+    matches: &ArgMatches,
+    attributes: &[S],
+    successful_points_bonus: Option<SuccessfulPointsBonus>,
+) -> Result<Facilitation, Error>
 where
     S: AsRef<str>,
 {
@@ -629,6 +656,7 @@ where
     Ok(Facilitation {
         individual_facilitation,
         points_bonus,
+        successful_points_bonus,
     })
 }
 
@@ -761,9 +789,15 @@ fn roll_check(
     output.output_table(&table);
     output.new_line();
 
-    if (points < 0 || crit_fail) && !crit_succ {
-        output.output_line(&"Check failed");
-    } else {
+    let passed = (points >= 0 && !crit_fail) || crit_succ;
+    if passed {
+        if let Some(b) = facilitation.successful_points_bonus {
+            output.output_line(&format!(
+                "Adding {} extra points to the successful check ({})",
+                b.bonus, b.reason
+            ));
+            points += b.bonus;
+        }
         match check_type {
             CheckType::SimpleCheck => {
                 output.output_line(&"Check passed");
@@ -778,6 +812,8 @@ fn roll_check(
                 output.output_line(&format!("Check passed, quality level {}", quality));
             }
         }
+    } else {
+        output.output_line(&"Check failed");
     }
 
     if crit_succ {
