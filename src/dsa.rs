@@ -659,58 +659,43 @@ fn roll_check(
         rolls.push(roll);
     }
     //Check for crits
-    let mut crits = false;
-    let mut unconfirmed_crit_succ = 0;
-    let mut crit_succ = 0;
-    let mut unconfirmed_crit_fail = 0;
-    let mut crit_fail = 0;
-    let mut crits_row: Vec<String> = Vec::new();
-    match crit_type {
-        CritType::NoCrits => {}
+    let (crit_succ, crit_fail, crit_row) = match crit_type {
+        CritType::NoCrits => (false, false, None),
         CritType::ConfirmableCrits => {
-            crits_row.push(String::from("Crit roll:"));
+            let mut crit_row: Vec<String> = vec![String::from("Crit roll:")];
+            let mut crit_succ = false;
+            let mut crit_fail = false;
+            let mut rolled_for_crit = false;
             for ((_, level), &roll) in attributes.iter().zip(rolls.iter()) {
                 if roll == 1 {
                     let crit_roll = d20.sample(&mut rng);
-                    crits_row.push(crit_roll.to_string());
-                    crits = true;
+                    crit_row.push(crit_roll.to_string());
+                    rolled_for_crit = true;
                     if crit_roll <= *level {
-                        crit_succ += 1;
-                    } else {
-                        unconfirmed_crit_succ += 1;
+                        crit_succ = true;
                     }
                 } else if roll == 20 {
                     let crit_roll = d20.sample(&mut rng);
-                    crits_row.push(crit_roll.to_string());
-                    crits = true;
+                    crit_row.push(crit_roll.to_string());
+                    rolled_for_crit = true;
                     if crit_roll > *level {
-                        crit_fail += 1;
-                    } else {
-                        unconfirmed_crit_fail += 1;
+                        crit_fail = true;
                     }
                 } else {
-                    crits_row.push(String::from(""));
+                    crit_row.push(String::from(""));
                 }
             }
+            let crit_row = if rolled_for_crit {
+                Some(crit_row)
+            } else {
+                None
+            };
+            (crit_succ, crit_fail, crit_row)
         }
         CritType::MultipleRequiredCrits(num_required) => {
-            let mut num_succ: u32 = 0;
-            let mut num_fail: u32 = 0;
-            for &roll in &rolls {
-                if roll == 1 {
-                    num_succ += 1;
-                } else if roll == 20 {
-                    num_fail += 1;
-                }
-            }
-            if num_succ >= num_required {
-                crits = true;
-                crit_succ = 1;
-            }
-            if num_fail >= num_required {
-                crits = true;
-                crit_fail = 1;
-            }
+            let crit_succ = rolls.iter().filter(|&&r| r == 1).count() >= num_required as usize;
+            let crit_fail = rolls.iter().filter(|&&r| r == 20).count() >= num_required as usize;
+            (crit_succ, crit_fail, None)
         }
     };
 
@@ -768,15 +753,13 @@ fn roll_check(
     rolls_row.extend(rolls.iter().map(|roll| roll.to_string()));
     table.push(rolls_row);
 
-    if let CritType::ConfirmableCrits = crit_type {
-        if crits {
-            table.push(crits_row);
-        }
+    if let Some(crit_row) = crit_row {
+        table.push(crit_row);
     }
     output.output_table(&table);
     output.new_line();
 
-    if points < 0 {
+    if (points < 0 || crit_fail) && !crit_succ {
         output.output_line(&"Check failed");
     } else {
         match check_type {
@@ -784,7 +767,7 @@ fn roll_check(
                 output.output_line(&"Check passed");
             }
             CheckType::PointsCheck(_) => {
-                let mut quality: u32 = (points as f32 / 3f32).ceil() as u32;
+                let mut quality: u32 = (max(points, 0) as f32 / 3f32).ceil() as u32;
                 if quality == 0 {
                     quality = 1;
                 } else if quality > 6 {
@@ -795,32 +778,10 @@ fn roll_check(
         }
     }
 
-    if crits {
-        if crit_succ == 1 {
-            output.output_line(&"Critical success");
-        } else if crit_succ > 1 {
-            output.output_line(&format!("{} critical successes", crit_succ));
-        }
-        if unconfirmed_crit_succ == 1 {
-            output.output_line(&"Unconfirmed critical success");
-        } else if unconfirmed_crit_succ > 1 {
-            output.output_line(&format!(
-                "{} unconfirmed critical successes",
-                unconfirmed_crit_succ
-            ));
-        }
-        if crit_fail == 1 {
-            output.output_line(&"Critical failure");
-        } else if crit_fail > 1 {
-            output.output_line(&format!("{} critical failures", crit_fail));
-        }
-        if unconfirmed_crit_fail == 1 {
-            output.output_line(&"Unconfirmed critical failure");
-        } else if unconfirmed_crit_fail > 1 {
-            output.output_line(&format!(
-                "{} unconfirmed critical failures",
-                unconfirmed_crit_fail
-            ));
-        }
+    if crit_succ {
+        output.output_line(&"Critical success");
+    }
+    if crit_fail {
+        output.output_line(&"Critical failure");
     }
 }
