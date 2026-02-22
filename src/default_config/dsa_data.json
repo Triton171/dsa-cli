@@ -267,41 +267,26 @@
         }
     },
     "spells" : {
-        "ignifaxius" : {
-            "attributes" : ["mut", "klugheit", "charisma"]
+        "analysarkanstruktur" : {
+            "attributes" : ["klugheit", "klugheit", "intuition"]
+        },
+        "armatrutz" : {
+            "attributes": ["klugheit", "intuition", "fingerfertigkeit"]
         },
         "balsamsalabunde" : {
             "attributes" : ["klugheit", "intuition", "fingerfertigkeit"]
         },
-        "menetekel" : {
-            "attributes" : ["klugheit", "charisma", "fingerfertigkeit"]
-        },
-        "pentagramma" : {
-            "attributes" : ["mut", "klugheit", "charisma"]
-        },
-        "analysarkanstruktur" : {
-            "attributes" : ["klugheit", "klugheit", "intuition"]
-        },
-        "motoricus" : {
-            "attributes" : ["klugheit", "fingerfertigkeit", "koerperkraft"]
-        },
-        "transversalis" : {
-            "attributes" : ["mut", "charisma", "konstitution"]
-        },
-        "nuntiovolo" : {
-            "attributes" : ["mut", "klugheit", "charisma"]
-        },
         "bannbaladin" : {
             "attributes" : ["mut", "intuition", "charisma"]
         },
-        "odemarcanum" : {
-            "attributes" : ["mut", "klugheit", "intuition"]
-        },
-        "manusmiracula" : {
-            "attributes" : ["klugheit", "fingerfertigkeit", "koerperkraft"]
+        "blickindiegedanken": {
+            "attributes": ["mut", "klugheit", "intuition"]
         },
         "blitzdichfind" : {
             "attributes" : ["mut", "intuition", "charisma"]
+        },
+        "daemonenschild": {
+            "attributes": ["mut", "klugheit", "charisma"]
         },
         "flimflam" : {
             "attributes" : ["mut", "klugheit", "charisma"]
@@ -309,44 +294,65 @@
         "fulminictus": {
             "attributes" : ["klugheit", "intuition", "konstitution"]
         },
-        "hexengalle": {
-            "attributes" : ["klugheit", "intuition", "konstitution"]
-        },
-        "paralysis": {
-            "attributes": ["klugheit", "intuition", "konstitution"]
-        },
-        "blickindiegedanken": {
-            "attributes": ["mut", "klugheit", "intuition"]
+        "gardianum": {
+            "attributes": ["mut", "klugheit", "charisma"]
         },
         "harmlosegestalt": {
             "attributes": ["klugheit", "intuition", "charisma"]
         },
-        "sanftmut": {
-            "attributes": ["mut", "intuition", "charisma"]
-        },
-        "zaubermelodie" : {
-            "attributes": ["mut", "intuition", "charisma"]
-        },
-        "armatrutz" : {
-            "attributes": ["klugheit", "intuition", "fingerfertigkeit"]
-        },
-        "gardianum": {
-            "attributes": ["mut", "klugheit", "charisma"]
-        },
-        "penetrizzel": {
-            "attributes": ["mut", "klugheit", "intuition"]
-        },
-        "daemonenschild": {
+        "heptagramma": {
             "attributes": ["mut", "klugheit", "charisma"]
         },
         "hexagramma": {
             "attributes": ["mut", "klugheit", "charisma"]
         },
-        "heptagramma": {
-            "attributes": ["mut", "klugheit", "charisma"]
+        "hexengalle": {
+            "attributes" : ["klugheit", "intuition", "konstitution"]
+        },
+        "ignifaxius" : {
+            "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "manusmiracula" : {
+            "attributes" : ["klugheit", "fingerfertigkeit", "koerperkraft"]
+        },
+        "menetekel" : {
+            "attributes" : ["klugheit", "charisma", "fingerfertigkeit"]
+        },
+        "motoricus" : {
+            "attributes" : ["klugheit", "fingerfertigkeit", "koerperkraft"]
+        },
+        "nuntiovolo" : {
+            "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "odemarcanum" : {
+            "attributes" : ["mut", "klugheit", "intuition"]
+        },
+        "paralysis": {
+            "attributes": ["klugheit", "intuition", "konstitution"]
+        },
+        "penetrizzel": {
+            "attributes": ["mut", "klugheit", "intuition"]
+        },
+        "pentagramma" : {
+            "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "sanftmut": {
+            "attributes": ["mut", "intuition", "charisma"]
+        },
+        "transversalis" : {
+            "attributes" : ["mut", "charisma", "konstitution"]
+        },
+        "zaubermelodie" : {
+            "attributes": ["mut", "intuition", "charisma"]
         }
     },
     "chants" : {
+        "bannderdunkelheit": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
+        "blendstrahl": {
+            "attributes": ["mut", "klugheit", "intuition"]
+        },
         "entzifferung" : {
             "attributes" : ["klugheit", "klugheit", "intuition"]
         },
@@ -356,11 +362,23 @@
         "friedvolleaura" : {
             "attributes" : ["mut", "intuition", "charisma"]
         },
+        "goettlicherfingerzeig": {
+            "attributes": ["klugheit", "intuition", "intuition"]
+        },
         "goettlicheszeichen" : {
             "attributes" : ["intuition", "intuition", "charisma"]
         },
+        "heiligerbefehl": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
+        "magieschutz": {
+            "attributes": ["mut", "intuition", "charisma"]
+        },
         "objektsegen" : {
             "attributes" : ["mut", "intuition", "charisma"]
+        },
+        "objektweihe": {
+            "attributes": ["klugheit", "intuition", "charisma"]
         },
         "schlangenstab" : {
             "attributes" : ["mut", "klugheit", "intuition"]
@@ -370,24 +388,6 @@
         },
         "wundersameverstaendigung" : {
             "attributes" : ["klugheit", "klugheit", "intuition"]
-        },
-        "bannderdunkelheit": {
-            "attributes": ["mut", "klugheit", "charisma"]
-        },
-        "blendstrahl": {
-            "attributes": ["mut", "klugheit", "intuition"]
-        },
-        "goettlicherfingerzeig": {
-            "attributes": ["klugheit", "intuition", "intuition"]
-        },
-        "heiligerbefehl": {
-            "attributes": ["mut", "klugheit", "charisma"]
-        },
-        "magieschutz": {
-            "attributes": ["mut", "intuition", "charisma"]
-        },
-        "objektweihe": {
-            "attributes": ["klugheit", "intuition", "charisma"]
         }
     }
 }
