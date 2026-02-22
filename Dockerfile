@@ -1,4 +1,4 @@
-FROM rust:1.78 as build
+FROM rust:1.93 AS build
 
 # install https://lib.rs/crates/cargo-build-dependencies so we can cache dependencies in a seperate layer
 RUN cargo install cargo-build-dependencies 
