@@ -267,6 +267,9 @@
         }
     },
     "spells" : {
+        "affenruf": {
+            "attributes": ["mut", "mut", "charisma"]
+        },
         "analysarkanstruktur" : {
             "attributes" : ["klugheit", "klugheit", "intuition"]
         },
@@ -275,6 +278,9 @@
         },
         "balsamsalabunde" : {
             "attributes" : ["klugheit", "intuition", "fingerfertigkeit"]
+        },
+        "bandundfessel": {
+            "attributes" : ["klugheit", "charisma", "koerperkraft"]
         },
         "bannbaladin" : {
             "attributes" : ["mut", "intuition", "charisma"]
@@ -288,8 +294,17 @@
         "daemonenschild": {
             "attributes": ["mut", "klugheit", "charisma"]
         },
+        "disruptivo": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
+        "dornenwand": {
+            "attributes": ["mut", "klugheit", "charisma"]
+        },
         "flimflam" : {
             "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "frigisphaero": {
+            "attributes": ["mut", "klugheit", "konstitution"]
         },
         "fulminictus": {
             "attributes" : ["klugheit", "intuition", "konstitution"]
@@ -303,6 +318,9 @@
         "heptagramma": {
             "attributes": ["mut", "klugheit", "charisma"]
         },
+        "herrueberdastierreich": {
+            "attributes": ["mut", "intuition", "charisma"]
+        },
         "hexagramma": {
             "attributes": ["mut", "klugheit", "charisma"]
         },
@@ -311,6 +329,9 @@
         },
         "ignifaxius" : {
             "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "klarumpurum": {
+            "attributes": ["klugheit", "intuition", "charisma"]
         },
         "manusmiracula" : {
             "attributes" : ["klugheit", "fingerfertigkeit", "koerperkraft"]
@@ -323,6 +344,9 @@
         },
         "nuntiovolo" : {
             "attributes" : ["mut", "klugheit", "charisma"]
+        },
+        "objectovoco": {
+            "attributes": ["klugheit", "intuition", "charisma"]
         },
         "odemarcanum" : {
             "attributes" : ["mut", "klugheit", "intuition"]
@@ -344,6 +368,9 @@
         },
         "zaubermelodie" : {
             "attributes": ["mut", "intuition", "charisma"]
+        },
+        "zornderelemente": {
+            "attributes": ["mut", "klugheit", "charisma"]
         }
     },
     "chants" : {
