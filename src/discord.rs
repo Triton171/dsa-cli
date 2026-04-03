@@ -1,8 +1,69 @@
-use super::util::*;
-use std::fmt::Write;
+use crate::{
+    character_manager::CharacterManager,
+    config::{Config, DSAData},
+    discord_commands::all_discord_commands,
+    util::OutputWrapper,
+};
+
+use ::serenity::Client;
+use anyhow::{Context, Error};
+use poise::serenity_prelude as serenity;
+use std::{
+    fmt::Write,
+    sync::{Arc, RwLock},
+};
 
 const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
 const DISCORD_TABLE_COL_SEP: usize = 4; //The number of whitespaces between 2 table columns
+
+pub struct DiscordData {
+    config: Arc<Config>,
+    dsa_data: Arc<DSAData>,
+    character_manager: RwLock<CharacterManager>,
+}
+pub type DiscordContext<'a> = poise::Context<'a, DiscordData, Error>;
+
+pub async fn run_discord_bot(config: Arc<Config>, dsa_data: Arc<DSAData>) -> Result<(), Error> {
+    let character_manager = CharacterManager::init(&config).await?;
+    let mut client = setup_discord_client(config, dsa_data, character_manager).await?;
+    client.start().await?;
+    Ok(())
+}
+
+async fn setup_discord_client(
+    config: Arc<Config>,
+    dsa_data: Arc<DSAData>,
+    character_manager: CharacterManager,
+) -> Result<Client, Error> {
+    let intents = serenity::GatewayIntents::non_privileged();
+    let token = config
+        .discord
+        .login_token
+        .clone()
+        .context("Missing discord token")?;
+    let character_manager = RwLock::new(character_manager);
+
+    let framework = poise::Framework::builder()
+        .options(poise::FrameworkOptions {
+            commands: all_discord_commands(),
+            ..Default::default()
+        })
+        .setup(|ctx, _ready, framework| {
+            Box::pin(async move {
+                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                Ok(DiscordData {
+                    config,
+                    dsa_data,
+                    character_manager,
+                })
+            })
+        })
+        .build();
+    let client = serenity::ClientBuilder::new(token, intents)
+        .framework(framework)
+        .await?;
+    Ok(client)
+}
 
 //A lazy output wrapper for sending discord messages
 pub struct DiscordOutputWrapper {

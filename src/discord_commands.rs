@@ -3,19 +3,17 @@ use std::{sync::RwLock, time::Duration};
 use crate::{
     character_manager::CharacterManager,
     config::{Config, DSAData},
+    discord::{DiscordContext, DiscordData},
 };
-use ::serenity::all::{CreateInteractionResponseMessage, CreateMessage};
+use ::serenity::all::CreateInteractionResponseMessage;
 use anyhow::Error;
 use futures::StreamExt;
 use poise::{serenity_prelude as serenity, CreateReply};
-use serenity::all::{CreateActionRow, CreateInputText, InputTextStyle};
+use serenity::all::CreateActionRow;
 
-struct Data {
-    character_manager: RwLock<CharacterManager>,
-    config: Config,
-    dsa_data: DSAData,
+pub fn all_discord_commands() -> Vec<poise::Command<DiscordData, Error>> {
+    vec![characters()]
 }
-type Context<'a> = poise::Context<'a, Data, Error>;
 
 // TODO: Things to implement:
 // - List characters
@@ -24,7 +22,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 // - Upload a new character
 // - Allow access to a character in a specific channel (low-prio)
 #[poise::command(slash_command)]
-async fn characters(ctx: Context<'_>) -> Result<(), Error> {
+pub async fn characters(ctx: DiscordContext<'_>) -> Result<(), Error> {
     let components: Vec<CreateActionRow> = Vec::new();
 
     let text_uuid = ctx.id().to_string() + "_text";
@@ -76,18 +74,18 @@ enum CheckType {
 // - roll for multiple characters in the channel
 // - add custom characters
 #[poise::command(slash_command)]
-async fn initiative(ctx: Context<'_>) -> Result<(), Error> {
+async fn initiative(ctx: DiscordContext<'_>) -> Result<(), Error> {
     Ok(())
 }
 
 // TODO: Implement
 #[poise::command(slash_command)]
-async fn roll(ctx: Context<'_>) -> Result<(), Error> {
+async fn roll(ctx: DiscordContext<'_>) -> Result<(), Error> {
     Ok(())
 }
 
 // TODO: Implement
 #[poise::command(slash_command)]
-async fn hi(ctx: Context<'_>) -> Result<(), Error> {
+async fn hi(ctx: DiscordContext<'_>) -> Result<(), Error> {
     Ok(())
 }

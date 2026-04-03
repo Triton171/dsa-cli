@@ -10,17 +10,28 @@ mod util;
 #[macro_use]
 extern crate enum_display_derive;
 
-use crate::util::ErrorType;
+use std::sync::Arc;
+
+use crate::{discord::run_discord_bot, util::ErrorType};
 use anyhow::{Context, Error};
 use config::{AbstractConfig, Config, DSAData};
+use tokio::runtime::Builder;
 
 fn main() -> Result<(), Error> {
-    let config = Config::get_or_create()?;
-    let dsa_data = get_dsa_data(&config)?;
-    let token = config
-        .discord
-        .login_token
-        .context("Missing discord token")?;
+    let config = Arc::new(Config::get_or_create()?);
+    let dsa_data = Arc::new(get_dsa_data(&config)?);
+    let runtime = Builder::new_multi_thread()
+        .worker_threads(config.discord.num_threads)
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        run_discord_bot(config, dsa_data)
+            .await
+            .context("Critical error while running the discord bot")
+            .unwrap();
+    });
     Ok(())
 }
 
