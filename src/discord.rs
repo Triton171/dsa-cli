@@ -5,7 +5,7 @@ use crate::{
     util::OutputWrapper,
 };
 
-use ::serenity::Client;
+use ::serenity::{all::GuildId, Client};
 use anyhow::{Context, Error};
 use poise::serenity_prelude as serenity;
 use std::{
@@ -36,11 +36,7 @@ async fn setup_discord_client(
     character_manager: CharacterManager,
 ) -> Result<Client, Error> {
     let intents = serenity::GatewayIntents::non_privileged();
-    let token = config
-        .discord
-        .login_token
-        .clone()
-        .context("Missing discord token")?;
+    let token = config.discord.login_token.clone();
     let character_manager = RwLock::new(character_manager);
 
     let framework = poise::Framework::builder()
@@ -50,7 +46,16 @@ async fn setup_discord_client(
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                if let Some(guild_id) = config.discord.test_in_guild_id {
+                    poise::builtins::register_in_guild(
+                        &ctx,
+                        &framework.options().commands,
+                        GuildId::new(guild_id),
+                    )
+                    .await?;
+                } else {
+                    poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                }
                 Ok(DiscordData {
                     config,
                     dsa_data,

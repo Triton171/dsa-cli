@@ -23,19 +23,6 @@ mod default {
         }
     }
     pub mod discord {
-        pub fn discord() -> super::super::ConfigDiscord {
-            super::super::ConfigDiscord {
-                login_token: None,
-                application_id: None,
-                use_slash_commands: use_slash_commands(),
-                num_threads: num_threads(),
-                require_complete_command: require_complete_command(),
-                use_reply: use_reply(),
-                max_attachement_size: max_attachement_size(),
-                max_name_length: max_name_length(),
-                max_num_characters: max_num_characters(),
-            }
-        }
         pub fn use_slash_commands() -> bool {
             false
         }
@@ -71,13 +58,15 @@ pub struct Config {
     pub auto_update_dsa_data: bool,
     #[serde(default = "default::dsa_rules::dsa_rules")]
     pub dsa_rules: ConfigDSARules,
-    #[serde(default = "default::discord::discord")]
     pub discord: ConfigDiscord,
 }
 
+// TODO: Remove redundant config options
 #[derive(Deserialize)]
 pub struct ConfigDiscord {
-    pub login_token: Option<String>,
+    pub login_token: String,
+    // Should only be used for testing, commands will only be registered for that specific guild and not globally
+    pub test_in_guild_id: Option<u64>,
     pub application_id: Option<u64>,
     #[serde(default = "default::discord::use_slash_commands")]
     pub use_slash_commands: bool,
