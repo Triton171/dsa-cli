@@ -3,13 +3,14 @@ use crate::{config::Config, util::IOErrorType};
 use super::{
     character::Character,
     config,
-    discord_commands::CommandContext,
     util::{Error, ErrorType, InputErrorType},
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{borrow::Borrow, collections::HashMap};
 use tokio::{fs, io::AsyncWriteExt};
+
+static EMPTY_CHARACTER_LIST: Vec<CharacterInfo> = Vec::new();
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CharacterId(u64);
@@ -23,6 +24,7 @@ struct CharacterInfo {
 
 #[derive(Serialize, Deserialize)]
 struct CharacterList {
+    // IMPROVE: Generate UUIDs instead of numbering the characters sequentially
     next_character_id: CharacterId,
     characters: HashMap<u64, Vec<CharacterInfo>>,
 }
@@ -63,6 +65,7 @@ impl CharacterManager {
                 characters: CharacterList::new(),
             };
             if folder_path.exists() {
+                // TODO: This can probably be removed
                 // Migrate old characters to the new storage system
                 println!("Migrating old characters to the new character storage system");
                 let mut files = fs::read_dir(&folder_path).await?;
@@ -195,24 +198,11 @@ impl CharacterManager {
         }
     }
 
-    /*
-    Returns the names for the currently selected character (if any) and all of the other characters
-    */
-    pub fn list_characters(&self, user_id: u64) -> (Option<String>, Vec<String>) {
+    pub async fn get_characters(&self, user_id: u64) -> &Vec<CharacterInfo> {
         if let Some(user_characters) = self.characters.characters.get(&user_id) {
-            let selected = user_characters
-                .iter()
-                .filter(|c| c.selected)
-                .map(|c| c.name.clone())
-                .next();
-            let non_selected = user_characters
-                .iter()
-                .filter(|c| !c.selected)
-                .map(|c| c.name.clone())
-                .collect();
-            (selected, non_selected)
+            &user_characters
         } else {
-            (None, Vec::new())
+            &EMPTY_CHARACTER_LIST
         }
     }
 
@@ -221,6 +211,7 @@ impl CharacterManager {
         user_id: u64,
         name: impl Borrow<str>,
     ) -> Result<String, Error> {
+        // TODO: Use character ID
         if let Some(user_characters) = self.characters.characters.get_mut(&user_id) {
             let name = name.borrow().trim().to_ascii_lowercase();
             let mut matching_characters = user_characters
@@ -255,168 +246,10 @@ impl CharacterManager {
         }
     }
 
-    pub async fn find_character(
-        &self,
-        ctx: &impl CommandContext,
-        name: Option<impl Borrow<str>>,
-    ) -> Result<CharacterId, Error> {
-        let sender_id = *ctx.sender()?.as_u64();
-        match name {
-            None => {
-                // Use the selected character for this discord account
-                if let Some(user_characters) = self.characters.characters.get(&sender_id) {
-                    if let Some(character) = user_characters.iter().find(|c| c.selected) {
-                        Ok(character.character_id)
-                    } else {
-                        Err(Error::new(
-                            "Error getting character: No character is currently selected",
-                            ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-                        ))
-                    }
-                } else {
-                    Err(Error::new(
-                        "Error getting character: No character found for this discord account",
-                        ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-                    ))
-                }
-            }
-            Some(name) => {
-                let name = name.borrow().trim().to_ascii_lowercase();
-                // First, look for a character matching the name in the senders discord account
-                if let Some(user_characters) = self.characters.characters.get(&sender_id) {
-                    let mut matching_characters = user_characters
-                        .iter()
-                        .filter(|c| c.name.to_ascii_lowercase().contains(&name));
-                    if let Some(c) = matching_characters.next() {
-                        if let Some(c2) = matching_characters.next() {
-                            return Err(Error::new(
-                                format!(
-                                    "Ambiguous character name, matches \"{}\" and \"{}\"",
-                                    c.name, c2.name
-                                ),
-                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                            ));
-                        }
-                        return Ok(c.character_id);
-                    }
-                }
-                // If no matching character was found for the user, check all the users in the channel
-                let mut matching_character: Option<&CharacterInfo> = None;
-                for user_id in ctx
-                    .members_in_channel()
-                    .await?
-                    .iter()
-                    .map(|m| m.user.id.as_u64())
-                {
-                    if let Some(user_characters) = self.characters.characters.get(user_id) {
-                        for c in user_characters.iter() {
-                            if c.name.to_ascii_lowercase().contains(&name) {
-                                if let Some(c0) = matching_character {
-                                    return Err(Error::new(
-                                        format!(
-                                            "Ambiguous character name, matches \"{}\" and \"{}\"",
-                                            c0.name, c.name
-                                        ),
-                                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                                    ));
-                                } else {
-                                    matching_character = Some(c);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if let Some(c) = matching_character {
-                    Ok(c.character_id)
-                } else {
-                    Err(Error::new(
-                        "Error getting character: No matching character found",
-                        ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-                    ))
-                }
-            }
-        }
-    }
-
-    pub async fn find_character_for_user(
-        &self,
-        user_id: u64,
-        name: Option<impl Borrow<str>>,
-    ) -> Result<CharacterId, Error> {
-        if let Some(user_characters) = self.characters.characters.get(&user_id) {
-            match name {
-                None => {
-                    // Use the selected character for this discord account
-                    if let Some(character) = user_characters.iter().find(|c| c.selected) {
-                        Ok(character.character_id)
-                    } else {
-                        Err(Error::new(
-                            "Error getting character: No character is currently selected",
-                            ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-                        ))
-                    }
-                }
-                Some(name) => {
-                    let name = name.borrow().trim().to_ascii_lowercase();
-                    // Look for a character matching the name in the specified discord account
-                    let mut matching_characters = user_characters
-                        .iter()
-                        .filter(|c| c.name.to_ascii_lowercase().contains(&name));
-                    if let Some(c) = matching_characters.next() {
-                        if let Some(c2) = matching_characters.next() {
-                            return Err(Error::new(
-                                format!(
-                                    "Ambiguous character name, matches \"{}\" and \"{}\"",
-                                    c.name, c2.name
-                                ),
-                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                            ));
-                        }
-                        return Ok(c.character_id);
-                    }
-                    Err(Error::new(
-                        "Error getting character: No matching character found",
-                        ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-                    ))
-                }
-            }
-        } else {
-            Err(Error::new(
-                "Error getting character: No character found for this discord account",
-                ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-            ))
-        }
-    }
-
     pub async fn get_character(&self, id: CharacterId) -> Result<Character, Error> {
+        // TODO: Add caching
         let path = get_character_path(id).await?;
         Character::from_file(&path).await
-    }
-
-    pub fn get_character_name(
-        &self,
-        user_id: u64,
-        character_id: CharacterId,
-    ) -> Result<&str, Error> {
-        match self.characters.characters.get(&user_id) {
-            None => Err(Error::new(
-                "Error getting character name: No character found for this account",
-                ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-            )),
-            Some(user_characters) => {
-                match user_characters
-                    .iter()
-                    .find(|c| c.character_id == character_id)
-                {
-                    None => Err(Error::new(
-                        "Error getting character name: No character found with the given id",
-                        ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-                    )),
-                    Some(c) => Ok(&c.name),
-                }
-            }
-        }
     }
 
     async fn write_character_list(&self) -> Result<(), Error> {

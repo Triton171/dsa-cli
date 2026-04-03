@@ -16,13 +16,16 @@ enum-display-derive = "0.1.1"
 substring="1.4.0"
 itertools = "0.10"
 
+[dependencies.anyhow]
+version = "1.0.102"
+features = ["backtrace"]
+
 [dependencies.tokio]
 version = "1.4.0"
 features = ["rt-multi-thread"]
 
 [dependencies.serenity]
-version = "0.10.5"
-git = "https://github.com/serenity-rs/serenity"
-branch = "current"
-default-features = false
-features = ["rustls_backend", "builder", "cache", "client", "model", "gateway", "http", "unstable_discord_api"]
+version = "0.12.5"
+
+[dependencies.poise]
+version = "0.6.1"
