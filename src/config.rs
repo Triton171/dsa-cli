@@ -180,15 +180,15 @@ where
         Ok(())
     }
 
-    fn get_or_create(output: &mut impl OutputWrapper) -> Result<Self, Error> {
+    fn get_or_create() -> Result<Self, Error> {
         match Self::read() {
             Ok(config) => Ok(config),
             Err(e) => {
                 if let ErrorType::IO(IOErrorType::MissingFile) = e.err_type() {
-                    output.output_line(&format!(
+                    println!(
                         "Creating default config (did not find file \"{}\")",
                         Self::absolute_path()?.to_str().unwrap_or("[Invalid Path]")
-                    ));
+                    );
                     Self::create_default()?;
                     Self::read()
                 } else {
@@ -271,25 +271,20 @@ impl DSAData {
         self.attributes.get(attribute).unwrap().short_name.as_str()
     }
 
-    pub fn check_replacement_needed(
-        self,
-        config: &Config,
-        output: &mut impl OutputWrapper,
-    ) -> DSAData {
+    pub fn check_replacement_needed(self, config: &Config) -> DSAData {
         if config.auto_update_dsa_data && self.version < DSA_DATA_NEWEST_VERSION {
             match Self::create_default() {
                 Err(e) => {
-                    output.output_line(&format!(
-                        "Error replacing dsa data with newer version: {}",
-                        e
-                    ));
+                    println!("Error replacing dsa data with newer version: {}", e);
                     self
                 }
                 Ok(()) => {
-                    output.output_line(&"Replaced dsa data with newer version");
+                    println!("Replaced dsa data with newer version");
                     match Self::read() {
                         Err(_) => {
-                            output.output_line(&"Error reading newly created dsa data, continuing with old version");
+                            println!(
+                                "Error reading newly created dsa data, continuing with old version"
+                            );
                             self
                         }
                         Ok(new_data) => new_data,

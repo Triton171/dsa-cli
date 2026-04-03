@@ -92,6 +92,8 @@ impl fmt::Debug for Error {
     }
 }
 
+impl core::error::Error for Error {}
+
 pub fn uppercase_first(s: &str) -> String {
     let mut c = s.chars();
     match c.next() {
