@@ -5,9 +5,8 @@ use crate::{
     util::OutputWrapper,
 };
 
-use ::serenity::{all::GuildId, Client};
 use anyhow::{Context, Error};
-use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::{self as serenity, Client, GuildId};
 use std::{
     fmt::Write,
     sync::{Arc, RwLock},
@@ -17,9 +16,9 @@ const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
 const DISCORD_TABLE_COL_SEP: usize = 4; //The number of whitespaces between 2 table columns
 
 pub struct DiscordData {
-    config: Arc<Config>,
-    dsa_data: Arc<DSAData>,
-    character_manager: RwLock<CharacterManager>,
+    pub config: Arc<Config>,
+    pub dsa_data: Arc<DSAData>,
+    pub character_manager: RwLock<CharacterManager>,
 }
 pub type DiscordContext<'a> = poise::Context<'a, DiscordData, Error>;
 

@@ -5,11 +5,14 @@ use crate::{
     config::{Config, DSAData},
     discord::{DiscordContext, DiscordData},
 };
-use ::serenity::all::CreateInteractionResponseMessage;
 use anyhow::Error;
 use futures::StreamExt;
-use poise::{serenity_prelude as serenity, CreateReply};
-use serenity::all::CreateActionRow;
+use poise::{
+    serenity_prelude::{
+        self as serenity, CreateActionRow, CreateButton, CreateInteractionResponseMessage,
+    },
+    CreateReply,
+};
 
 pub fn all_discord_commands() -> Vec<poise::Command<DiscordData, Error>> {
     vec![characters()]
@@ -23,9 +26,22 @@ pub fn all_discord_commands() -> Vec<poise::Command<DiscordData, Error>> {
 // - Allow access to a character in a specific channel (low-prio)
 #[poise::command(slash_command)]
 pub async fn characters(ctx: DiscordContext<'_>) -> Result<(), Error> {
-    let components: Vec<CreateActionRow> = Vec::new();
+    let user_id = ctx.author().id;
+    let character_manager = &ctx.data().character_manager;
 
-    let text_uuid = ctx.id().to_string() + "_text";
+    let characters = character_manager
+        .read()
+        .unwrap()
+        .get_characters(user_id.get())
+        .clone();
+
+    let buttons: Vec<_> = characters
+        .iter()
+        .enumerate()
+        .map(|(idx, c)| CreateActionRow::Buttons(vec![CreateButton::new("")]))
+        .collect();
+
+    let components: Vec<CreateActionRow> = vec![serenity::CreateActionRow::Buttons(vec![])];
 
     let reply = CreateReply::default()
         .content("test")

@@ -1,5 +1,7 @@
 use std::fmt::{self, Display};
 
+use poise::serenity_prelude as serenity;
+
 pub struct Error {
     message: String,
     err_type: ErrorType,

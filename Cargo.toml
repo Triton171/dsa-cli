@@ -24,8 +24,5 @@ features = ["backtrace"]
 version = "1.4.0"
 features = ["rt-multi-thread"]
 
-[dependencies.serenity]
-version = "0.12.5"
-
 [dependencies.poise]
 version = "0.6.1"

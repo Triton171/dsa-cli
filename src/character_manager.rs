@@ -15,11 +15,11 @@ static EMPTY_CHARACTER_LIST: Vec<CharacterInfo> = Vec::new();
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CharacterId(u64);
 
-#[derive(Serialize, Deserialize)]
-struct CharacterInfo {
-    character_id: CharacterId,
-    name: String,
-    selected: bool,
+#[derive(Clone, Serialize, Deserialize)]
+pub struct CharacterInfo {
+    pub character_id: CharacterId,
+    pub name: String,
+    pub selected: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -198,7 +198,7 @@ impl CharacterManager {
         }
     }
 
-    pub async fn get_characters(&self, user_id: u64) -> &Vec<CharacterInfo> {
+    pub fn get_characters(&self, user_id: u64) -> &Vec<CharacterInfo> {
         if let Some(user_characters) = self.characters.characters.get(&user_id) {
             &user_characters
         } else {
