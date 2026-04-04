@@ -6,11 +6,9 @@ use crate::{
 };
 
 use anyhow::{Context, Error};
-use poise::serenity_prelude::{self as serenity, Client, GuildId};
-use std::{
-    fmt::Write,
-    sync::{Arc, RwLock},
-};
+use poise::serenity_prelude::{self as serenity, ApplicationId, Client, GuildId};
+use std::{fmt::Write, sync::Arc};
+use tokio::sync::RwLock;
 
 const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
 const DISCORD_TABLE_COL_SEP: usize = 4; //The number of whitespaces between 2 table columns

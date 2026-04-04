@@ -67,7 +67,6 @@ pub struct ConfigDiscord {
     pub login_token: String,
     // Should only be used for testing, commands will only be registered for that specific guild and not globally
     pub test_in_guild_id: Option<u64>,
-    pub application_id: Option<u64>,
     #[serde(default = "default::discord::use_slash_commands")]
     pub use_slash_commands: bool,
     #[serde(default = "default::discord::num_threads")]

@@ -6,8 +6,8 @@ use super::{
     util::{Error, ErrorType, InputErrorType},
 };
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::{borrow::Borrow, collections::HashMap};
+use std::{future::Future, path::PathBuf};
 use tokio::{fs, io::AsyncWriteExt};
 
 static EMPTY_CHARACTER_LIST: Vec<CharacterInfo> = Vec::new();

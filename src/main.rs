@@ -27,10 +27,13 @@ fn main() -> Result<(), Error> {
         .build()
         .unwrap();
     runtime.block_on(async {
-        run_discord_bot(config, dsa_data)
-            .await
-            .context("Critical error while running the discord bot")
-            .unwrap();
+        if let Err(err) = run_discord_bot(config, dsa_data).await {
+            println!(
+                "Critical error occurred while running the discord bot: {}\n{}",
+                err,
+                err.backtrace()
+            );
+        }
     });
     Ok(())
 }

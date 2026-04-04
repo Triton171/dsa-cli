@@ -10,8 +10,9 @@ use futures::StreamExt;
 use poise::{
     serenity_prelude::{
         self as serenity, CreateActionRow, CreateButton, CreateInteractionResponseMessage,
+        CreateQuickModal,
     },
-    CreateReply,
+    CreateReply, ReplyHandle,
 };
 
 pub fn all_discord_commands() -> Vec<poise::Command<DiscordData, Error>> {
@@ -29,42 +30,66 @@ pub async fn characters(ctx: DiscordContext<'_>) -> Result<(), Error> {
     let user_id = ctx.author().id;
     let character_manager = &ctx.data().character_manager;
 
-    let characters = character_manager
-        .read()
-        .unwrap()
-        .get_characters(user_id.get())
-        .clone();
+    let mut reply_handle: Option<ReplyHandle> = None;
 
-    let buttons: Vec<_> = characters
-        .iter()
-        .enumerate()
-        .map(|(idx, c)| CreateActionRow::Buttons(vec![CreateButton::new("")]))
-        .collect();
+    loop {
+        let characters = character_manager
+            .read()
+            .await
+            .get_characters(user_id.get())
+            .clone();
 
-    let components: Vec<CreateActionRow> = vec![serenity::CreateActionRow::Buttons(vec![])];
+        const ID_CHAR_NAME: &str = "_character_name";
+        const ID_ADD_CHAR: &str = "add_character";
 
-    let reply = CreateReply::default()
-        .content("test")
-        .components(components);
+        let character_buttons = characters.iter().enumerate().map(|(idx, c)| {
+            CreateActionRow::Buttons(vec![CreateButton::new(idx.to_string() + ID_CHAR_NAME)
+                .label(&c.name)
+                .disabled(true)])
+        });
+        let general_buttons = CreateActionRow::Buttons(vec![CreateButton::new(ID_ADD_CHAR)
+            .label("Add")
+            .style(serenity::ButtonStyle::Primary)]);
 
-    let handle = ctx.send(reply).await?;
-    let mut interaction_stream = handle
-        .message()
-        .await?
-        .await_component_interaction(&ctx.serenity_context().shard)
-        .timeout(Duration::from_mins(15))
-        .stream();
-    while let Some(interaction) = interaction_stream.next().await {
-        interaction
-            .create_response(
-                &ctx,
-                serenity::CreateInteractionResponse::Message(
-                    CreateInteractionResponseMessage::new()
-                        .ephemeral(true)
-                        .content("received interaction"),
-                ),
-            )
-            .await?;
+        let components: Vec<CreateActionRow> = character_buttons
+            .chain(std::iter::once(general_buttons))
+            .collect();
+
+        let reply = CreateReply::default()
+            .content("Your Characters:")
+            .components(components)
+            .ephemeral(true);
+
+        let handle = if let Some(handle) = reply_handle {
+            handle.edit(ctx, reply).await?;
+            handle
+        } else {
+            ctx.send(reply).await?
+        };
+
+        let mut interaction_stream = handle
+            .message()
+            .await?
+            .await_component_interaction(&ctx.serenity_context().shard)
+            .timeout(Duration::from_mins(15))
+            .stream();
+        if let Some(interaction) = interaction_stream.next().await {
+            interaction
+                .create_response(
+                    &ctx,
+                    serenity::CreateInteractionResponse::Message(
+                        CreateInteractionResponseMessage::new()
+                            .ephemeral(true)
+                            .content(
+                                "received interaction: ".to_string() + &interaction.data.custom_id,
+                            ),
+                    ),
+                )
+                .await?;
+            reply_handle = Some(handle);
+            continue;
+        }
+        break;
     }
     Ok(())
 }
