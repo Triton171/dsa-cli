@@ -24,5 +24,7 @@ features = ["backtrace"]
 version = "1.4.0"
 features = ["rt-multi-thread"]
 
-[dependencies.poise]
-version = "0.6.1"
+[dependencies.serenity]
+git = "https://github.com/serenity-rs/serenity"
+branch = "next"
+features = ["collector"]

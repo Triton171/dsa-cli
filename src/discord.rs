@@ -1,24 +1,36 @@
 use crate::{
     character_manager::CharacterManager,
     config::{Config, DSAData},
-    discord_commands::all_discord_commands,
+    discord_commands,
     util::OutputWrapper,
 };
 
-use anyhow::{Context, Error};
-use poise::serenity_prelude::{self as serenity, ApplicationId, Client, GuildId};
-use std::{fmt::Write, sync::Arc};
+use anyhow::{Context as AnyhowContext, Error};
+use futures::{stream::FuturesUnordered, StreamExt};
+use serenity::{
+    all::{
+        ClientBuilder, Command, CommandInteraction, CommandType, CreateCommand,
+        CreateInteractionResponseMessage, Event, FullEvent, GuildId, Interaction,
+    },
+    async_trait,
+    prelude::*,
+    small_fixed_array::FixedString,
+};
+use std::{
+    convert::TryFrom,
+    fmt::Write,
+    process::{abort, exit},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::sync::RwLock;
 
 const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
 const DISCORD_TABLE_COL_SEP: usize = 4; //The number of whitespaces between 2 table columns
 
 pub struct DiscordData {
-    pub config: Arc<Config>,
-    pub dsa_data: Arc<DSAData>,
     pub character_manager: RwLock<CharacterManager>,
 }
-pub type DiscordContext<'a> = poise::Context<'a, DiscordData, Error>;
 
 pub async fn run_discord_bot(config: Arc<Config>, dsa_data: Arc<DSAData>) -> Result<(), Error> {
     let character_manager = CharacterManager::init(&config).await?;
@@ -32,39 +44,89 @@ async fn setup_discord_client(
     dsa_data: Arc<DSAData>,
     character_manager: CharacterManager,
 ) -> Result<Client, Error> {
-    let intents = serenity::GatewayIntents::non_privileged();
-    let token = config.discord.login_token.clone();
-    let character_manager = RwLock::new(character_manager);
+    let intents = GatewayIntents::non_privileged();
+    let token = Token::try_from(config.discord.login_token.clone())?;
 
-    let framework = poise::Framework::builder()
-        .options(poise::FrameworkOptions {
-            commands: all_discord_commands(),
-            ..Default::default()
-        })
-        .setup(|ctx, _ready, framework| {
-            Box::pin(async move {
-                if let Some(guild_id) = config.discord.test_in_guild_id {
-                    poise::builtins::register_in_guild(
-                        &ctx,
-                        &framework.options().commands,
-                        GuildId::new(guild_id),
-                    )
-                    .await?;
-                } else {
-                    poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                }
-                Ok(DiscordData {
-                    config,
-                    dsa_data,
-                    character_manager,
-                })
-            })
-        })
-        .build();
-    let client = serenity::ClientBuilder::new(token, intents)
-        .framework(framework)
+    let client = ClientBuilder::new(token, intents)
+        .event_handler(Arc::new(DiscordHandler {
+            config,
+            dsa_data,
+            character_manager: RwLock::new(character_manager),
+        }))
         .await?;
     Ok(client)
+}
+
+async fn register_commands(context: &Context, config: &Config) -> Result<(), Error> {
+    let commands = vec![CreateCommand::new("characters")
+        .description("Manage uploaded characters & upload new ones")];
+
+    let guild_id = config.discord.test_in_guild_id.map(GuildId::new);
+    let commands = commands.into_iter().map(|cmd| {
+        cmd.kind(CommandType::ChatInput)
+            .execute(context.http(), guild_id)
+    });
+    futures::future::try_join_all(commands).await?;
+    Ok(())
+}
+
+pub struct DiscordHandler {
+    pub config: Arc<Config>,
+    pub dsa_data: Arc<DSAData>,
+    pub character_manager: RwLock<CharacterManager>,
+}
+
+impl DiscordHandler {
+    async fn run_command(
+        &self,
+        context: &Context,
+        command: &CommandInteraction,
+    ) -> Result<(), Error> {
+        let cmd_name = &command.data.name;
+        if cmd_name == "characters" {
+            discord_commands::characters(context, command, self).await?
+        } else {
+            return Err(Error::msg(format!("Unknown command name: {}", cmd_name)));
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl EventHandler for DiscordHandler {
+    fn filter_event(&self, _context: &Context, event: Box<Event>) -> Option<Box<Event>> {
+        match *event {
+            Event::InteractionCreate(_) | Event::Ready(_) => Some(event),
+            _ => None,
+        }
+    }
+    async fn dispatch(&self, context: &Context, event: &FullEvent) {
+        match event {
+            FullEvent::InteractionCreate {
+                interaction: Interaction::Command(command),
+                ..
+            } => {
+                if let Err(e) = self
+                    .run_command(context, command)
+                    .await
+                    .context(format!("while running command '{}'", command.data.name))
+                {
+                    println!("Error handling command: {}\n{}", e, e.backtrace());
+                }
+            }
+            FullEvent::Ready { data_about_bot, .. } => {
+                println!("Successfully started bot '{}'", data_about_bot.user.name);
+                match register_commands(context, &*self.config).await {
+                    Ok(_) => println!("Successfully registered commands"),
+                    Err(e) => {
+                        println!("Error registering commands: {}\n{}", e, e.backtrace());
+                        exit(1);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 //A lazy output wrapper for sending discord messages

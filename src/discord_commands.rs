@@ -1,22 +1,112 @@
-use std::{sync::RwLock, time::Duration};
+use std::time::Duration;
 
 use crate::{
     character_manager::CharacterManager,
     config::{Config, DSAData},
-    discord::{DiscordContext, DiscordData},
+    discord::DiscordHandler,
 };
 use anyhow::Error;
 use futures::StreamExt;
-use poise::{
-    serenity_prelude::{
-        self as serenity, CreateActionRow, CreateButton, CreateInteractionResponseMessage,
-        CreateQuickModal,
+use serenity::{
+    all::{
+        ButtonStyle, CollectComponentInteractions, CommandInteraction, ComponentInteraction,
+        ComponentInteractionCollector, CreateActionRow, CreateButton, CreateComponent,
+        CreateFileUpload, CreateInteractionResponse, CreateInteractionResponseMessage, CreateLabel,
+        CreateModal, CreateModalComponent, CreateQuickModal, CreateSeparator, CreateTextDisplay,
+        EditInteractionResponse, EditMessage, MessageFlags, ModalInteractionCollector, QuickModal,
+        UserId,
     },
-    CreateReply, ReplyHandle,
+    prelude::*,
 };
 
-pub fn all_discord_commands() -> Vec<poise::Command<DiscordData, Error>> {
-    vec![characters()]
+const DISCORD_INTERACTION_TIMEOUT: Duration = Duration::from_secs(3600);
+// Characters command
+const ID_CHAR_NAME: &str = "_character_name";
+const ID_ADD_CHAR: &str = "add_character";
+
+pub async fn create_character_menu(
+    character_manager: &RwLock<CharacterManager>,
+    user_id: UserId,
+) -> CreateInteractionResponseMessage<'_> {
+    let characters = character_manager
+        .read()
+        .await
+        .get_characters(user_id.get())
+        .clone();
+
+    let mut components = Vec::new();
+    // Components per character
+    for (idx, character) in characters.into_iter().enumerate() {
+        components.push(CreateComponent::ActionRow(CreateActionRow::Buttons(
+            vec![CreateButton::new(idx.to_string() + ID_CHAR_NAME)
+                .label(character.name)
+                .disabled(true)]
+            .into(),
+        )));
+        components.push(CreateComponent::Separator(
+            CreateSeparator::new().divider(true),
+        ));
+    }
+    components.push(CreateComponent::ActionRow(CreateActionRow::Buttons(
+        vec![CreateButton::new(ID_ADD_CHAR)
+            .label("Add")
+            .style(ButtonStyle::Primary)]
+        .into(),
+    )));
+    CreateInteractionResponseMessage::new()
+        .ephemeral(true)
+        .flags(MessageFlags::IS_COMPONENTS_V2)
+        .components(components)
+}
+
+async fn upload_character_modal(
+    ctx: &Context,
+    component_interaction: &ComponentInteraction,
+    character_manager: &RwLock<CharacterManager>,
+    config: &Config,
+) -> Result<bool, Error> {
+    const ID_UPLOAD_MODAL: &str = "upload_char_modal";
+    const ID_UPLOAD_COMP: &str = "upload_char_component";
+
+    let user_id = component_interaction.user.id;
+    component_interaction
+        .create_response(
+            ctx.http(),
+            CreateInteractionResponse::Modal(
+                CreateModal::new(ID_UPLOAD_MODAL, "Upload a new character").components(vec![
+                    CreateModalComponent::Label(CreateLabel::file_upload(
+                        "The .tdc file created in TheDarkAid",
+                        CreateFileUpload::new(ID_UPLOAD_COMP).required(true),
+                    )),
+                ]),
+            ),
+        )
+        .await?;
+    if let Some(modal_interaction) = ModalInteractionCollector::new(ctx)
+        .author_id(user_id)
+        .channel_id(component_interaction.channel_id)
+        .filter(|mci| mci.data.custom_id == ID_UPLOAD_MODAL)
+        .timeout(DISCORD_INTERACTION_TIMEOUT)
+        .next()
+        .await
+    {
+        let attachments = modal_interaction.data.resolved.attachments;
+        if attachments.len() != 1 {
+            return Err(Error::msg(format!(
+                "Expected 1 attachment for the file upload modal, got {}",
+                attachments.len()
+            )));
+        }
+        let raw_character = attachments.iter().next().unwrap().download().await?;
+        character_manager
+            .write()
+            .await
+            .add_character(user_id.get(), raw_character, config)
+            .await?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 // TODO: Things to implement:
@@ -25,71 +115,55 @@ pub fn all_discord_commands() -> Vec<poise::Command<DiscordData, Error>> {
 // - Change a character
 // - Upload a new character
 // - Allow access to a character in a specific channel (low-prio)
-#[poise::command(slash_command)]
-pub async fn characters(ctx: DiscordContext<'_>) -> Result<(), Error> {
-    let user_id = ctx.author().id;
-    let character_manager = &ctx.data().character_manager;
+pub async fn characters(
+    ctx: &Context,
+    command: &CommandInteraction,
+    handler: &DiscordHandler,
+) -> Result<(), Error> {
+    let user_id = command.user.id;
+    let character_manager = &handler.character_manager;
 
-    let mut reply_handle: Option<ReplyHandle> = None;
+    command
+        .create_response(
+            ctx.http(),
+            CreateInteractionResponse::Message(
+                create_character_menu(character_manager, user_id).await,
+            ),
+        )
+        .await?;
 
-    loop {
-        let characters = character_manager
-            .read()
-            .await
-            .get_characters(user_id.get())
-            .clone();
+    let msg = command.get_response(ctx.http()).await?;
+    let msg_id = msg.id;
 
-        const ID_CHAR_NAME: &str = "_character_name";
-        const ID_ADD_CHAR: &str = "add_character";
-
-        let character_buttons = characters.iter().enumerate().map(|(idx, c)| {
-            CreateActionRow::Buttons(vec![CreateButton::new(idx.to_string() + ID_CHAR_NAME)
-                .label(&c.name)
-                .disabled(true)])
-        });
-        let general_buttons = CreateActionRow::Buttons(vec![CreateButton::new(ID_ADD_CHAR)
-            .label("Add")
-            .style(serenity::ButtonStyle::Primary)]);
-
-        let components: Vec<CreateActionRow> = character_buttons
-            .chain(std::iter::once(general_buttons))
-            .collect();
-
-        let reply = CreateReply::default()
-            .content("Your Characters:")
-            .components(components)
-            .ephemeral(true);
-
-        let handle = if let Some(handle) = reply_handle {
-            handle.edit(ctx, reply).await?;
-            handle
-        } else {
-            ctx.send(reply).await?
-        };
-
-        let mut interaction_stream = handle
-            .message()
+    while let Some(component_interaction) = ComponentInteractionCollector::new(ctx)
+        .author_id(command.user.id)
+        .channel_id(command.channel_id)
+        .filter(move |mci| mci.message.id == msg_id)
+        .timeout(DISCORD_INTERACTION_TIMEOUT)
+        .next()
+        .await
+    {
+        if component_interaction.data.custom_id == ID_ADD_CHAR {
+            if !upload_character_modal(
+                ctx,
+                &component_interaction,
+                character_manager,
+                &handler.config,
+            )
             .await?
-            .await_component_interaction(&ctx.serenity_context().shard)
-            .timeout(Duration::from_mins(15))
-            .stream();
-        if let Some(interaction) = interaction_stream.next().await {
-            interaction
-                .create_response(
-                    &ctx,
-                    serenity::CreateInteractionResponse::Message(
-                        CreateInteractionResponseMessage::new()
-                            .ephemeral(true)
-                            .content(
-                                "received interaction: ".to_string() + &interaction.data.custom_id,
-                            ),
-                    ),
-                )
-                .await?;
-            reply_handle = Some(handle);
-            continue;
+            {
+                break;
+            }
         }
-        break;
+        component_interaction
+            .create_response(
+                ctx.http(),
+                CreateInteractionResponse::UpdateMessage(
+                    create_character_menu(character_manager, user_id).await,
+                ),
+            )
+            .await?;
+        // component_interaction.defer(ctx.http()).await?;
     }
     Ok(())
 }
@@ -114,19 +188,28 @@ enum CheckType {
 // - facilitation
 // - roll for multiple characters in the channel
 // - add custom characters
-#[poise::command(slash_command)]
-async fn initiative(ctx: DiscordContext<'_>) -> Result<(), Error> {
+async fn initiative(
+    ctx: &Context,
+    command: &CommandInteraction,
+    handler: &DiscordHandler,
+) -> Result<(), Error> {
     Ok(())
 }
 
 // TODO: Implement
-#[poise::command(slash_command)]
-async fn roll(ctx: DiscordContext<'_>) -> Result<(), Error> {
+async fn roll(
+    ctx: &Context,
+    command: &CommandInteraction,
+    handler: &DiscordHandler,
+) -> Result<(), Error> {
     Ok(())
 }
 
 // TODO: Implement
-#[poise::command(slash_command)]
-async fn hi(ctx: DiscordContext<'_>) -> Result<(), Error> {
+async fn hi(
+    ctx: &Context,
+    command: &CommandInteraction,
+    handler: &DiscordHandler,
+) -> Result<(), Error> {
     Ok(())
 }
