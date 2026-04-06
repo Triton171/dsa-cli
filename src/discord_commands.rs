@@ -53,7 +53,8 @@ impl DiscordHandler {
             components.push(CreateComponent::ActionRow(CreateActionRow::Buttons(
                 vec![
                     CreateButton::new(character.character_id.to_string() + ID_CHAR_REPLACE)
-                        .label("Upload new version"),
+                        .label("Replace character")
+                        .style(ButtonStyle::Primary),
                     CreateButton::new(character.character_id.to_string() + ID_CHAR_DELETE)
                         .label("Delete")
                         .style(ButtonStyle::Danger),
@@ -66,8 +67,8 @@ impl DiscordHandler {
         }
         components.push(CreateComponent::ActionRow(CreateActionRow::Buttons(
             vec![CreateButton::new(ID_ADD_CHAR)
-                .label("Add")
-                .style(ButtonStyle::Primary)]
+                .label("Add character")
+                .style(ButtonStyle::Success)]
             .into(),
         )));
         components
@@ -150,7 +151,7 @@ impl DiscordHandler {
             .next()
             .await
         {
-            let interaction_custom_id = component_interaction.data.custom_id;
+            let interaction_custom_id = &component_interaction.data.custom_id;
             if interaction_custom_id == ID_ADD_CHAR {
                 if !self
                     .upload_character_modal(ctx, &component_interaction)

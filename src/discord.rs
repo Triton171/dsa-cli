@@ -81,8 +81,7 @@ pub async fn send_command_interaction_reply(
             ctx.http(),
             CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::new()
-                    .ephemeral(true)
-                    .flags(MessageFlags::IS_COMPONENTS_V2)
+                    .flags(MessageFlags::IS_COMPONENTS_V2 | MessageFlags::EPHEMERAL)
                     .components(components),
             ),
         )
@@ -98,7 +97,7 @@ pub async fn edit_command_interaction_reply(
         .edit_response(
             ctx.http(),
             EditInteractionResponse::new()
-                .flags(MessageFlags::IS_COMPONENTS_V2)
+                .flags(MessageFlags::IS_COMPONENTS_V2 | MessageFlags::EPHEMERAL)
                 .components(components),
         )
         .await
