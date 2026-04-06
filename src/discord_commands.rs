@@ -21,7 +21,8 @@ use serenity::{
 
 const DISCORD_INTERACTION_TIMEOUT: Duration = Duration::from_secs(3600);
 // Characters command
-const ID_CHAR_NAME: &str = "_character_name";
+const ID_CHAR_REPLACE: &str = "_char_repl";
+const ID_CHAR_DELETE: &str = "_char_del";
 const ID_ADD_CHAR: &str = "add_character";
 
 enum CheckType {
@@ -45,11 +46,18 @@ impl DiscordHandler {
 
         let mut components = Vec::new();
         // Components per character
-        for (idx, character) in characters.into_iter().enumerate() {
+        for character in characters.into_iter() {
+            components.push(CreateComponent::TextDisplay(CreateTextDisplay::new(
+                character.name,
+            )));
             components.push(CreateComponent::ActionRow(CreateActionRow::Buttons(
-                vec![CreateButton::new(idx.to_string() + ID_CHAR_NAME)
-                    .label(character.name)
-                    .disabled(true)]
+                vec![
+                    CreateButton::new(character.character_id.to_string() + ID_CHAR_REPLACE)
+                        .label("Upload new version"),
+                    CreateButton::new(character.character_id.to_string() + ID_CHAR_DELETE)
+                        .label("Delete")
+                        .style(ButtonStyle::Danger),
+                ]
                 .into(),
             )));
             components.push(CreateComponent::Separator(
@@ -65,11 +73,12 @@ impl DiscordHandler {
         components
     }
 
+    // Creates a modal for uploading a new character. Returns true, if the user submitted the modal.
     async fn upload_character_modal(
         &self,
         ctx: &Context,
         component_interaction: &ComponentInteraction,
-    ) -> Result<Option<ModalInteraction>, Error> {
+    ) -> Result<bool, Error> {
         const ID_UPLOAD_MODAL: &str = "upload_char_modal";
         const ID_UPLOAD_COMP: &str = "upload_char_component";
 
@@ -109,9 +118,9 @@ impl DiscordHandler {
                 .add_character(user_id.get(), raw_character, self.config.as_ref())
                 .await?;
             modal_interaction.defer(ctx.http()).await?;
-            Ok(Some(modal_interaction))
+            Ok(true)
         } else {
-            Ok(None)
+            Ok(false)
         }
     }
 
@@ -141,13 +150,13 @@ impl DiscordHandler {
             .next()
             .await
         {
-            if component_interaction.data.custom_id == ID_ADD_CHAR {
-                if let Some(modal_interaction) = self
+            let interaction_custom_id = component_interaction.data.custom_id;
+            if interaction_custom_id == ID_ADD_CHAR {
+                if !self
                     .upload_character_modal(ctx, &component_interaction)
                     .await?
                 {
-                } else {
-                    break;
+                    continue;
                 }
                 edit_command_interaction_reply(
                     ctx,
@@ -155,6 +164,14 @@ impl DiscordHandler {
                     self.create_character_menu(user_id).await,
                 )
                 .await?;
+            } else if interaction_custom_id.ends_with(ID_CHAR_REPLACE) {
+                // TODO
+            } else if interaction_custom_id.ends_with(ID_CHAR_DELETE) {
+            } else {
+                return Err(Error::msg(format!(
+                    "Unknown component interaction of type: {:?}",
+                    component_interaction.data.kind
+                )));
             }
         }
         Ok(())

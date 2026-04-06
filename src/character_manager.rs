@@ -6,7 +6,7 @@ use super::{
     util::{Error, ErrorType, InputErrorType},
 };
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, collections::HashMap};
+use std::{borrow::Borrow, collections::HashMap, fmt::Display};
 use std::{future::Future, path::PathBuf};
 use tokio::{fs, io::AsyncWriteExt};
 
@@ -14,6 +14,12 @@ static EMPTY_CHARACTER_LIST: Vec<CharacterInfo> = Vec::new();
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CharacterId(u64);
+
+impl Display for CharacterId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CharacterInfo {
@@ -138,6 +144,7 @@ impl CharacterManager {
                 ErrorType::InvalidInput(InputErrorType::CharacterNameTooLong),
             ));
         }
+        // TODO: simplify this, now that there is a "replace character" button
 
         if let Some(user_characters) = self.characters.characters.get_mut(&user_id) {
             for character in user_characters.iter() {
