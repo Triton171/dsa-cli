@@ -5,16 +5,22 @@ use super::{
     config,
     util::{Error, ErrorType, InputErrorType},
 };
+use anyhow::{ensure, Context};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, collections::HashMap, fmt::Display};
 use std::{future::Future, path::PathBuf};
-use tokio::{fs, io::AsyncWriteExt};
+use tokio::{fs, io::AsyncWriteExt, sync::broadcast::error::RecvError};
 
 static EMPTY_CHARACTER_LIST: Vec<CharacterInfo> = Vec::new();
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CharacterId(u64);
 
+impl From<u64> for CharacterId {
+    fn from(value: u64) -> Self {
+        CharacterId(value)
+    }
+}
 impl Display for CharacterId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
@@ -67,48 +73,9 @@ impl CharacterManager {
         } else {
             let mut folder_path = config_path;
             folder_path.push("discord_characters");
-            let mut character_manager = CharacterManager {
+            let character_manager = CharacterManager {
                 characters: CharacterList::new(),
             };
-            if folder_path.exists() {
-                // TODO: This can probably be removed
-                // Migrate old characters to the new storage system
-                println!("Migrating old characters to the new character storage system");
-                let mut files = fs::read_dir(&folder_path).await?;
-                let mut characters: Vec<(u64, Vec<u8>)> = Vec::new();
-                while let Some(f) = files.next_entry().await? {
-                    let os_file_name = f.file_name();
-                    let file_name = match os_file_name.to_str() {
-                        Some(s) => s,
-                        None => {
-                            return Err(Error::new(
-                                "Invalid file name encountered in discord_characters folder",
-                                ErrorType::IO(IOErrorType::Unknown),
-                            ));
-                        }
-                    };
-                    let id: u64 = match file_name.parse() {
-                        Ok(num) => num,
-                        Err(_) => {
-                            return Err(Error::new(
-                                "Unable to parse discord character file name as id",
-                                ErrorType::IO(IOErrorType::Unknown),
-                            ));
-                        }
-                    };
-                    characters.push((id, fs::read(&f.path()).await?));
-                }
-                fs::remove_dir_all(&folder_path).await?;
-                fs::create_dir(&folder_path).await?;
-                for (id, raw_character) in characters {
-                    if let Err(e) = character_manager
-                        .add_character(id, raw_character, config)
-                        .await
-                    {
-                        println!("Error migrating character: {}", e);
-                    }
-                }
-            }
             character_manager.write_character_list().await?;
             Ok(character_manager)
         }
@@ -122,9 +89,53 @@ impl CharacterManager {
         &mut self,
         user_id: u64,
         raw_character: Vec<u8>,
+        character_id: Option<CharacterId>,
         config: &Config,
-    ) -> Result<(bool, String), Error> {
-        let id = self.characters.next_character_id;
+    ) -> anyhow::Result<Option<String>> {
+        let character_str = String::from_utf8(raw_character)?;
+        let name = Character::from_str(&character_str)?
+            .get_name()
+            .trim()
+            .to_string();
+
+        let user_characters = self.characters.characters.entry(user_id).or_default();
+        if user_characters.len() >= config.discord.max_num_characters {
+            return Ok(Some("Exceeded maximum number of characters, use the \"remove\" command to free up space.".to_string()));
+        }
+        if name.len() > config.discord.max_name_length {
+            return Ok(Some("Character name exceeds maximum length".to_string()));
+        }
+
+        let id = match character_id {
+            Some(id) => {
+                let current_info = user_characters
+                    .iter_mut()
+                    .find(|c| c.character_id == id)
+                    .context("Did not find character that should be replaced")?;
+                current_info.name = name;
+                id
+            }
+            None => {
+                let id = self.characters.next_character_id;
+                ensure!(
+                    user_characters
+                        .iter()
+                        .find(|c| c.character_id == id)
+                        .is_none(),
+                    "Character ID is already in use"
+                );
+                user_characters.push(CharacterInfo {
+                    character_id: id,
+                    name,
+                    selected: false,
+                });
+                self.characters.next_character_id =
+                    CharacterId(self.characters.next_character_id.0 + 1);
+                id
+            }
+        };
+        self.write_character_list().await?;
+
         let path = get_character_path(id).await?;
         let mut file = fs::OpenOptions::new()
             .create(true)
@@ -132,50 +143,9 @@ impl CharacterManager {
             .truncate(true)
             .open(&path)
             .await?;
-        file.write_all(&raw_character).await?;
+        file.write_all(character_str.as_bytes()).await?;
         file.flush().await?;
-        let name = Character::from_raw(raw_character)?
-            .get_name()
-            .trim()
-            .to_string();
-        if name.len() > config.discord.max_name_length {
-            return Err(Error::new(
-                "Character name exceeds maximum length",
-                ErrorType::InvalidInput(InputErrorType::CharacterNameTooLong),
-            ));
-        }
-        // TODO: simplify this, now that there is a "replace character" button
-
-        if let Some(user_characters) = self.characters.characters.get_mut(&user_id) {
-            for character in user_characters.iter() {
-                // Replace a character with the same name
-                if character.name == name {
-                    let old_path = get_character_path(character.character_id).await?;
-                    fs::rename(&path, &old_path).await?;
-                    return Ok((true, name));
-                }
-            }
-            if user_characters.len() >= config.discord.max_num_characters {
-                return Err(Error::new("Exceeded maximum number of characters, use the \"remove\" command to free up space.", ErrorType::InvalidInput(InputErrorType::TooManyCharacters)));
-            }
-            let info = CharacterInfo {
-                character_id: id,
-                name: name.clone(),
-                // Set the new character as selected if there is currently no selected character
-                selected: user_characters.iter().all(|c| !c.selected),
-            };
-            user_characters.push(info);
-        } else {
-            let info = CharacterInfo {
-                character_id: id,
-                name: name.clone(),
-                selected: true,
-            };
-            self.characters.characters.insert(user_id, vec![info]);
-        }
-        self.characters.next_character_id = CharacterId(id.0 + 1);
-        self.write_character_list().await?;
-        Ok((false, name))
+        Ok(None)
     }
 
     /*
@@ -184,25 +154,23 @@ impl CharacterManager {
     pub async fn delete_character(
         &mut self,
         user_id: u64,
-        name: impl Borrow<str>,
-    ) -> Result<Vec<String>, Error> {
-        let name = name.borrow().trim().to_ascii_lowercase();
-        if let Some(user_characters) = self.characters.characters.get_mut(&user_id) {
-            let mut removed_names: Vec<String> = Vec::new();
-            for c in user_characters
+        character_id: CharacterId,
+    ) -> anyhow::Result<()> {
+        let user_characters = self
+            .characters
+            .characters
+            .get_mut(&user_id)
+            .context("Did not find any characters for this user")?;
+        ensure!(
+            user_characters
                 .iter()
-                .filter(|c| c.name.to_ascii_lowercase().contains(&name))
-            {
-                let path = get_character_path(c.character_id).await?;
-                fs::remove_file(path).await?;
-                removed_names.push(c.name.clone());
-            }
-            user_characters.retain(|c| !c.name.to_ascii_lowercase().contains(&name));
-            self.write_character_list().await?;
-            Ok(removed_names)
-        } else {
-            Ok(Vec::new())
-        }
+                .find(|c| c.character_id == character_id)
+                .is_some(),
+            "Did not find character to delete"
+        );
+        user_characters.retain(|c| c.character_id != character_id);
+        self.write_character_list().await?;
+        Ok(())
     }
 
     pub fn get_characters(&self, user_id: u64) -> &Vec<CharacterInfo> {

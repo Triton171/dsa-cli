@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use crate::{
-    character_manager::CharacterManager,
+    character_manager::{CharacterId, CharacterManager},
     config::{Config, DSAData},
     discord::{edit_command_interaction_reply, send_command_interaction_reply, DiscordHandler},
 };
-use anyhow::Error;
+use anyhow::{Context as AnyhowContext, Error};
 use futures::StreamExt;
 use serenity::{
     all::{
@@ -79,7 +79,8 @@ impl DiscordHandler {
         &self,
         ctx: &Context,
         component_interaction: &ComponentInteraction,
-    ) -> Result<bool, Error> {
+        replace_character: Option<CharacterId>,
+    ) -> anyhow::Result<()> {
         const ID_UPLOAD_MODAL: &str = "upload_char_modal";
         const ID_UPLOAD_COMP: &str = "upload_char_component";
 
@@ -113,16 +114,33 @@ impl DiscordHandler {
                 )));
             }
             let raw_character = attachments.iter().next().unwrap().download().await?;
-            self.character_manager
+            if let Some(error_text) = self
+                .character_manager
                 .write()
                 .await
-                .add_character(user_id.get(), raw_character, self.config.as_ref())
-                .await?;
-            modal_interaction.defer(ctx.http()).await?;
-            Ok(true)
-        } else {
-            Ok(false)
+                .add_character(
+                    user_id.get(),
+                    raw_character,
+                    replace_character,
+                    self.config.as_ref(),
+                )
+                .await?
+            {
+                modal_interaction
+                    .create_response(
+                        ctx.http(),
+                        CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::new()
+                                .content(format!("Failed to upload character ({})", error_text)),
+                        ),
+                    )
+                    .await
+                    .context("Failed to create modal interaction response")?;
+            } else {
+                modal_interaction.defer(ctx.http()).await?;
+            }
         }
+        Ok(())
     }
 
     // TODO: Things to implement:
@@ -153,27 +171,28 @@ impl DiscordHandler {
         {
             let interaction_custom_id = &component_interaction.data.custom_id;
             if interaction_custom_id == ID_ADD_CHAR {
-                if !self
-                    .upload_character_modal(ctx, &component_interaction)
-                    .await?
-                {
-                    continue;
-                }
-                edit_command_interaction_reply(
-                    ctx,
-                    command,
-                    self.create_character_menu(user_id).await,
-                )
-                .await?;
-            } else if interaction_custom_id.ends_with(ID_CHAR_REPLACE) {
-                // TODO
-            } else if interaction_custom_id.ends_with(ID_CHAR_DELETE) {
+                self.upload_character_modal(ctx, &component_interaction, None)
+                    .await?;
+            } else if let Some(character_id) = interaction_custom_id.strip_suffix(ID_CHAR_REPLACE) {
+                let character_id = CharacterId::from(character_id.parse::<u64>()?);
+                self.upload_character_modal(ctx, &component_interaction, Some(character_id))
+                    .await?;
+            } else if let Some(character_id) = interaction_custom_id.strip_suffix(ID_CHAR_DELETE) {
+                let character_id = CharacterId::from(character_id.parse::<u64>()?);
+                self.character_manager
+                    .write()
+                    .await
+                    .delete_character(user_id.get(), character_id)
+                    .await?;
+                component_interaction.defer(ctx.http()).await?;
             } else {
                 return Err(Error::msg(format!(
                     "Unknown component interaction of type: {:?}",
                     component_interaction.data.kind
                 )));
             }
+            edit_command_interaction_reply(ctx, command, self.create_character_menu(user_id).await)
+                .await?;
         }
         Ok(())
     }

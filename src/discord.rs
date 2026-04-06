@@ -11,7 +11,7 @@ use serenity::{
     all::{
         ClientBuilder, Command, CommandInteraction, CommandType, CreateCommand, CreateComponent,
         CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
-        Event, FullEvent, GuildId, Interaction, MessageFlags,
+        Event, FullEvent, GuildId, Interaction, MessageFlags, ModalInteraction,
     },
     async_trait,
     prelude::*,
@@ -75,7 +75,7 @@ pub async fn send_command_interaction_reply(
     ctx: &Context,
     command: &CommandInteraction,
     components: Vec<CreateComponent<'_>>,
-) -> Result<(), Error> {
+) -> anyhow::Result<()> {
     command
         .create_response(
             ctx.http(),
@@ -92,7 +92,7 @@ pub async fn edit_command_interaction_reply(
     ctx: &Context,
     command: &CommandInteraction,
     components: Vec<CreateComponent<'_>>,
-) -> Result<(), Error> {
+) -> anyhow::Result<()> {
     command
         .edit_response(
             ctx.http(),
