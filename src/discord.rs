@@ -9,8 +9,9 @@ use anyhow::{Context as AnyhowContext, Error};
 use futures::{stream::FuturesUnordered, StreamExt};
 use serenity::{
     all::{
-        ClientBuilder, Command, CommandInteraction, CommandType, CreateCommand,
-        CreateInteractionResponseMessage, Event, FullEvent, GuildId, Interaction,
+        ClientBuilder, Command, CommandInteraction, CommandType, CreateCommand, CreateComponent,
+        CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
+        Event, FullEvent, GuildId, Interaction, MessageFlags,
     },
     async_trait,
     prelude::*,
@@ -70,6 +71,41 @@ async fn register_commands(context: &Context, config: &Config) -> Result<(), Err
     Ok(())
 }
 
+pub async fn send_command_interaction_reply(
+    ctx: &Context,
+    command: &CommandInteraction,
+    components: Vec<CreateComponent<'_>>,
+) -> Result<(), Error> {
+    command
+        .create_response(
+            ctx.http(),
+            CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .ephemeral(true)
+                    .flags(MessageFlags::IS_COMPONENTS_V2)
+                    .components(components),
+            ),
+        )
+        .await
+        .context("Error sending command interaction reply")
+}
+pub async fn edit_command_interaction_reply(
+    ctx: &Context,
+    command: &CommandInteraction,
+    components: Vec<CreateComponent<'_>>,
+) -> Result<(), Error> {
+    command
+        .edit_response(
+            ctx.http(),
+            EditInteractionResponse::new()
+                .flags(MessageFlags::IS_COMPONENTS_V2)
+                .components(components),
+        )
+        .await
+        .context("Error editing command interaction reply")
+        .map(|_| ())
+}
+
 pub struct DiscordHandler {
     pub config: Arc<Config>,
     pub dsa_data: Arc<DSAData>,
@@ -84,7 +120,7 @@ impl DiscordHandler {
     ) -> Result<(), Error> {
         let cmd_name = &command.data.name;
         if cmd_name == "characters" {
-            discord_commands::characters(context, command, self).await?
+            self.characters(context, command).await?
         } else {
             return Err(Error::msg(format!("Unknown command name: {}", cmd_name)));
         }
@@ -109,17 +145,20 @@ impl EventHandler for DiscordHandler {
                 if let Err(e) = self
                     .run_command(context, command)
                     .await
-                    .context(format!("while running command '{}'", command.data.name))
+                    .with_context(|| format!("Error running command '{}'", command.data.name))
                 {
-                    println!("Error handling command: {}\n{}", e, e.backtrace());
+                    println!("{:?}", e);
                 }
             }
             FullEvent::Ready { data_about_bot, .. } => {
                 println!("Successfully started bot '{}'", data_about_bot.user.name);
-                match register_commands(context, &*self.config).await {
+                match register_commands(context, &*self.config)
+                    .await
+                    .context("Error registering commands")
+                {
                     Ok(_) => println!("Successfully registered commands"),
                     Err(e) => {
-                        println!("Error registering commands: {}\n{}", e, e.backtrace());
+                        println!("{:?}", e);
                         exit(1);
                     }
                 }
