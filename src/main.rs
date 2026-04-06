@@ -7,9 +7,6 @@ mod dsa;
 mod greet;
 mod util;
 
-#[macro_use]
-extern crate enum_display_derive;
-
 use std::sync::Arc;
 
 use crate::discord::run_discord_bot;

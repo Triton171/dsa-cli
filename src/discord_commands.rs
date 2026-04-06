@@ -11,7 +11,7 @@ use serenity::{
         CreateActionRow, CreateButton, CreateComponent, CreateFileUpload,
         CreateInteractionResponse, CreateInteractionResponseMessage, CreateLabel, CreateModal,
         CreateModalComponent, CreateSeparator, CreateTextDisplay, ModalInteractionCollector,
-        UserId,
+        SeparatorSpacingSize, UserId,
     },
     prelude::*,
 };
@@ -59,7 +59,9 @@ impl DiscordHandler {
                 .into(),
             )));
             components.push(CreateComponent::Separator(
-                CreateSeparator::new().divider(true),
+                CreateSeparator::new()
+                    .divider(true)
+                    .spacing(SeparatorSpacingSize::Large),
             ));
         }
         components.push(CreateComponent::ActionRow(CreateActionRow::Buttons(
@@ -86,7 +88,7 @@ impl DiscordHandler {
             .create_response(
                 ctx.http(),
                 CreateInteractionResponse::Modal(
-                    CreateModal::new(ID_UPLOAD_MODAL, "Upload a new character").components(vec![
+                    CreateModal::new(ID_UPLOAD_MODAL, "Upload a character").components(vec![
                         CreateModalComponent::Label(CreateLabel::file_upload(
                             "The .tdc file created in TheDarkAid",
                             CreateFileUpload::new(ID_UPLOAD_COMP).required(true),
