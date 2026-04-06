@@ -1,20 +1,17 @@
 use std::time::Duration;
 
 use crate::{
-    character_manager::{CharacterId, CharacterManager},
-    config::{Config, DSAData},
+    character_manager::CharacterId,
     discord::{edit_command_interaction_reply, send_command_interaction_reply, DiscordHandler},
 };
 use anyhow::{Context as AnyhowContext, Error};
-use futures::StreamExt;
 use serenity::{
     all::{
-        ButtonStyle, CollectComponentInteractions, CommandInteraction, ComponentInteraction,
-        ComponentInteractionCollector, CreateActionRow, CreateButton, CreateComponent,
-        CreateFileUpload, CreateInteractionResponse, CreateInteractionResponseMessage, CreateLabel,
-        CreateModal, CreateModalComponent, CreateQuickModal, CreateSeparator, CreateTextDisplay,
-        EditInteractionResponse, EditMessage, MessageFlags, ModalInteraction,
-        ModalInteractionCollector, QuickModal, UserId,
+        ButtonStyle, CommandInteraction, ComponentInteraction, ComponentInteractionCollector,
+        CreateActionRow, CreateButton, CreateComponent, CreateFileUpload,
+        CreateInteractionResponse, CreateInteractionResponseMessage, CreateLabel, CreateModal,
+        CreateModalComponent, CreateSeparator, CreateTextDisplay, ModalInteractionCollector,
+        UserId,
     },
     prelude::*,
 };

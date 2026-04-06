@@ -1,12 +1,6 @@
-use crate::util::InputErrorType;
-
-use super::config;
-use super::util::{Error, ErrorType};
 use serde::{Deserialize, Deserializer};
 use std::path::Path;
 use tokio::fs;
-
-const LOADED_CHARACTER_FILE: &str = "loaded_character";
 
 mod default {
     pub fn skills() -> Vec<super::CharacterSkill> {
@@ -220,51 +214,15 @@ impl<'de> Deserialize<'de> for FavoriteIncantation {
 }
 
 impl Character {
-    pub async fn loaded_character() -> Result<Option<Character>, Error> {
-        let mut path = config::get_config_dir()?;
-        path.push(LOADED_CHARACTER_FILE);
-        if Path::exists(&path) {
-            let char_path = std::fs::read_to_string(&path)?;
-            let char_path = Path::new(&char_path);
-            let character = Self::from_file(char_path).await?;
-            Ok(Some(character))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub async fn from_file(path: &Path) -> Result<Character, Error> {
+    pub async fn from_file(path: &Path) -> anyhow::Result<Character> {
         let json_data = fs::read_to_string(path).await?;
         let character: Character = serde_json::from_str(&json_data)?;
         Ok(character)
     }
 
-    pub fn from_str(character_str: &str) -> Result<Character, Error> {
+    pub fn from_str(character_str: &str) -> anyhow::Result<Character> {
         let character: Character = serde_json::from_str(character_str)?;
         Ok(character)
-    }
-
-    pub async fn load(path: &str) -> Result<Character, Error> {
-        let character_path = Path::new(path);
-        let character_path = fs::canonicalize(character_path).await?;
-        let mut path = config::get_config_dir()?;
-        path.push(LOADED_CHARACTER_FILE);
-        fs::write(&path, character_path.to_str().unwrap()).await?;
-        match Character::loaded_character().await {
-            Ok(Some(c)) => Ok(c),
-            Ok(None) => Err(Error::new(
-                "Character was not loaded correctly",
-                ErrorType::Unknown,
-            )),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub async fn unload() -> Result<(), Error> {
-        let mut path = config::get_config_dir()?;
-        path.push(LOADED_CHARACTER_FILE);
-        fs::remove_file(&path).await?;
-        Ok(())
     }
 
     pub fn get_name(&self) -> &str {

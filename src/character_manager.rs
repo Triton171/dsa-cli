@@ -1,10 +1,6 @@
-use crate::{config::Config, util::IOErrorType};
+use crate::config::Config;
 
-use super::{
-    character::Character,
-    config,
-    util::{Error, ErrorType, InputErrorType},
-};
+use super::{character::Character, config};
 use anyhow::{ensure, Context};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, collections::HashMap, fmt::Display};
@@ -61,7 +57,7 @@ impl CharacterManager {
     * If there is no character list but some characters in the old format, they are imported into a new character list
     * If there are no characters, a blank character list is created and stored
     */
-    pub async fn init(config: &Config) -> Result<Self, Error> {
+    pub async fn init(config: &Config) -> anyhow::Result<Self> {
         let config_path = config::get_config_dir()?;
         let mut character_list_path = config_path.clone();
         character_list_path.push("discord_character_list");
@@ -181,53 +177,13 @@ impl CharacterManager {
         }
     }
 
-    pub async fn select_character(
-        &mut self,
-        user_id: u64,
-        name: impl Borrow<str>,
-    ) -> Result<String, Error> {
-        // TODO: Use character ID
-        if let Some(user_characters) = self.characters.characters.get_mut(&user_id) {
-            let name = name.borrow().trim().to_ascii_lowercase();
-            let mut matching_characters = user_characters
-                .iter_mut()
-                .filter(|c| c.name.to_ascii_lowercase().contains(&name));
-            if let Some(c) = matching_characters.next() {
-                if let Some(c2) = matching_characters.next() {
-                    Err(Error::new(
-                        format!("Ambiguous name, matches \"{}\" and \"{}\"", c.name, c2.name),
-                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                    ))
-                } else {
-                    let selected_id = c.character_id;
-                    let selected_name = c.name.clone();
-                    for c in user_characters {
-                        c.selected = c.character_id == selected_id;
-                    }
-                    self.write_character_list().await?;
-                    Ok(selected_name)
-                }
-            } else {
-                Err(Error::new(
-                    "No matching character found",
-                    ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-                ))
-            }
-        } else {
-            Err(Error::new(
-                "No character found for your discord account",
-                ErrorType::InvalidInput(InputErrorType::MissingCharacter),
-            ))
-        }
-    }
-
-    pub async fn get_character(&self, id: CharacterId) -> Result<Character, Error> {
+    pub async fn get_character(&self, id: CharacterId) -> anyhow::Result<Character> {
         // TODO: Add caching
         let path = get_character_path(id).await?;
         Character::from_file(&path).await
     }
 
-    async fn write_character_list(&self) -> Result<(), Error> {
+    async fn write_character_list(&self) -> anyhow::Result<()> {
         let mut path = config::get_config_dir()?;
         path.push("discord_character_list");
         let mut file = fs::OpenOptions::new()
@@ -243,7 +199,7 @@ impl CharacterManager {
     }
 }
 
-async fn get_character_path(character_id: CharacterId) -> Result<PathBuf, Error> {
+async fn get_character_path(character_id: CharacterId) -> anyhow::Result<PathBuf> {
     let mut path = config::get_config_dir()?;
     path.push("discord_characters");
     fs::create_dir_all(&path).await?;

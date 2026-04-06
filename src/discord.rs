@@ -1,37 +1,23 @@
 use crate::{
     character_manager::CharacterManager,
     config::{Config, DSAData},
-    discord_commands,
     util::OutputWrapper,
 };
 
 use anyhow::{Context as AnyhowContext, Error};
-use futures::{stream::FuturesUnordered, StreamExt};
 use serenity::{
     all::{
-        ClientBuilder, Command, CommandInteraction, CommandType, CreateCommand, CreateComponent,
+        ClientBuilder, CommandInteraction, CommandType, CreateCommand, CreateComponent,
         CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
-        Event, FullEvent, GuildId, Interaction, MessageFlags, ModalInteraction,
+        Event, FullEvent, GuildId, Interaction, MessageFlags,
     },
     async_trait,
     prelude::*,
-    small_fixed_array::FixedString,
 };
-use std::{
-    convert::TryFrom,
-    fmt::Write,
-    process::{abort, exit},
-    sync::Arc,
-    time::Duration,
-};
+use std::{convert::TryFrom, fmt::Write, process::exit, sync::Arc};
 use tokio::sync::RwLock;
 
-const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
 const DISCORD_TABLE_COL_SEP: usize = 4; //The number of whitespaces between 2 table columns
-
-pub struct DiscordData {
-    pub character_manager: RwLock<CharacterManager>,
-}
 
 pub async fn run_discord_bot(config: Arc<Config>, dsa_data: Arc<DSAData>) -> Result<(), Error> {
     let character_manager = CharacterManager::init(&config).await?;

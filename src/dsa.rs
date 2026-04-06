@@ -1,5 +1,7 @@
 use std::cmp::max;
 
+use crate::config::MatchSearchResult;
+
 use super::character::Character;
 use super::config::{self, Config, DSAData};
 use super::util::*;
@@ -61,9 +63,9 @@ pub fn attribute_check(
         dsa_data.attributes.iter(),
         cmd_matches.value_of("attribute_name").unwrap(),
     ) {
-        Ok(name) => name,
-        Err(e) => {
-            output.output_line(&e);
+        MatchSearchResult::Success(name) => name,
+        MatchSearchResult::NoUniqueMatch(msg) => {
+            output.output_line(&msg);
             return;
         }
     };
@@ -100,9 +102,9 @@ pub fn talent_check(
         dsa_data.talents.iter(),
         cmd_matches.value_of("skill_name").unwrap(),
     ) {
-        Ok(name) => name,
-        Err(e) => {
-            output.output_line(&e);
+        MatchSearchResult::Success(name) => name,
+        MatchSearchResult::NoUniqueMatch(msg) => {
+            output.output_line(&msg);
             return;
         }
     };
@@ -167,9 +169,9 @@ pub fn attack_check(
             .chain(character.get_custom_techniques().map(|t| (t, false))),
         cmd_matches.value_of("technique_name").unwrap(),
     ) {
-        Ok(t) => t,
-        Err(e) => {
-            output.output_line(&e);
+        MatchSearchResult::Success(name) => name,
+        MatchSearchResult::NoUniqueMatch(msg) => {
+            output.output_line(&msg);
             return;
         }
     };
@@ -208,9 +210,9 @@ pub fn spell_check(
             .chain(character.get_custom_spells()),
         cmd_matches.value_of("spell_name").unwrap(),
     ) {
-        Ok(s) => s,
-        Err(e) => {
-            output.output_line(&e);
+        MatchSearchResult::Success(name) => name,
+        MatchSearchResult::NoUniqueMatch(msg) => {
+            output.output_line(&msg);
             return;
         }
     };
@@ -273,9 +275,9 @@ pub fn chant_check(
             .chain(character.get_custom_chants()),
         cmd_matches.value_of("chant_name").unwrap(),
     ) {
-        Ok(r) => r,
-        Err(e) => {
-            output.output_line(&e);
+        MatchSearchResult::Success(name) => name,
+        MatchSearchResult::NoUniqueMatch(msg) => {
+            output.output_line(&msg);
             return;
         }
     };
@@ -360,11 +362,11 @@ pub fn parry_check(
         dsa_data.combat_techniques.iter(),
         cmd_matches.value_of("technique_name").unwrap(),
     ) {
-        Err(e) => {
-            output.output_line(&e);
+        MatchSearchResult::Success(name) => name,
+        MatchSearchResult::NoUniqueMatch(msg) => {
+            output.output_line(&msg);
             return;
         }
-        Ok(r) => r,
     };
     let facilitation = match get_facilitation(cmd_matches, &["parry"], None) {
         Ok(f) => f,
@@ -415,19 +417,16 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                 .collect();
             let (num_dice, die_type) = match split.len() {
                 0 => {
-                    return Err(Error::new(
-                        format!("Die type missing in expression \"{}\"", term),
-                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                    ));
+                    return Err(format!("Die type missing in expression \"{}\"", term));
                 }
                 1 => (
                     1,
                     match split[0].parse::<u32>() {
                         Ok(num) => num,
                         Err(_) => {
-                            return Err(Error::new(
-                                format!("Unable to parse die type in expression \"{}\"", term),
-                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                            return Err(format!(
+                                "Unable to parse die type in expression \"{}\"",
+                                term
                             ));
                         }
                     },
@@ -436,43 +435,34 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                     match split[0].parse::<u32>() {
                         Ok(num) => num,
                         Err(_) => {
-                            return Err(Error::new(
-                                format!("Invalid die number in expression \"{}\"", term),
-                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                            ));
+                            return Err(format!("Invalid die number in expression \"{}\"", term));
                         }
                     },
                     match split[1].parse::<u32>() {
                         Ok(num) => num,
                         Err(_) => {
-                            return Err(Error::new(
-                                format!("Unable to parse die type in expression \"{}\"", term),
-                                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                            return Err(format!(
+                                "Unable to parse die type in expression \"{}\"",
+                                term
                             ));
                         }
                     },
                 ),
                 _ => {
-                    return Err(Error::new(
-                        format!("Too many \"d\"s and/or \"w\"s in expression \"{}\"", term),
-                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                    return Err(format!(
+                        "Too many \"d\"s and/or \"w\"s in expression \"{}\"",
+                        term
                     ));
                 }
             };
 
             if die_type == 0 {
-                return Err(Error::new(
-                    format!("Invalid die type: {}", die_type),
-                    ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                ));
+                return Err(format!("Invalid die type: {}", die_type));
             }
             if num_dice > MAX_NUM_DICE {
-                return Err(Error::new(
-                    format!(
-                        "Number of dice exceeds maximum of {}: {}",
-                        MAX_NUM_DICE, num_dice
-                    ),
-                    ErrorType::InvalidInput(InputErrorType::InvalidArgument),
+                return Err(format!(
+                    "Number of dice exceeds maximum of {}: {}",
+                    MAX_NUM_DICE, num_dice
                 ));
             }
 
@@ -487,10 +477,7 @@ pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
                     term_val += num;
                 }
                 Err(_) => {
-                    return Err(Error::new(
-                        format!("Unable to parse number \"{}\"", term),
-                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                    ));
+                    return Err(format!("Unable to parse number \"{}\"", term));
                 }
             }
         }
@@ -615,17 +602,14 @@ fn get_facilitation<S>(
     matches: &ArgMatches,
     attributes: &[S],
     successful_points_bonus: Option<SuccessfulPointsBonus>,
-) -> Result<Facilitation, Error>
+) -> Result<Facilitation, String>
 where
     S: AsRef<str>,
 {
     let flat_facilitation: i64 = match matches.value_of("facilitation").unwrap().parse() {
         Ok(f) => f,
         Err(_) => {
-            return Err(Error::new(
-                "Unable to parse facilitation: Argument must be an integer",
-                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-            ));
+            return Err("Unable to parse facilitation: Argument must be an integer".to_string());
         }
     };
     let mut individual_facilitation = vec![flat_facilitation; attributes.len()];
@@ -633,15 +617,15 @@ where
         for modifier in m.split(',') {
             let split: Vec<_> = modifier.split(':').collect();
             if split.len() != 2 {
-                return Err(Error::new("Unable to parse facilitation: Attribute name and facilitation must be separated by a colon", ErrorType::InvalidInput(InputErrorType::InvalidArgument)));
+                return Err("Unable to parse facilitation: Attribute name and facilitation must be separated by a colon".to_string());
             }
             let amount: i64 = match split[1].parse() {
                 Ok(a) => a,
                 Err(_) => {
-                    return Err(Error::new(
-                        "Unable to parse facilitation: Invalid attribute facilitation amount",
-                        ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-                    ));
+                    return Err(
+                        "Unable to parse facilitation: Invalid attribute facilitation amount"
+                            .to_string(),
+                    );
                 }
             };
             for (i, attr) in attributes.iter().enumerate() {
@@ -655,10 +639,9 @@ where
         None => 0,
         Some(Ok(p)) => p,
         Some(Err(_)) => {
-            return Err(Error::new(
-                "Unable to parse facilitation: bonus-points must be an integer",
-                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-            ));
+            return Err(
+                "Unable to parse facilitation: bonus-points must be an integer".to_string(),
+            );
         }
     };
     Ok(Facilitation {

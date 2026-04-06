@@ -1,4 +1,4 @@
-use super::util::*;
+use anyhow::Context;
 use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
 use std::env;
@@ -138,52 +138,36 @@ where
     const DEFAULT_CONFIG: &'static str;
     const RELATIVE_PATH: &'static str;
 
-    fn absolute_path() -> Result<PathBuf, Error> {
+    fn absolute_path() -> anyhow::Result<PathBuf> {
         let mut path = get_config_dir()?;
         path.push(Self::RELATIVE_PATH);
         Ok(path)
     }
 
-    fn read() -> Result<Self, Error> {
+    fn read() -> anyhow::Result<Self> {
         let path = Self::absolute_path()?;
-        if Path::exists(&path) {
-            let file = fs::File::open(&path)?;
-            let reader = BufReader::new(file);
-            let config: Self = serde_json::from_reader(reader)?;
-            Ok(config)
-        } else {
-            Err(Error::new(
-                format!(
-                    "Missing file: {}",
-                    path.to_str().unwrap_or("[Invalid Path]")
-                ),
-                ErrorType::IO(IOErrorType::MissingFile),
-            ))
-        }
+        let file = fs::File::open(&path)?;
+        let reader = BufReader::new(file);
+        let config: Self = serde_json::from_reader(reader)?;
+        Ok(config)
     }
 
-    fn create_default() -> Result<(), Error> {
+    fn create_default() -> anyhow::Result<()> {
         let path = Self::absolute_path()?;
         fs::write(path, Self::DEFAULT_CONFIG)?;
         Ok(())
     }
 
-    fn get_or_create() -> Result<Self, Error> {
-        match Self::read() {
-            Ok(config) => Ok(config),
-            Err(e) => {
-                if let ErrorType::IO(IOErrorType::MissingFile) = e.err_type() {
-                    println!(
-                        "Creating default config (did not find file \"{}\")",
-                        Self::absolute_path()?.to_str().unwrap_or("[Invalid Path]")
-                    );
-                    Self::create_default()?;
-                    Self::read()
-                } else {
-                    Err(e)
-                }
-            }
+    fn get_or_create() -> anyhow::Result<Self> {
+        let path = Self::absolute_path()?;
+        if !std::fs::exists(&path)? {
+            println!(
+                "Creating default config (did not find file \"{}\")",
+                path.to_str().unwrap_or("[Invalid Path]")
+            );
+            Self::create_default()?;
         }
+        Self::read()
     }
 }
 
@@ -197,6 +181,10 @@ impl AbstractConfig for DSAData {
     const RELATIVE_PATH: &'static str = "dsa_data.json";
 }
 
+pub enum MatchSearchResult<'a, V> {
+    Success((&'a str, V)),
+    NoUniqueMatch(String),
+}
 impl DSAData {
     /*
     Searches for a search term among the (first) elements of the iterator
@@ -205,7 +193,7 @@ impl DSAData {
     pub fn match_search<'a, V>(
         entries: impl Iterator<Item = (&'a String, V)>,
         search: &str,
-    ) -> Result<(&'a str, V), Error> {
+    ) -> MatchSearchResult<'a, V> {
         let mut found_entry: Option<(&str, V)> = None;
         let mut search_trimmed: &str = &search
             .to_lowercase()
@@ -237,8 +225,7 @@ impl DSAData {
 
                 if matches_search {
                     if let Some(found_entry) = found_entry {
-                        return Err(Error::new(format!("Ambiguous identifier \"{}\": Matched \"{}\" and \"{}\".\nNote: You can use \"_\" to mark the beginning and/or end of the name.", search, found_entry.0, name),
-                            ErrorType::InvalidInput(InputErrorType::InvalidArgument)));
+                        return MatchSearchResult::NoUniqueMatch(format!("Ambiguous identifier \"{}\": Matched \"{}\" and \"{}\".\nNote: You can use \"_\" to mark the beginning and/or end of the name.", search, found_entry.0, name));
                     } else {
                         found_entry = Some((name, entry));
                     }
@@ -246,12 +233,9 @@ impl DSAData {
             }
         }
         if let Some(found_entry) = found_entry {
-            Ok(found_entry)
+            MatchSearchResult::Success(found_entry)
         } else {
-            Err(Error::new(
-                format!("No matches found for \"{}\"", search),
-                ErrorType::InvalidInput(InputErrorType::InvalidArgument),
-            ))
+            MatchSearchResult::NoUniqueMatch(format!("No matches found for \"{}\"", search))
         }
     }
 
@@ -259,34 +243,23 @@ impl DSAData {
         self.attributes.get(attribute).unwrap().short_name.as_str()
     }
 
-    pub fn check_replacement_needed(self, config: &Config) -> DSAData {
+    pub fn check_replacement_needed(self, config: &Config) -> anyhow::Result<DSAData> {
         if config.auto_update_dsa_data && self.version < DSA_DATA_NEWEST_VERSION {
-            match Self::create_default() {
-                Err(e) => {
-                    println!("Error replacing dsa data with newer version: {}", e);
-                    self
-                }
-                Ok(()) => {
-                    println!("Replaced dsa data with newer version");
-                    match Self::read() {
-                        Err(_) => {
-                            println!(
-                                "Error reading newly created dsa data, continuing with old version"
-                            );
-                            self
-                        }
-                        Ok(new_data) => new_data,
-                    }
-                }
+            if let Err(e) =
+                Self::create_default().context("Error replacing dsa data with newer version")
+            {
+                println!("{:?}", e);
+                return Ok(self);
             }
+            Ok(Self::read()?)
         } else {
-            self
+            Ok(self)
         }
     }
 }
 
 #[cfg(target_os = "linux")]
-pub fn get_config_dir() -> Result<PathBuf, Error> {
+pub fn get_config_dir() -> anyhow::Result<PathBuf> {
     match env::var("DSA_CLI_CONFIG_DIR") {
         Err(_) => {}
         Ok(s) => {
@@ -297,15 +270,7 @@ pub fn get_config_dir() -> Result<PathBuf, Error> {
         }
     };
 
-    let home = match env::var("HOME") {
-        Ok(s) => s,
-        Err(_) => {
-            return Err(Error::new(
-                "Could not read environment variable $HOME",
-                ErrorType::IO(IOErrorType::MissingEnvironmentVariable),
-            ));
-        }
-    };
+    let home = env::var("HOME")?;
     let mut path = PathBuf::new();
     path.push(home);
     path.push(".config");
@@ -315,7 +280,7 @@ pub fn get_config_dir() -> Result<PathBuf, Error> {
 }
 
 #[cfg(target_os = "windows")]
-pub fn get_config_dir() -> Result<PathBuf, Error> {
+pub fn get_config_dir() -> anyhow::Result<PathBuf> {
     match env::var("DSA_CLI_CONFIG_DIR") {
         Err(_) => {}
         Ok(s) => {
@@ -343,7 +308,7 @@ pub fn get_config_dir() -> Result<PathBuf, Error> {
 }
 
 #[cfg(target_os = "macos")]
-pub fn get_config_dir() -> Result<path::PathBuf, Error> {
+pub fn get_config_dir() -> anyhow::Result<path::PathBuf> {
     match env::var("DSA_CLI_CONFIG_DIR") {
         Err(_) => {}
         Ok(s) => {
