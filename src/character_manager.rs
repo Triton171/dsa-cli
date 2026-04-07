@@ -1,11 +1,11 @@
 use crate::config::Config;
 
 use super::{character::Character, config};
-use anyhow::{ensure, Context};
+use anyhow::{ensure, Context, Error};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, collections::HashMap, fmt::Display};
-use std::{future::Future, path::PathBuf};
-use tokio::{fs, io::AsyncWriteExt, sync::broadcast::error::RecvError};
+use std::path::PathBuf;
+use std::{collections::HashMap, fmt::Display};
+use tokio::{fs, io::AsyncWriteExt};
 
 static EMPTY_CHARACTER_LIST: Vec<CharacterInfo> = Vec::new();
 
@@ -181,6 +181,29 @@ impl CharacterManager {
         // TODO: Add caching
         let path = get_character_path(id).await?;
         Character::from_file(&path).await
+    }
+
+    pub async fn select_character(
+        &mut self,
+        user_id: u64,
+        character_id: CharacterId,
+    ) -> anyhow::Result<()> {
+        let characters = self
+            .characters
+            .characters
+            .get_mut(&user_id)
+            .context("Tried to select a character for a user without any characters")?;
+        let mut found_char = false;
+        for c in characters.iter_mut() {
+            found_char |= c.character_id == character_id;
+            c.selected = c.character_id == character_id;
+        }
+        self.write_character_list().await?;
+        if found_char {
+            Ok(())
+        } else {
+            Err(Error::msg("Did not find character that should be selected"))
+        }
     }
 
     async fn write_character_list(&self) -> anyhow::Result<()> {

@@ -7,15 +7,15 @@ use crate::{
 use anyhow::{Context as AnyhowContext, Error};
 use serenity::{
     all::{
-        ClientBuilder, CommandInteraction, CommandOptionType, CommandType, CreateCommand,
-        CreateCommandOption, CreateComponent, CreateInteractionResponse,
+        ClientBuilder, CommandInteraction, CommandOptionType, CommandType, ComponentInteraction,
+        CreateCommand, CreateCommandOption, CreateComponent, CreateInteractionResponse,
         CreateInteractionResponseMessage, EditInteractionResponse, Event, FullEvent, GuildId,
         Interaction, MessageFlags,
     },
     async_trait,
     prelude::*,
 };
-use std::{convert::TryFrom, fmt::Write, process::exit, sync::Arc};
+use std::{convert::TryFrom, fmt::Write, process::exit, sync::Arc, time::SystemTime};
 use tokio::sync::RwLock;
 
 const DISCORD_TABLE_COL_SEP: usize = 4; //The number of whitespaces between 2 table columns
@@ -104,6 +104,44 @@ pub async fn edit_command_interaction_reply(
         .map(|_| ())
 }
 
+pub async fn send_component_interaction_reply(
+    ctx: &Context,
+    interaction: &ComponentInteraction,
+    components: Vec<CreateComponent<'_>>,
+    ephemeral: bool,
+) -> anyhow::Result<()> {
+    interaction
+        .create_response(
+            ctx.http(),
+            CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .flags(MessageFlags::IS_COMPONENTS_V2)
+                    .ephemeral(ephemeral)
+                    .components(components),
+            ),
+        )
+        .await
+        .context("Error sending component interaction reply")
+}
+
+pub async fn component_interaction_edit_message(
+    ctx: &Context,
+    interaction: &ComponentInteraction,
+    components: Vec<CreateComponent<'_>>,
+) -> anyhow::Result<()> {
+    interaction
+        .create_response(
+            ctx.http(),
+            CreateInteractionResponse::UpdateMessage(
+                CreateInteractionResponseMessage::new()
+                    .flags(MessageFlags::IS_COMPONENTS_V2 | MessageFlags::EPHEMERAL)
+                    .components(components),
+            ),
+        )
+        .await?;
+    Ok(())
+}
+
 pub struct DiscordHandler {
     pub config: Arc<Config>,
     pub dsa_data: Arc<DSAData>,
@@ -142,11 +180,13 @@ impl EventHandler for DiscordHandler {
                 interaction: Interaction::Command(command),
                 ..
             } => {
-                if let Err(e) = self
-                    .run_command(context, command)
-                    .await
-                    .with_context(|| format!("Error running command '{}'", command.data.name))
-                {
+                if let Err(e) = self.run_command(context, command).await.with_context(|| {
+                    format!(
+                        "Error running command '{}' at {}",
+                        command.data.name,
+                        chrono::Local::now().to_rfc3339()
+                    )
+                }) {
                     println!("{:?}", e);
                 }
             }
@@ -171,26 +211,26 @@ impl EventHandler for DiscordHandler {
 //A lazy output wrapper for sending discord messages
 pub struct DiscordOutputWrapper {
     msg_buf: String,
-    msg_empty: bool,
 }
 
 impl DiscordOutputWrapper {
     pub fn new() -> DiscordOutputWrapper {
         DiscordOutputWrapper {
             msg_buf: String::from("```"),
-            msg_empty: true,
         }
+    }
+    pub fn message(mut self) -> String {
+        self.msg_buf.push_str("````");
+        self.msg_buf
     }
 }
 
 impl OutputWrapper for DiscordOutputWrapper {
     fn output(&mut self, msg: &impl std::fmt::Display) {
         std::write!(self.msg_buf, "{}", msg).unwrap();
-        self.msg_empty = false;
     }
     fn output_line(&mut self, msg: &impl std::fmt::Display) {
         std::writeln!(self.msg_buf, "{}", msg).unwrap();
-        self.msg_empty = false;
     }
     fn output_table(&mut self, table: &[Vec<String>]) {
         // IMRPOVE: Maybe use markdown formatting?
@@ -217,7 +257,6 @@ impl OutputWrapper for DiscordOutputWrapper {
             }
             self.msg_buf.push('\n');
         }
-        self.msg_empty = false;
     }
     fn new_line(&mut self) {
         self.msg_buf.push('\n');

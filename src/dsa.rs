@@ -24,7 +24,7 @@ pub enum CheckType {
     PointsCheck(i64),
 }
 
-enum CritType {
+pub enum CritType {
     //A check without critical successes or failures
     None,
     //A check where crits have to be confirmed with a second roll
@@ -34,16 +34,16 @@ enum CritType {
 }
 
 // The facilitation for a skill check
-struct Facilitation {
+pub struct Facilitation {
     // The facilitation for the individual attributes
-    individual_facilitation: Vec<i64>,
+    pub individual_facilitation: Vec<i64>,
     // The bonus to the available points/level, only applies for a PointsCheck
-    points_bonus: i64,
+    pub points_bonus: i64,
     // Like points_bonus, but is only applied if the check was already a success before.
     // The second entry gives a reason for this bonus
-    successful_points_bonus: Option<SuccessfulPointsBonus>,
+    pub successful_points_bonus: Option<SuccessfulPointsBonus>,
 }
-struct SuccessfulPointsBonus {
+pub struct SuccessfulPointsBonus {
     bonus: i64,
     reason: &'static str,
 }
@@ -376,15 +376,6 @@ pub fn parry_check(
         }
     };
     let parry_level = character.get_parry_level(technique_name, &technique_entry.attributes);
-    roll_check(
-        &[("Parry", parry_level)],
-        &format!("Parry: {}", technique_name),
-        character.get_name(),
-        facilitation,
-        CheckType::SimpleCheck,
-        CritType::Confirmable,
-        output,
-    )
 }
 
 pub fn roll(cmd_matches: &ArgMatches, output: &mut impl OutputWrapper) {
@@ -651,7 +642,7 @@ where
     })
 }
 
-fn roll_check(
+pub fn roll_check(
     attributes: &[(&str, i64)],
     check_name: &str,
     character_name: &str,
