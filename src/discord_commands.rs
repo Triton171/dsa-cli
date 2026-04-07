@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use crate::{
+    character::Character,
     character_manager::CharacterId,
+    config::{DSAData, MatchSearchResult},
     discord::{edit_command_interaction_reply, send_command_interaction_reply, DiscordHandler},
 };
 use anyhow::{Context as AnyhowContext, Error};
@@ -10,8 +12,8 @@ use serenity::{
         ButtonStyle, CommandInteraction, ComponentInteraction, ComponentInteractionCollector,
         CreateActionRow, CreateButton, CreateComponent, CreateFileUpload,
         CreateInteractionResponse, CreateInteractionResponseMessage, CreateLabel, CreateModal,
-        CreateModalComponent, CreateSeparator, CreateTextDisplay, ModalInteractionCollector,
-        SeparatorSpacingSize, UserId,
+        CreateModalComponent, CreateSelectMenu, CreateSelectMenuOption, CreateSeparator,
+        CreateTextDisplay, ModalInteractionCollector, SeparatorSpacingSize, UserId,
     },
     prelude::*,
 };
@@ -21,16 +23,11 @@ const DISCORD_INTERACTION_TIMEOUT: Duration = Duration::from_secs(3600);
 const ID_CHAR_REPLACE: &str = "_char_repl";
 const ID_CHAR_DELETE: &str = "_char_del";
 const ID_ADD_CHAR: &str = "add_character";
-
-enum CheckType {
-    Attribute(String),
-    Skill(String),
-    Spell(String),
-    Chant(String),
-    Attack(String),
-    Parry(String),
-    Dodge,
-}
+// Check commands
+const ID_SELECT_CHAR: &str = "select_character";
+const ID_SELECT_FACILITATION: &str = "select_facilitation";
+const ID_ROLL_CHECK: &str = "roll_check";
+const ID_ROLL_CHECK_PRIVATE: &str = "roll_check_private";
 
 impl DiscordHandler {
     pub async fn create_character_menu(&self, user_id: UserId) -> Vec<CreateComponent<'_>> {
@@ -196,12 +193,178 @@ impl DiscordHandler {
         Ok(())
     }
 
+    pub async fn create_check_menu(
+        &self,
+        check_name: &str,
+        user_id: UserId,
+        selected_character: Option<CharacterId>,
+        selected_facilitation: i64,
+    ) -> Vec<CreateComponent<'_>> {
+        let mut components = Vec::new();
+
+        // TODO: Add level of currently selected character in that skill
+        components.push(CreateComponent::TextDisplay(CreateTextDisplay::new(
+            format!("Check for {}", check_name),
+        )));
+        // Add a character select menu
+        {
+            let character_manager = self.character_manager.read().await;
+            let characters = character_manager.get_characters(user_id.get());
+            let selected_character = selected_character.or_else(|| {
+                characters
+                    .iter()
+                    .find(|c| c.selected)
+                    .map(|c| c.character_id)
+            });
+            components.push(CreateComponent::ActionRow(CreateActionRow::SelectMenu(
+                CreateSelectMenu::new(
+                    ID_SELECT_CHAR,
+                    serenity::all::CreateSelectMenuKind::String {
+                        options: characters
+                            .iter()
+                            .map(|c| {
+                                CreateSelectMenuOption::new(
+                                    c.name.to_string(),
+                                    c.character_id.to_string(),
+                                )
+                                .default_selection(Some(c.character_id) == selected_character)
+                            })
+                            .collect(),
+                    },
+                ),
+            )));
+        }
+        // Add facilitation select menu
+        components.push(CreateComponent::ActionRow(CreateActionRow::SelectMenu(
+            CreateSelectMenu::new(
+                ID_SELECT_FACILITATION,
+                serenity::all::CreateSelectMenuKind::String {
+                    options: (-10..=10)
+                        .into_iter()
+                        .map(|i| {
+                            CreateSelectMenuOption::new(i.to_string(), i.to_string())
+                                .default_selection(i == 0)
+                        })
+                        .collect(),
+                },
+            )
+            .placeholder("Facilitation"),
+        )));
+        // Add buttons for rolling the check
+        // TODO: Add button for custom facilitation
+        components.push(CreateComponent::ActionRow(CreateActionRow::Buttons(
+            vec![
+                CreateButton::new(ID_ROLL_CHECK)
+                    .label("Roll check")
+                    .style(ButtonStyle::Success),
+                CreateButton::new(ID_ROLL_CHECK_PRIVATE)
+                    .label("Roll check privately")
+                    .style(ButtonStyle::Secondary),
+            ]
+            .into(),
+        )));
+        components
+    }
+
     // TODO: Implement a general `check` function & wrapper commands for all these check types. This should support
     // - Facilitation
     // - Facilitation for specific attributes
     // - Bonus points for the check
     // - Selecting one of the own characters
     // - Selecting a character of a different user in the channel (low-prio)
+    async fn generic_check(
+        &self,
+        ctx: &Context,
+        command: &CommandInteraction,
+        check_adapter: impl CheckAdapter,
+    ) -> anyhow::Result<()> {
+        let user_id = command.user.id;
+
+        let mut selected_character = None;
+        let mut selected_facilitation = 0;
+
+        send_command_interaction_reply(
+            ctx,
+            command,
+            self.create_check_menu(
+                check_adapter.get_name(),
+                user_id,
+                selected_character,
+                selected_facilitation,
+            )
+            .await,
+        )
+        .await?;
+        Ok(())
+    }
+
+    // Wraps DSAData::match_search for a command that takes a single `name` argument.
+    // If the search doesn't yield a unique result, replies with this error message and returns None.
+    async fn search_check_name<'a, V>(
+        &self,
+        ctx: &Context,
+        command: &CommandInteraction,
+        entries: impl Iterator<Item = (&'a String, V)>,
+    ) -> anyhow::Result<Option<(&'a str, V)>> {
+        let name_arg = command
+            .data
+            .options
+            .first()
+            .context("Missing 'name' argument for check")?
+            .value
+            .as_str()
+            .context("Expected 'name' optin for the check to be a string")?;
+        match DSAData::match_search(entries, name_arg) {
+            MatchSearchResult::Success(m) => Ok(Some(m)),
+            MatchSearchResult::NoUniqueMatch(msg) => {
+                send_command_interaction_reply(
+                    ctx,
+                    command,
+                    vec![CreateComponent::TextDisplay(CreateTextDisplay::new(msg))],
+                )
+                .await?;
+                Ok(None)
+            }
+        }
+    }
+
+    pub async fn talent(&self, ctx: &Context, command: &CommandInteraction) -> anyhow::Result<()> {
+        let (name, talent_info) = match self
+            .search_check_name(ctx, command, self.dsa_data.talents.iter())
+            .await?
+        {
+            Some(res) => res,
+            None => return Ok(()),
+        };
+        // self.generic_check(ctx, command, name, &CheckType::PointsCheck(talent_i), attributes)
+        struct TalentCheck<'a> {
+            name: &'a str,
+            attrs: &'a [String],
+        }
+        impl<'a> CheckAdapter for TalentCheck<'a> {
+            const IS_POINTS_CHECKS: bool = true;
+            fn get_name(&self) -> &str {
+                self.name
+            }
+            fn get_attributes(&self) -> &[impl AsRef<str>] {
+                self.attrs
+            }
+            fn get_attr_levels(&self, character: &Character) -> Vec<i64> {
+                self.attrs
+                    .iter()
+                    .map(|attr| character.get_attribute_level(attr))
+                    .collect()
+            }
+            fn get_points_level(&self, character: &Character) -> i64 {
+                character.get_skill_level(self.name)
+            }
+        }
+        let adapter = TalentCheck {
+            name,
+            attrs: &talent_info.attributes,
+        };
+        self.generic_check(ctx, command, adapter).await
+    }
 
     // TODO: Things to implement
     // - facilitation
@@ -220,4 +383,15 @@ impl DiscordHandler {
     async fn hi(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
         Ok(())
     }
+}
+
+trait CheckAdapter {
+    const IS_POINTS_CHECKS: bool;
+    fn get_name(&self) -> &str;
+    fn get_attributes(&self) -> &[impl AsRef<str>];
+
+    fn get_attr_levels(&self, character: &Character) -> Vec<i64>;
+    // Must only be called if IS_POINTS_CHECK is true.
+    fn get_points_level(&self, character: &Character) -> i64;
+    // TODO: Add interface for talent specializations
 }

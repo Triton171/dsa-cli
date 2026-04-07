@@ -7,9 +7,10 @@ use crate::{
 use anyhow::{Context as AnyhowContext, Error};
 use serenity::{
     all::{
-        ClientBuilder, CommandInteraction, CommandType, CreateCommand, CreateComponent,
-        CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
-        Event, FullEvent, GuildId, Interaction, MessageFlags,
+        ClientBuilder, CommandInteraction, CommandOptionType, CommandType, CreateCommand,
+        CreateCommandOption, CreateComponent, CreateInteractionResponse,
+        CreateInteractionResponseMessage, EditInteractionResponse, Event, FullEvent, GuildId,
+        Interaction, MessageFlags,
     },
     async_trait,
     prelude::*,
@@ -45,8 +46,20 @@ async fn setup_discord_client(
 }
 
 async fn register_commands(context: &Context, config: &Config) -> Result<(), Error> {
-    let commands = vec![CreateCommand::new("characters")
-        .description("Manage uploaded characters & upload new ones")];
+    let commands = vec![
+        CreateCommand::new("characters")
+            .description("Manage uploaded characters & upload new ones"),
+        CreateCommand::new("talent")
+            .description("Start a talent check")
+            .add_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "name",
+                    "A uniquely identifying part of the talent name",
+                )
+                .required(true),
+            ),
+    ];
 
     let guild_id = config.discord.test_in_guild_id.map(GuildId::new);
     let commands = commands.into_iter().map(|cmd| {
@@ -106,6 +119,8 @@ impl DiscordHandler {
         let cmd_name = &command.data.name;
         if cmd_name == "characters" {
             self.characters(context, command).await?
+        } else if cmd_name == "talent" {
+            self.talent(context, command).await?;
         } else {
             return Err(Error::msg(format!("Unknown command name: {}", cmd_name)));
         }

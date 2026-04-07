@@ -17,7 +17,7 @@ const MAX_ROLL_EXPRESSIONS: u32 = 20;
 
 const DICE_CHARS: [char; 2] = ['d', 'w'];
 
-enum CheckType {
+pub enum CheckType {
     //A simple check where you have to roll below your attributes (for example an attribute check)
     SimpleCheck,
     //A check where you can compensate for higher rolls with some available points
